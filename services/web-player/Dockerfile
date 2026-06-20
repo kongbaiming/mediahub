@@ -16,7 +16,9 @@ RUN npm ci --include=dev
 
 COPY . .
 
-ARG VITE_API_BASE_URL=http://localhost:3000
+# 同 admin：默认留空走当前 origin + nginx 反代。
+# 本地 dev：--build-arg VITE_API_BASE_URL=http://localhost:3000
+ARG VITE_API_BASE_URL=
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
 RUN npm run build

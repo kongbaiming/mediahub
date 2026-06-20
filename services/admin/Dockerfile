@@ -19,7 +19,13 @@ RUN npm ci --include=dev
 COPY . .
 
 # 构建参数：API 地址
-ARG VITE_API_BASE_URL=http://localhost:3000
+# 默认留空：axios baseURL 为空时请求会发到当前 origin，由本容器的 nginx
+# 反代 /api/ 到 api:3000。这样不管用户用 nas.local / 内网 IP / SSH 端口转发
+# 访问都能正常工作（浏览器永远打相对路径，不会拼成 localhost:3000）。
+#
+# 仅本地开发（npm run dev）需要显式指定 API 地址：
+#   docker build --build-arg VITE_API_BASE_URL=http://localhost:3000 .
+ARG VITE_API_BASE_URL=
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
 RUN npm run build
