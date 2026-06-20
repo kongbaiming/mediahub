@@ -1,10 +1,16 @@
 package scraper
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+)
+
+var bracketTagRe = regexp.MustCompile(`\[[^\]]*\]`)
 
 // SearchQueries 生成 TMDB 搜索词列表（主标题 + 去副标题变体）
 func SearchQueries(title string) []string {
-	t := strings.TrimSpace(title)
+	t := strings.TrimSpace(bracketTagRe.ReplaceAllString(title, ""))
+	t = strings.TrimSpace(t)
 	if t == "" {
 		return nil
 	}

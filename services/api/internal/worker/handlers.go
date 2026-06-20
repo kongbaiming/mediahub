@@ -81,10 +81,14 @@ func (h *Handlers) HandleScrape(ctx context.Context, t *asynq.Task) error {
 	// 2. 标记 scraping（仅更新状态，不清空已有元数据）
 	_ = h.mediaRepo.UpdateScrapeStatus(ctx, mid.String(), string(common.ScrapeStatusScraping), "")
 
-	// 3. 搜索 TMDB（剧集始终用专辑名，不用单集文件名）
+	// 3. 搜索 TMDB（剧集始终用专辑文件夹名，不用 Emby 后缀）
 	var tmdbInfo *scraperResult
 	if m.IsTV() {
-		tmdbInfo, err = h.searchTVShow(ctx, m.Title, m.Year, nil, nil)
+		searchTitle := scanner.SeriesFolderTitle(filepath.Base(m.StoragePath))
+		if searchTitle == "" {
+			searchTitle = m.Title
+		}
+		tmdbInfo, err = h.searchTVShow(ctx, searchTitle, m.Year, nil, nil)
 	} else {
 		tmdbInfo, err = h.searchMovie(ctx, m.Title, m.Year)
 	}

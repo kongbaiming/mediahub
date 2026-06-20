@@ -36,7 +36,7 @@ func ParseFilePath(fullPath string) *ParsedFile {
 	// 纯数字文件名 + 专辑文件夹 → 剧集单集
 	if numericEpRe.MatchString(strings.TrimSpace(baseName)) && isSeriesAlbumDir(parentDir, seriesName) {
 		p.Type = "episode"
-		p.Title = cleanTitle(seriesName)
+		p.Title = albumSeriesTitle(seriesName)
 		if ep, err := strconv.Atoi(strings.TrimSpace(baseName)); err == nil {
 			p.Episode = &ep
 		}
@@ -50,7 +50,7 @@ func ParseFilePath(fullPath string) *ParsedFile {
 	// 仅 S01E05 文件名 → 从文件夹取专辑名
 	if m := episodeOnlyRe.FindStringSubmatch(strings.TrimSpace(baseName)); len(m) == 3 && isSeriesAlbumDir(parentDir, seriesName) {
 		p.Type = "episode"
-		p.Title = cleanTitle(seriesName)
+		p.Title = albumSeriesTitle(seriesName)
 		if s, err := strconv.Atoi(m[1]); err == nil {
 			p.Season = &s
 		}
@@ -63,7 +63,7 @@ func ParseFilePath(fullPath string) *ParsedFile {
 	// S02E01.4K / Detective.Chinatown.S02E01... 等 Emby 命名
 	if m := episodeInNameRe.FindStringSubmatch(baseName); len(m) == 3 && isSeriesAlbumDir(parentDir, seriesName) {
 		p.Type = "episode"
-		p.Title = cleanTitle(seriesName)
+		p.Title = albumSeriesTitle(seriesName)
 		if s, err := strconv.Atoi(m[1]); err == nil {
 			p.Season = &s
 		}
@@ -76,7 +76,7 @@ func ParseFilePath(fullPath string) *ParsedFile {
 	// 葫芦小金刚...E04... 等 E 集数命名
 	if m := episodeMarkerRe.FindStringSubmatch(baseName); len(m) == 2 && isSeriesAlbumDir(parentDir, seriesName) {
 		p.Type = "episode"
-		p.Title = cleanTitle(seriesName)
+		p.Title = albumSeriesTitle(seriesName)
 		if ep, err := strconv.Atoi(m[1]); err == nil && ep > 0 {
 			p.Episode = &ep
 		}
@@ -90,7 +90,7 @@ func ParseFilePath(fullPath string) *ParsedFile {
 	// 小品集/综艺等：同文件夹内多视频合并为一部剧集专辑
 	if isCollectionAlbumDir(seriesName) && isSeriesAlbumDir(parentDir, seriesName) {
 		p.Type = "episode"
-		p.Title = cleanTitle(seriesName)
+		p.Title = albumSeriesTitle(seriesName)
 		if p.Season == nil {
 			s := 1
 			p.Season = &s
@@ -100,9 +100,9 @@ func ParseFilePath(fullPath string) *ParsedFile {
 
 	// SxxExx 但剧名不可靠（如只有数字）→ 用文件夹名
 	if p.Type == "episode" && isSeriesAlbumDir(parentDir, seriesName) {
-		p.Title = cleanTitle(seriesName)
+		p.Title = albumSeriesTitle(seriesName)
 	} else if p.Type == "episode" && isWeakSeriesTitle(p.Title) && isSeriesAlbumDir(parentDir, seriesName) {
-		p.Title = cleanTitle(seriesName)
+		p.Title = albumSeriesTitle(seriesName)
 	}
 
 	return p

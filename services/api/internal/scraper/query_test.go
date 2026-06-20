@@ -20,3 +20,10 @@ func TestSearchQueries(t *testing.T) {
 		t.Fatalf("expected shortened query, got %v", qs)
 	}
 }
+
+func TestSearchQueries_StripsBracketTags(t *testing.T) {
+	qs := SearchQueries("葫芦小金刚[4KHDR.CN]Calabash Brothers")
+	if len(qs) == 0 || qs[0] != "葫芦小金刚Calabash Brothers" {
+		t.Fatalf("got %v", qs)
+	}
+}
