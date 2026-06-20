@@ -68,3 +68,45 @@ func TestParseFilePath_DirectFileInCategoryDirIsMovie(t *testing.T) {
 		t.Fatalf("Type = %q, want movie", got.Type)
 	}
 }
+
+func TestParseFilePath_S02E01WithQualitySuffix(t *testing.T) {
+	got := ParseFilePath("/media/唐丨朝诡事录之西行(2024)/S02E01.4K.mkv")
+	if got.Type != "episode" {
+		t.Fatalf("Type = %q, want episode", got.Type)
+	}
+	if got.Title != "唐丨朝诡事录之西行(2024)" {
+		t.Fatalf("Title = %q", got.Title)
+	}
+	if got.Season == nil || *got.Season != 2 {
+		t.Fatalf("Season = %v, want 2", got.Season)
+	}
+	if got.Episode == nil || *got.Episode != 1 {
+		t.Fatalf("Episode = %v, want 1", got.Episode)
+	}
+}
+
+func TestParseFilePath_EpisodeMarkerInName(t *testing.T) {
+	got := ParseFilePath("/media/葫芦小金刚[4KHDR.CN]/葫芦小金刚.Calabash.Brothers.II.1991.E04.2160P.H265.AAC.mkv")
+	if got.Type != "episode" {
+		t.Fatalf("Type = %q, want episode", got.Type)
+	}
+	if got.Episode == nil || *got.Episode != 4 {
+		t.Fatalf("Episode = %v, want 4", got.Episode)
+	}
+}
+
+func TestParseFilePath_DetectiveChinatownUsesFolderTitle(t *testing.T) {
+	got := ParseFilePath("/media/唐人街探案3【合集】/唐人街探案2网剧/Detective.Chinatown.S02E01.2020.2160p.WEB-DL.mkv")
+	if got.Type != "episode" {
+		t.Fatalf("Type = %q, want episode", got.Type)
+	}
+	if got.Title != "唐人街探案2网剧" {
+		t.Fatalf("Title = %q, want 唐人街探案2网剧", got.Title)
+	}
+}
+
+func TestIsMediaFile_EmbySuffix(t *testing.T) {
+	if !IsMediaFile("/media/陈佩斯朱时茂小品集/吃面.mp4 5678") {
+		t.Fatal("expected emby-style mp4 basename to match")
+	}
+}

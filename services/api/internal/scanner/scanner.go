@@ -10,6 +10,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -167,10 +168,17 @@ var mediaExtensions = map[string]bool{
 	".m2ts": true, ".iso": true, ".bdmv": true,
 }
 
+// Emby/Jellyfin：「吃面.mp4 5678」等 basename 含 .mp4 但 Ext() 无法识别
+var embeddedVideoExt = regexp.MustCompile(`(?i)\.(mkv|mp4|m4v|avi|mov|wmv|flv|webm|ts|m2ts)(?:[\s.]|$)`)
+
 // IsMediaFile 是否是视频文件
 func IsMediaFile(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
-	return mediaExtensions[ext]
+	if mediaExtensions[ext] {
+		return true
+	}
+	// Emby/Jellyfin 元数据后缀：如「吃面.mp4 5678」导致 Ext() 无法识别
+	return embeddedVideoExt.MatchString(filepath.Base(path))
 }
 
 // IsDirectoryEmpty 目录是否为空

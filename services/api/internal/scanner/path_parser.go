@@ -11,6 +11,8 @@ var (
 	seasonFolderRe  = regexp.MustCompile(`(?i)^(?:season[\s._-]*)?(\d{1,2})$`)
 	numericEpRe     = regexp.MustCompile(`^\d{1,4}$`)
 	episodeOnlyRe   = regexp.MustCompile(`(?i)^S?(?P<s>\d{1,2})E(?P<e>\d{1,2})$`)
+	episodeInNameRe = regexp.MustCompile(`(?i)(?:^|[.\s_-])S(?P<s>\d{1,2})E(?P<e>\d{1,2})(?:[.\s_-]|$)`)
+	episodeMarkerRe = regexp.MustCompile(`(?i)(?:^|[._-])E(?P<e>\d{1,3})(?:[._-]|$)`)
 )
 
 // ParseFilePath 结合文件路径解析（电视剧专辑名优先取文件夹名）
@@ -58,8 +60,37 @@ func ParseFilePath(fullPath string) *ParsedFile {
 		return p
 	}
 
+	// S02E01.4K / Detective.Chinatown.S02E01... 等 Emby 命名
+	if m := episodeInNameRe.FindStringSubmatch(baseName); len(m) == 3 && isSeriesAlbumDir(parentDir, seriesName) {
+		p.Type = "episode"
+		p.Title = cleanTitle(seriesName)
+		if s, err := strconv.Atoi(m[1]); err == nil {
+			p.Season = &s
+		}
+		if e, err := strconv.Atoi(m[2]); err == nil {
+			p.Episode = &e
+		}
+		return p
+	}
+
+	// 葫芦小金刚...E04... 等 E 集数命名
+	if m := episodeMarkerRe.FindStringSubmatch(baseName); len(m) == 2 && isSeriesAlbumDir(parentDir, seriesName) {
+		p.Type = "episode"
+		p.Title = cleanTitle(seriesName)
+		if ep, err := strconv.Atoi(m[1]); err == nil && ep > 0 {
+			p.Episode = &ep
+		}
+		if p.Season == nil {
+			s := 1
+			p.Season = &s
+		}
+		return p
+	}
+
 	// SxxExx 但剧名不可靠（如只有数字）→ 用文件夹名
-	if p.Type == "episode" && isWeakSeriesTitle(p.Title) && isSeriesAlbumDir(parentDir, seriesName) {
+	if p.Type == "episode" && isSeriesAlbumDir(parentDir, seriesName) {
+		p.Title = cleanTitle(seriesName)
+	} else if p.Type == "episode" && isWeakSeriesTitle(p.Title) && isSeriesAlbumDir(parentDir, seriesName) {
 		p.Title = cleanTitle(seriesName)
 	}
 
