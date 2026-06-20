@@ -228,7 +228,7 @@ func main() {
 	// ---------- 9. Handler ----------
 	hlsCache := os.Getenv("HLS_CACHE_ROOT")
 	if hlsCache == "" {
-		hlsCache = "/volume1/docker/mediahub/hls-cache"
+		hlsCache = "/data/hls-cache"
 	}
 	h := handler.NewHandlers(mediaSvc, layoutSvc, authSvc, feedSvc, historySvc, profileSvc, recommendSvc, downloaderSvc, scannerSvc, subtitleSvc, cfg.Media.Root, hlsCache)
 

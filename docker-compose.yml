@@ -89,9 +89,11 @@ services:
       QBIT_USER: ${QBIT_USER:-admin}
       QBIT_PASSWORD: ${QBIT_PASSWORD}
       QBIT_TLS: ${QBIT_TLS:-false}
+      HLS_CACHE_ROOT: ${HLS_CACHE_ROOT:-/data/hls-cache}
     volumes:
       - ${NAS_MEDIA_HOST}:${MEDIA_ROOT}
       - ${NAS_DOWNLOADS_HOST}:${DOWNLOAD_ROOT}
+      - ${HLS_CACHE_HOST:-/volume1/docker/mediahub/hls-cache}:${HLS_CACHE_ROOT:-/data/hls-cache}
     ports:
       - "${API_PORT}:3000"
     depends_on:

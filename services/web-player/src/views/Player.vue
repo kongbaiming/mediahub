@@ -82,8 +82,15 @@ async function loadMedia() {
 function setupVideo() {
   if (!videoRef.value || !media.value) return
 
-  const video = videoRef.value
   const storagePath = media.value.storage_path
+  const ext = storagePath.split('.').pop()?.toLowerCase() || ''
+  // 内网 mp4/m4v/webm 浏览器可硬解，直连比 HLS 转码更快
+  if (ext === 'mp4' || ext === 'm4v' || ext === 'webm') {
+    switchToDirect(storagePath)
+    return
+  }
+
+  const video = videoRef.value
   const mediaID = media.value.id
 
   const hlsUrl = `/api/v1/stream/hls?path=${encodeURIComponent(storagePath)}&media_id=${mediaID}`

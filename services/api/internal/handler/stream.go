@@ -24,8 +24,7 @@ import (
 //   - /api/v1/stream/hls?path=<absolute-path>&media_id=xxx  启动 HLS 转码流（弱网 / 客户端硬解失败时）
 //
 // 实现：按 request URL path 后缀判断走 direct 还是 hls，避免依赖 c.Param("action")。
-func StreamHandler(mediaRoot string) gin.HandlerFunc {
-	hlsCache := "/volume1/docker/mediahub/hls-cache" // DS920+ 标准路径
+func StreamHandler(mediaRoot, hlsCacheRoot string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		p := c.Request.URL.Path
 		// 去掉尾部可能的 /，防止 /stream/direct/ 这类带尾巴的请求
@@ -34,7 +33,7 @@ func StreamHandler(mediaRoot string) gin.HandlerFunc {
 			return
 		}
 		if strings.HasSuffix(p, "/hls") {
-			handleHLS(c, mediaRoot, hlsCache)
+			handleHLS(c, mediaRoot, hlsCacheRoot)
 			return
 		}
 		respondError(c, apperr.NotFound("unknown stream action: "+p))

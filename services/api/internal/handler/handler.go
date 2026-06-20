@@ -53,7 +53,7 @@ func NewHandlers(
 		History:       NewHistoryHandler(history),
 		Profile:       NewProfileHandler(profile),
 		Recommend:     NewRecommendHandler(recommend),
-		Stream:        StreamHandler(mediaRoot),
+		Stream:        StreamHandler(mediaRoot, hlsCacheRoot),
 		HLSPlaylist:   ServeHLSPlaylist(hlsCacheRoot),
 		HLSTaskStatus: GetHLSTaskStatus(),
 		HLSCacheRoot:  hlsCacheRoot,
