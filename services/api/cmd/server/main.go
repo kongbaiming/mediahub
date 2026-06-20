@@ -115,6 +115,9 @@ func main() {
 		}
 	}()
 
+	// 启动后补入队 pending 刮削（修复历史 payload 错误导致从未刮削的媒资）
+	go enqueuePendingScrapes(mediaRepo, q)
+
 	// ---------- 7. 服务层 ----------
 	authSvc := service.NewAuthService(userRepo, cfg.JWTSecret)
 
@@ -301,3 +304,28 @@ func parseRedisPassword(url string) string {
 
 // _ 确保 fmt 引用（import 保留）
 var _ = fmt.Sprintf
+
+// enqueuePendingScrapes API 启动后将 pending 媒资重新入队刮削
+func enqueuePendingScrapes(repo *repository.MediaRepo, q *queue.Queue) {
+	if q == nil {
+		return
+	}
+	time.Sleep(5 * time.Second)
+	ctx := context.Background()
+	items, _, err := repo.List(ctx, repository.MediaFilter{ScrapeStatus: "pending"}, 5000, 0)
+	if err != nil {
+		logger.Warn("补入队 pending 刮削失败", "err", err)
+		return
+	}
+	enqueued := 0
+	for _, m := range items {
+		if err := q.EnqueueScrape(ctx, m.ID.String()); err != nil {
+			logger.Warn("刮削入队失败", "media_id", m.ID, "err", err)
+			continue
+		}
+		enqueued++
+	}
+	if enqueued > 0 {
+		logger.Info("已补入队待刮削媒资", "count", enqueued)
+	}
+}

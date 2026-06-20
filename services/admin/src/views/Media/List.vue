@@ -90,7 +90,7 @@
           <div class="media-title" :title="m.title">{{ m.title }}</div>
           <div class="media-meta">
             <span v-if="m.year">{{ m.year }}</span>
-            <span v-if="m.genres.length" class="genre">{{ m.genres.slice(0, 2).join(' · ') }}</span>
+            <span v-if="m.genres?.length" class="genre">{{ m.genres.slice(0, 2).join(' · ') }}</span>
           </div>
         </div>
       </div>

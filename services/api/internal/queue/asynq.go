@@ -3,6 +3,7 @@ package queue
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -85,8 +86,12 @@ func (q *Queue) Enqueue(ctx context.Context, task *asynq.Task, opts ...asynq.Opt
 
 // EnqueueScrape 入队刮削任务（默认队列）
 func (q *Queue) EnqueueScrape(ctx context.Context, mediaID string) error {
-	task := asynq.NewTask(TypeScrapeMedia, []byte(mediaID))
-	_, err := q.Enqueue(ctx, task,
+	payload, err := json.Marshal(map[string]string{"media_id": mediaID})
+	if err != nil {
+		return fmt.Errorf("序列化刮削 payload: %w", err)
+	}
+	task := asynq.NewTask(TypeScrapeMedia, payload)
+	_, err = q.Enqueue(ctx, task,
 		asynq.Queue("default"),
 		asynq.MaxRetry(3),
 		asynq.Timeout(5*time.Minute),
@@ -97,8 +102,12 @@ func (q *Queue) EnqueueScrape(ctx context.Context, mediaID string) error {
 
 // EnqueueThumb 入队缩略图任务
 func (q *Queue) EnqueueThumb(ctx context.Context, mediaID string) error {
-	task := asynq.NewTask(TypeGenerateThumb, []byte(mediaID))
-	_, err := q.Enqueue(ctx, task,
+	payload, err := json.Marshal(map[string]string{"media_id": mediaID})
+	if err != nil {
+		return fmt.Errorf("序列化缩略图 payload: %w", err)
+	}
+	task := asynq.NewTask(TypeGenerateThumb, payload)
+	_, err = q.Enqueue(ctx, task,
 		asynq.Queue("low"),
 		asynq.MaxRetry(2),
 		asynq.Timeout(2*time.Minute),
@@ -108,8 +117,12 @@ func (q *Queue) EnqueueThumb(ctx context.Context, mediaID string) error {
 
 // EnqueueScan 入队扫描任务
 func (q *Queue) EnqueueScan(ctx context.Context, path string) error {
-	task := asynq.NewTask(TypeScanDirectory, []byte(path))
-	_, err := q.Enqueue(ctx, task,
+	payload, err := json.Marshal(map[string]string{"path": path})
+	if err != nil {
+		return fmt.Errorf("序列化扫描 payload: %w", err)
+	}
+	task := asynq.NewTask(TypeScanDirectory, payload)
+	_, err = q.Enqueue(ctx, task,
 		asynq.Queue("critical"),
 		asynq.MaxRetry(1),
 		asynq.Timeout(10*time.Minute),

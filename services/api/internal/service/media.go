@@ -138,6 +138,10 @@ func (s *MediaService) Stats(ctx context.Context) (*repository.Stats, error) {
 // ---- DTO 转换 ----
 
 func toSummary(m *media.Media) MediaSummary {
+	genres := m.Genres
+	if genres == nil {
+		genres = media.StringArray{}
+	}
 	return MediaSummary{
 		ID:            m.ID,
 		Title:         m.Title,
@@ -147,7 +151,7 @@ func toSummary(m *media.Media) MediaSummary {
 		Rating:        m.Rating,
 		PosterURL:     m.PosterURL,
 		BackdropURL:   m.BackdropURL,
-		Genres:        m.Genres,
+		Genres:        genres,
 		HasSubtitle:   m.HasSubtitle,
 	}
 }
