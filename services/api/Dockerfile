@@ -7,7 +7,11 @@ FROM golang:1.22-alpine AS builder
 
 # 国内镜像加速（DS920+ 在国内环境下需要）
 ENV GOPROXY=https://goproxy.cn,direct
-ENV GOSUMDB=off
+# 注意：不要设 GOSUMDB=off！
+# GOTOOLCHAIN=auto 下载工具链时**强制**需要 sumdb 校验，
+# 关掉 GOSUMDB 会导致工具链下载失败（即使有 GOPROXY 镜像也不行）。
+# 默认的 sum.golang.org 在国内偶有延迟，但能保证工具链二进制不被篡改。
+#
 # 自动下载工具链（go.mod 里如果声明了 >= 1.25，会自动下 Go 1.25 工具链来编译）
 # 镜像里的 Go 1.22 只是 bootstrap，运行时按 go.mod 要求自动升级
 ENV GOTOOLCHAIN=auto
