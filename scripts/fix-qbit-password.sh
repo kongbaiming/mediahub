@@ -104,17 +104,43 @@ fi
 info "登录成功"
 
 # ---------- 5. 改密码（这一调用才会写 conf）----------
-# qBit 5.x CSRF 保护：所有非 GET 必须带 Referer 头匹配 WebUI 地址，
-# 否则返回 Forbidden。所以加 -H "Referer: ..."。
-info "调用 /api/v2/app/setPreferences 改密码（这一步才会写 conf）..."
-SET_RESP=$($QBIT_CURL -X POST "$QBIT_URL/api/v2/app/setPreferences" \
-  -H "Referer: $QBIT_URL" \
-  -H "Origin: $QBIT_URL" \
-  --data-urlencode "json={\"webui_username\":\"admin\",\"webui_password\":\"$NEW_PW\"}")
+# qBit 5.x CSRF 流程：
+#   1. login → response Set-Cookie: SID + Set-Cookie: X-XSRF-TOKEN
+#   2. setPreferences → 必须带 SID cookie + X-XSRF-TOKEN 头
+# 单 Referer 头不够，必须完整走 CSRF 流程。
+# 所有操作都在 qBit 容器内进行（cookie 文件存在容器内 /tmp）。
+info "在 qBit 容器内走完整 CSRF 流程：login → 拿 X-XSRF-TOKEN → setPreferences..."
 
-if [ "$SET_RESP" != "Ok." ]; then
-  err "改密码失败: $SET_RESP"
-  err "如果持续 Forbidden，多半是 qBit 5.x CSRF token 流程需要先 login 拿 SID + X-XSRF-TOKEN"
+SET_RESP=$(docker exec "$CONTAINER" sh -c "
+  set -e
+  # 1. login 拿 SID + X-XSRF-TOKEN cookie
+  curl -sS -c /tmp/qbit.cookies -X POST '$QBIT_URL/api/v2/auth/login' \
+    --data-urlencode 'username=admin' \
+    --data-urlencode 'password=$NEW_PW'
+  echo
+  # 2. 从 Netscape 格式 cookie 文件提取 X-XSRF-TOKEN
+  XSRF=\$(awk '/X-XSRF-TOKEN/ {print \$NF}' /tmp/qbit.cookies)
+  if [ -z \"\$XSRF\" ]; then
+    echo 'NO_XSRF_TOKEN' >&2
+    exit 1
+  fi
+  echo \"[XSRF] \$XSRF\" >&2
+  # 3. setPreferences 带 cookie + X-XSRF-TOKEN 头
+  curl -sS -b /tmp/qbit.cookies \
+    -H \"X-XSRF-TOKEN: \$XSRF\" \
+    -H 'Referer: $QBIT_URL' \
+    -X POST '$QBIT_URL/api/v2/app/setPreferences' \
+    --data-urlencode 'json={\"webui_username\":\"admin\",\"webui_password\":\"$NEW_PW\"}'
+" 2>&1)
+
+# SET_RESP 现在混了 stderr + stdout，提取最后一行（curl 的响应体）
+SET_BODY=$(echo "$SET_RESP" | grep -v '^\[' | tail -1)
+if [ "$SET_BODY" != "Ok." ]; then
+  err "改密码失败: $SET_BODY"
+  echo "$SET_RESP" | sed 's/^/    /' >&2
+  err ""
+  err "备选方案：在 WebUI (http://nas.local:8080) 用临时密码登录、改密码、保存。"
+  err "然后跑这个脚本最后一步同步 .env + 重启 api。"
   exit 1
 fi
 info "改密码 API 返回 Ok."
