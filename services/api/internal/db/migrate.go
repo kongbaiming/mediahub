@@ -78,8 +78,13 @@ func (d *DB) Migrate(ctx context.Context) error {
 
 		// 在事务中执行
 		err = d.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			if err := tx.Exec(string(content)).Error; err != nil {
-				return fmt.Errorf("执行 %s 失败: %w", f, err)
+			// PostgreSQL prepared statement 不支持多语句 (SQLSTATE 42601)，
+			// 必须把 SQL 文件按 ; 拆开逐条 Exec。
+			statements := splitSQL(string(content))
+			for i, stmt := range statements {
+				if err := tx.Exec(stmt).Error; err != nil {
+					return fmt.Errorf("执行 %s 第 %d 条语句失败: %w", f, i+1, err)
+				}
 			}
 			return tx.Exec("INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)",
 				version, time.Now()).Error
@@ -92,4 +97,28 @@ func (d *DB) Migrate(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// splitSQL 把多语句 SQL 文件拆成单条语句。
+//
+// 简化实现：按 ; split + 过滤纯注释/空行 + TrimSpace。
+// 当前 migration 文件不含 PL/pgSQL 函数或字符串字面量里的 ;，
+// 所以这种简单切分够用。如果未来 migration 包含复杂 PL/pgSQL，
+// 建议换成 vitess/sqlparser 或 golang-migrate。
+func splitSQL(content string) []string {
+	var stmts []string
+	for _, part := range strings.Split(content, ";") {
+		// 去掉单行注释
+		var cleaned []string
+		for _, line := range strings.Split(part, "\n") {
+			if strings.HasPrefix(strings.TrimSpace(line), "--") {
+				continue
+			}
+			cleaned = append(cleaned, line)
+		}
+		if s := strings.TrimSpace(strings.Join(cleaned, "\n")); s != "" {
+			stmts = append(stmts, s)
+		}
+	}
+	return stmts
 }
