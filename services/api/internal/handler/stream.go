@@ -19,23 +19,25 @@ import (
 )
 
 // StreamHandler 流代理
-// 路径：/api/v1/stream/*action
+// 路径（具体路由，不再用 catch-all，因为 Gin 不允许 wildcard 和 static 段共存）：
+//   - /api/v1/stream/direct?path=<absolute-path>       直接 ServeFile（适合内网 + 客户端硬解）
+//   - /api/v1/stream/hls?path=<absolute-path>&media_id=xxx  启动 HLS 转码流（弱网 / 客户端硬解失败时）
 //
-// 用途：
-//   - /api/v1/stream/direct?path=<absolute-path>：直接 ServeFile（适合内网 + 客户端硬解）
-//   - /api/v1/stream/hls?path=<absolute-path>&media_id=xxx：HLS 转码流（弱网 / 客户端硬解失败时）
+// 实现：按 request URL path 后缀判断走 direct 还是 hls，避免依赖 c.Param("action")。
 func StreamHandler(mediaRoot string) gin.HandlerFunc {
 	hlsCache := "/volume1/docker/mediahub/hls-cache" // DS920+ 标准路径
 	return func(c *gin.Context) {
-		action := c.Param("action")
-		switch action {
-		case "direct":
+		p := c.Request.URL.Path
+		// 去掉尾部可能的 /，防止 /stream/direct/ 这类带尾巴的请求
+		if strings.HasSuffix(p, "/direct") {
 			handleDirect(c, mediaRoot)
-		case "hls":
-			handleHLS(c, mediaRoot, hlsCache)
-		default:
-			respondError(c, apperr.NotFound("unknown stream action: "+action))
+			return
 		}
+		if strings.HasSuffix(p, "/hls") {
+			handleHLS(c, mediaRoot, hlsCache)
+			return
+		}
+		respondError(c, apperr.NotFound("unknown stream action: "+p))
 	}
 }
 
