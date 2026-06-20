@@ -1,0 +1,88 @@
+// Codemagic CI Workflow for MediaHub Android TV
+//
+// 用法：
+//   1. 把项目推到 GitHub
+//   2. 在 https://codemagic.io 连接 GitHub 仓库
+//   3. 选 "Import from codemagic.yaml"
+//   4. 配 Android signing（debug keystore 自动生成，release 需要自己的 keystore）
+//   5. 提交后 Codemagic 自动跑构建
+//
+// 产物：
+//   - debug APK / AAB
+//   - release APK（需配置 keystore）
+//   - mapping.txt（Crashlytics 解符号）
+//
+// 文档：https://docs.codemagic.io/yaml-quick-start/building-android-apps/
+workflows:
+  android-tv-debug:
+    name: Android TV (Debug)
+    max_build_duration: 60
+    environment:
+      java: 17
+      gradle: 8.5
+      android_signing: debug_keystore  # 自动生成 debug keystore
+    cache:
+      cache_overrides:
+        - path: ~/.gradle/caches
+          store: gradle_cache
+          restore: gradle_cache
+        - path: ~/.gradle/wrapper
+          store: gradle_wrapper
+          restore: gradle_wrapper
+    scripts:
+      - name: Set up local.properties
+        script: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/services/android-tv/local.properties"
+      - name: Build Debug APK
+        script: |
+          cd services/android-tv
+          ./gradlew :app:assembleDebug
+      - name: Build Debug AAB
+        script: |
+          cd services/android-tv
+          ./gradlew :app:bundleDebug
+      - name: Run lint
+        script: |
+          cd services/android-tv
+          ./gradlew :app:lintDebug
+    artifacts:
+      - services/android-tv/app/build/outputs/apk/debug/*.apk
+      - services/android-tv/app/build/outputs/bundle/debug/*.aab
+      - services/android-tv/app/build/reports/lint-results-debug.html
+    publishing:
+      app_store_connect:
+        # 正式 release 才会用到，debug 跳过
+        skip_submission: true
+
+  android-tv-release:
+    name: Android TV (Release)
+    max_build_duration: 60
+    triggering:
+      events:
+        - push
+        - tag
+    environment:
+      java: 17
+      gradle: 8.5
+      android_signing: release_keystore  # 需要在 Codemagic 配置 keystore
+    cache:
+      cache_overrides:
+        - path: ~/.gradle/caches
+          store: gradle_cache
+          restore: gradle_cache
+    scripts:
+      - name: Set up local.properties
+        script: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/services/android-tv/local.properties"
+      - name: Build Release APK
+        script: |
+          cd services/android-tv
+          ./gradlew :app:assembleRelease
+      - name: Build Release AAB
+        script: |
+          cd services/android-tv
+          ./gradlew :app:bundleRelease
+    artifacts:
+      - services/android-tv/app/build/outputs/apk/release/*.apk
+      - services/android-tv/app/build/outputs/bundle/release/*.aab
+      - services/android-tv/app/build/outputs/mapping/release/mapping.txt

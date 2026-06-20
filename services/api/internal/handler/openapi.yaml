@@ -1,0 +1,754 @@
+openapi: 3.0.3
+info:
+  title: MediaHub API
+  description: |
+    家庭媒资中心 API 服务。
+
+    ## 认证
+    大部分接口需要 JWT Token。在 `Authorization: Bearer <token>` 头中传递。
+
+    ## 多 Profile
+    家庭多成员场景下，Profile ID 通过 `X-Profile-ID` 头传递（影响历史、收藏、继续观看）。
+
+  version: 0.1.0
+  contact:
+    name: MediaHub
+servers:
+  - url: http://localhost:3000
+    description: Local development
+  - url: http://{host}:3000
+    description: NAS
+    variables:
+      host:
+        default: localhost
+
+tags:
+  - name: System
+    description: 系统接口
+  - name: Auth
+    description: 认证
+  - name: Media
+    description: 媒资管理
+  - name: Layout
+    description: 布局（核心：OTT 风格播放端布局）
+  - name: Feed
+    description: 播放端拉取
+  - name: History
+    description: 历史与收藏
+
+paths:
+  /health:
+    get:
+      tags: [System]
+      summary: 存活检查
+      responses:
+        '200':
+          description: OK
+
+  /health/ready:
+    get:
+      tags: [System]
+      summary: 就绪检查（DB + Redis）
+      responses:
+        '200':
+          description: All ready
+        '503':
+          description: Not ready
+
+  /api/v1/auth/register:
+    post:
+      tags: [Auth]
+      summary: 注册家庭账号
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: 登录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/auth/me:
+    get:
+      tags: [Auth]
+      summary: 当前用户
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: OK
+
+  /api/v1/media:
+    get:
+      tags: [Media]
+      summary: 媒资列表
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: page_size
+          schema: { type: integer, default: 20 }
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [movie, tvshow, anime, documentary]
+        - in: query
+          name: genre
+          schema: { type: string }
+        - in: query
+          name: year
+          schema: { type: integer }
+        - in: query
+          name: min_rating
+          schema: { type: number }
+        - in: query
+          name: q
+          description: 模糊搜索标题
+          schema: { type: string }
+        - in: query
+          name: sort
+          schema:
+            type: string
+            enum: [year, rating, title, created_at]
+        - in: query
+          name: order
+          schema:
+            type: string
+            enum: [asc, desc]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaListResponse'
+
+    post:
+      tags: [Media]
+      summary: 手动创建媒资
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMediaRequest'
+      responses:
+        '201':
+          description: Created
+
+  /api/v1/media/{id}:
+    get:
+      tags: [Media]
+      summary: 媒资详情
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Media]
+      summary: 更新媒资
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMediaRequest'
+      responses:
+        '200':
+          description: OK
+    delete:
+      tags: [Media]
+      summary: 删除媒资
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK
+
+  /api/v1/media/{id}/rescan:
+    post:
+      tags: [Media]
+      summary: 重新刮削
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '202':
+          description: Queued
+
+  /api/v1/media/stats:
+    get:
+      tags: [Media]
+      summary: 媒资统计
+      responses:
+        '200':
+          description: OK
+
+  /api/v1/layouts:
+    get:
+      tags: [Layout]
+      summary: 布局列表
+      parameters:
+        - in: query
+          name: is_template
+          schema: { type: boolean }
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [draft, published, archived]
+      responses:
+        '200':
+          description: OK
+    post:
+      tags: [Layout]
+      summary: 创建布局
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLayoutRequest'
+      responses:
+        '201':
+          description: Created
+
+  /api/v1/layouts/{id}:
+    get:
+      tags: [Layout]
+      summary: 布局详情
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK
+    patch:
+      tags: [Layout]
+      summary: 更新布局
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLayoutRequest'
+      responses:
+        '200':
+          description: OK
+    delete:
+      tags: [Layout]
+      summary: 删除布局
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK
+
+  /api/v1/layouts/{id}/publish:
+    post:
+      tags: [Layout]
+      summary: 发布布局到平台
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublishLayoutRequest'
+      responses:
+        '200':
+          description: OK
+
+  /api/v1/feed/{platform}:
+    get:
+      tags: [Feed]
+      summary: 播放端拉取 Feed（核心接口）
+      parameters:
+        - in: path
+          name: platform
+          required: true
+          schema:
+            type: string
+            enum: [web, android-tv, tvos]
+        - in: header
+          name: X-Profile-ID
+          description: 当前 Profile ID（影响继续观看）
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Feed'
+
+  /api/v1/history:
+    post:
+      tags: [History]
+      summary: 记录播放进度
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordProgressRequest'
+      responses:
+        '200':
+          description: OK
+    get:
+      tags: [History]
+      summary: 历史列表
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: header
+          name: X-Profile-ID
+          schema: { type: string, format: uuid }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20 }
+      responses:
+        '200':
+          description: OK
+
+  /api/v1/continue-watching:
+    get:
+      tags: [History]
+      summary: 继续观看
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: header
+          name: X-Profile-ID
+          schema: { type: string, format: uuid }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 12 }
+      responses:
+        '200':
+          description: OK
+
+  /api/v1/favorites:
+    post:
+      tags: [History]
+      summary: 切换收藏
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: header
+          name: X-Profile-ID
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ToggleFavoriteRequest'
+      responses:
+        '200':
+          description: OK
+    get:
+      tags: [History]
+      summary: 收藏列表
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: header
+          name: X-Profile-ID
+          schema: { type: string, format: uuid }
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [want, watching, watched, liked]
+      responses:
+        '200':
+          description: OK
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    Unauthorized:
+      description: 未认证
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: 未找到
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+        message: { type: string }
+        detail: {}
+
+    RegisterRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string, minLength: 3, maxLength: 50 }
+        password: { type: string, minLength: 6 }
+        display_name: { type: string }
+
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string }
+        password: { type: string }
+
+    LoginResponse:
+      type: object
+      properties:
+        token: { type: string }
+        user:
+          $ref: '#/components/schemas/User'
+        profiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Profile'
+
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string }
+        display_name: { type: string }
+        role: { type: string }
+        avatar_url: { type: string }
+
+    Profile:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        name: { type: string }
+        avatar_url: { type: string }
+        is_kid: { type: boolean }
+
+    MediaSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        original_title: { type: string }
+        year: { type: integer }
+        type:
+          type: string
+          enum: [movie, tvshow, anime, documentary]
+        rating: { type: number }
+        poster_url: { type: string }
+        backdrop_url: { type: string }
+        genres:
+          type: array
+          items: { type: string }
+        has_subtitle: { type: boolean }
+
+    MediaListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MediaSummary'
+        total: { type: integer }
+        page: { type: integer }
+        size: { type: integer }
+
+    MediaDetail:
+      allOf:
+        - $ref: '#/components/schemas/MediaSummary'
+        - type: object
+          properties:
+            overview: { type: string }
+            runtime: { type: integer }
+            vote_count: { type: integer }
+            seasons:
+              type: array
+              items:
+                $ref: '#/components/schemas/SeasonDetail'
+
+    MediaDetailResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/MediaDetail'
+
+    SeasonDetail:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        season_number: { type: integer }
+        title: { type: string }
+        overview: { type: string }
+        episode_count: { type: integer }
+        episodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/EpisodeDetail'
+
+    EpisodeDetail:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        episode_number: { type: integer }
+        title: { type: string }
+        duration: { type: integer }
+        still_url: { type: string }
+
+    CreateMediaRequest:
+      type: object
+      required: [type, title, storage_path]
+      properties:
+        type:
+          type: string
+          enum: [movie, tvshow, anime, documentary]
+        title: { type: string }
+        original_title: { type: string }
+        year: { type: integer }
+        storage_path: { type: string }
+        overview: { type: string }
+        poster_url: { type: string }
+        backdrop_url: { type: string }
+        genres:
+          type: array
+          items: { type: string }
+
+    UpdateMediaRequest:
+      type: object
+      properties:
+        title: { type: string }
+        original_title: { type: string }
+        overview: { type: string }
+        poster_url: { type: string }
+        backdrop_url: { type: string }
+        year: { type: integer }
+        rating: { type: number }
+        genres:
+          type: array
+          items: { type: string }
+
+    LayoutRow:
+      type: object
+      properties:
+        id: { type: string }
+        type:
+          type: string
+          enum: [hero-banner, shelf, category-grid, topic, text-banner, divider]
+        title: { type: string }
+        subtitle: { type: string }
+        card_style:
+          type: string
+          enum: [poster, landscape, square, banner]
+        source:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - manual
+                - library
+                - tag
+                - trending
+                - similar-to
+                - continue-watching
+                - recently-added
+                - recommend-algorithm
+                - union
+                - exclude
+            params:
+              type: object
+
+    LayoutConfig:
+      type: object
+      properties:
+        theme:
+          type: string
+          enum: [dark, light]
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/LayoutRow'
+
+    CreateLayoutRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        is_template: { type: boolean }
+        parent_id: { type: string, format: uuid }
+        config:
+          $ref: '#/components/schemas/LayoutConfig'
+
+    UpdateLayoutRequest:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: string }
+        is_template: { type: boolean }
+        config:
+          $ref: '#/components/schemas/LayoutConfig'
+
+    PublishLayoutRequest:
+      type: object
+      required: [target_platform]
+      properties:
+        target_platform:
+          type: string
+          enum: [web, android-tv, tvos]
+        traffic_split:
+          type: object
+          additionalProperties:
+            type: integer
+        active_from:
+          type: string
+          format: date-time
+        active_to:
+          type: string
+          format: date-time
+
+    Feed:
+      type: object
+      properties:
+        version: { type: integer }
+        platform: { type: string }
+        updated_at: { type: string, format: date-time }
+        rows:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              type: { type: string }
+              title: { type: string }
+              card_style: { type: string }
+              items:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FeedItem'
+
+    FeedItem:
+      type: object
+      properties:
+        media_id: { type: string, format: uuid }
+        title: { type: string }
+        year: { type: integer }
+        poster_url: { type: string }
+        backdrop_url: { type: string }
+        rating: { type: number }
+        type: { type: string }
+        duration: { type: integer }
+        progress: { type: integer }
+
+    RecordProgressRequest:
+      type: object
+      required: [profile_id, media_id, progress]
+      properties:
+        profile_id: { type: string, format: uuid }
+        media_id: { type: string, format: uuid }
+        episode_id: { type: string, format: uuid }
+        progress: { type: integer }
+        duration: { type: integer }
+        device: { type: string }
+
+    ToggleFavoriteRequest:
+      type: object
+      required: [media_id]
+      properties:
+        media_id: { type: string, format: uuid }
+        type:
+          type: string
+          enum: [want, watching, watched, liked]
+        rating: { type: number }

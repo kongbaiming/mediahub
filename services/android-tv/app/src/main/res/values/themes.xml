@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Leanback 主题（深色，符合客厅观影） -->
+    <style name="Theme.MediaHub" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <style name="Theme.MediaHub.Leanback" parent="Theme.Leanback">
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="browseTitleIconStyle">@style/Widget.Leanback.Title.Icon</item>
+        <item name="browseTitleTextStyle">@style/Widget.Leanback.Title.Text</item>
+    </style>
+
+    <style name="Theme.MediaHub.Playback" parent="Theme.Leanback.Player">
+        <item name="android:windowBackground">@android:color/black</item>
+    </style>
+
+    <style name="Widget.Leanback.Title.Icon" parent="Widget.Leanback.Title.Icon">
+        <item name="android:src">@drawable/tv_banner</item>
+    </style>
+
+    <style name="Widget.Leanback.Title.Text" parent="Widget.Leanback.Title.Text">
+        <item name="android:textColor">@color/primary_text</item>
+    </style>
+</resources>
