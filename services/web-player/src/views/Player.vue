@@ -79,21 +79,69 @@ async function loadMedia() {
   }
 }
 
-function setupVideo() {
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function setupVideo() {
   if (!videoRef.value || !media.value) return
 
   const storagePath = media.value.storage_path
   const ext = storagePath.split('.').pop()?.toLowerCase() || ''
-  // 内网 mp4/m4v/webm 浏览器可硬解，直连比 HLS 转码更快
   if (ext === 'mp4' || ext === 'm4v' || ext === 'webm') {
     switchToDirect(storagePath)
     return
   }
 
-  const video = videoRef.value
   const mediaID = media.value.id
+  try {
+    await startHLSPlayback(mediaID, storagePath)
+  } catch (e: any) {
+    console.error('HLS 启动失败', e)
+    window.toast?.(`HLS 转码失败：${e?.message || '未知错误'}`, 'error', 5000)
+    switchToDirect(storagePath)
+  }
+}
 
-  const hlsUrl = `/api/v1/stream/hls?path=${encodeURIComponent(storagePath)}&media_id=${mediaID}`
+async function startHLSPlayback(mediaID: string, storagePath: string) {
+  const startUrl = `/api/v1/stream/hls?path=${encodeURIComponent(storagePath)}&media_id=${mediaID}`
+  const resp = await fetch(startUrl)
+  const data = await resp.json()
+
+  const playlistUrl = `/api/v1/stream/hls/${mediaID}/playlist.m3u8`
+
+  if (data.status === 'ready' || data.cached) {
+    attachHlsPlaylist(playlistUrl)
+    return
+  }
+  if (data.status === 'failed') {
+    throw new Error(data.error || '转码失败')
+  }
+  if (data.status === 'done') {
+    attachHlsPlaylist(data.playlist || playlistUrl)
+    return
+  }
+
+  await pollHLSReady(mediaID)
+  attachHlsPlaylist(playlistUrl)
+}
+
+async function pollHLSReady(mediaID: string, maxAttempts = 180) {
+  for (let i = 0; i < maxAttempts; i++) {
+    await sleep(2000)
+    const resp = await fetch(`/api/v1/stream/hls/${mediaID}/status`)
+    const st = await resp.json()
+    if (st.status === 'done') return
+    if (st.status === 'failed') {
+      throw new Error(st.error || 'HLS 转码失败')
+    }
+  }
+  throw new Error('转码超时，请稍后重试')
+}
+
+function attachHlsPlaylist(playlistUrl: string) {
+  if (!videoRef.value) return
+  const video = videoRef.value
 
   if (Hls.isSupported()) {
     if (hls.value) hls.value.destroy()
@@ -101,26 +149,18 @@ function setupVideo() {
       enableWorker: true,
       lowLatencyMode: false,
     })
-    hls.value.loadSource(hlsUrl)
+    hls.value.loadSource(playlistUrl)
     hls.value.attachMedia(video)
-    hls.value.on(Hls.Events.ERROR, async (_event, data) => {
+    hls.value.on(Hls.Events.ERROR, (_event, data) => {
       console.error('HLS 错误', data)
-      if (data.fatal && data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-        try {
-          hls.value?.startLoad()
-        } catch {
-          switchToDirect(storagePath)
-        }
-      } else if (data.fatal) {
-        switchToDirect(storagePath)
-        window.toast?.('HLS 转码失败，已切换到直连', 'warning', 3000)
+      if (data.fatal) {
+        window.toast?.('HLS 播放失败', 'error', 3000)
       }
     })
   } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-    video.src = hlsUrl
+    video.src = playlistUrl
   } else {
-    switchToDirect(storagePath)
-    window.toast?.('浏览器不支持 HLS，已切换到直连', 'warning', 3000)
+    throw new Error('浏览器不支持 HLS')
   }
 }
 

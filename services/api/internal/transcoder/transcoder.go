@@ -101,6 +101,27 @@ type HLSOptions struct {
 
 // TranscodeHLS 转码为 HLS
 func (t *Transcoder) TranscodeHLS(ctx context.Context, opts HLSOptions) (string, error) {
+	return t.transcodeHLS(ctx, opts, t.hwAccel)
+}
+
+// TranscodeHLSWithFallback 硬转失败时回退 libx264 软解
+func (t *Transcoder) TranscodeHLSWithFallback(ctx context.Context, opts HLSOptions) (string, error) {
+	playlist, err := t.transcodeHLS(ctx, opts, t.hwAccel)
+	if err == nil {
+		return playlist, nil
+	}
+	if t.hwAccel == "none" {
+		return "", err
+	}
+	soft := NewTranscoder(t.ffmpegBin, "none")
+	playlist, softErr := soft.transcodeHLS(ctx, opts, "none")
+	if softErr != nil {
+		return "", fmt.Errorf("硬转(%s)失败: %v; 软转失败: %w", t.hwAccel, err, softErr)
+	}
+	return playlist, nil
+}
+
+func (t *Transcoder) transcodeHLS(ctx context.Context, opts HLSOptions, hwAccel string) (string, error) {
 	if opts.Bitrate == "" {
 		opts.Bitrate = "4000k"
 	}
@@ -113,9 +134,43 @@ func (t *Transcoder) TranscodeHLS(ctx context.Context, opts HLSOptions) (string,
 
 	playlist := filepath.Join(opts.OutputDir, "playlist.m3u8")
 
+	tr := *t
+	tr.hwAccel = hwAccel
+	args := tr.buildHLSArgs(opts, playlist)
+
+	cmd := exec.CommandContext(ctx, t.ffmpegBin, args...)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("HLS 转码失败(%s): %w: %s", hwAccel, err, trimFFmpegLog(string(out)))
+	}
+	return playlist, nil
+}
+
+func (t *Transcoder) buildHLSArgs(opts HLSOptions, playlist string) []string {
+	if opts.Bitrate == "" {
+		opts.Bitrate = "4000k"
+	}
+	if opts.AudioBitrate == "" {
+		opts.AudioBitrate = "128k"
+	}
+	if opts.SegmentTime <= 0 {
+		opts.SegmentTime = 6
+	}
+
 	args := []string{
 		"-i", opts.Input,
+	}
+
+	if t.hwAccel == "qsv" {
+		args = append(args, "-hwaccel", "qsv")
+	}
+
+	args = append(args,
 		"-c:v", t.videoEncoder(),
+	)
+	if t.hwAccel == "none" {
+		args = append(args, "-preset", "veryfast")
+	}
+	args = append(args,
 		"-b:v", opts.Bitrate,
 		"-c:a", "aac",
 		"-b:a", opts.AudioBitrate,
@@ -126,18 +181,16 @@ func (t *Transcoder) TranscodeHLS(ctx context.Context, opts HLSOptions) (string,
 		"-f", "hls",
 		"-y",
 		playlist,
-	}
+	)
+	return args
+}
 
-	// Quick Sync 加载额外参数
-	if t.hwAccel == "qsv" {
-		args = append(args[:1], append([]string{"-hwaccel", "qsv"}, args[1:]...)...)
+func trimFFmpegLog(s string) string {
+	s = strings.TrimSpace(s)
+	if len(s) > 800 {
+		return s[len(s)-800:]
 	}
-
-	cmd := exec.CommandContext(ctx, t.ffmpegBin, args...)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return "", fmt.Errorf("HLS 转码失败: %w: %s", err, string(out))
-	}
-	return playlist, nil
+	return s
 }
 
 // videoEncoder 选编码器

@@ -49,12 +49,11 @@ ENV TZ=Asia/Shanghai
 # Intel GPU 设备（DS920+ 的 /dev/dri 会被 docker-compose 挂进来）
 # 应用本身不直接用，应用容器内调用 ffmpeg 走 /dev/dri
 
+# 以 root 运行：ffmpeg QSV 需访问 /dev/dri；HLS 缓存目录需可写
+# docker-compose 可通过 user: "1000:1000" 覆盖（软解-only 时可非 root）
+
 WORKDIR /app
 COPY --from=builder /app/server /app/server
-
-# 非 root 运行（NAS 上避免权限问题）
-RUN addgroup -S mediahub && adduser -S mediahub -G mediahub
-USER mediahub
 
 EXPOSE 3000
 

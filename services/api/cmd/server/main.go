@@ -230,7 +230,7 @@ func main() {
 	if hlsCache == "" {
 		hlsCache = "/data/hls-cache"
 	}
-	h := handler.NewHandlers(mediaSvc, layoutSvc, authSvc, feedSvc, historySvc, profileSvc, recommendSvc, downloaderSvc, scannerSvc, subtitleSvc, cfg.Media.Root, hlsCache)
+	h := handler.NewHandlers(mediaSvc, layoutSvc, authSvc, feedSvc, historySvc, profileSvc, recommendSvc, downloaderSvc, scannerSvc, subtitleSvc, cfg.Media.Root, hlsCache, cfg.Transcode.HWAccel, cfg.Transcode.MaxBitrate)
 
 	// ---------- 10. 路由 ----------
 	r := gin.New()

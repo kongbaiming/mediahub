@@ -44,6 +44,8 @@ func NewHandlers(
 	subSvc *subtitle.Service,
 	mediaRoot string,
 	hlsCacheRoot string,
+	transcodeHW string,
+	transcodeBitrate string,
 ) *Handlers {
 	h := &Handlers{
 		Media:         NewMediaHandler(media),
@@ -53,9 +55,9 @@ func NewHandlers(
 		History:       NewHistoryHandler(history),
 		Profile:       NewProfileHandler(profile),
 		Recommend:     NewRecommendHandler(recommend),
-		Stream:        StreamHandler(mediaRoot, hlsCacheRoot),
+		Stream:        StreamHandler(mediaRoot, hlsCacheRoot, transcodeHW, transcodeBitrate),
 		HLSPlaylist:   ServeHLSPlaylist(hlsCacheRoot),
-		HLSTaskStatus: GetHLSTaskStatus(),
+		HLSTaskStatus: GetHLSTaskStatus(hlsCacheRoot),
 		HLSCacheRoot:  hlsCacheRoot,
 	}
 	if dl != nil {
