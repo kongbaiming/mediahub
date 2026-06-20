@@ -13,12 +13,13 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
       PGDATA: /var/lib/postgresql/data/pgdata
-    volumes:
-      - /volume1/docker/mediahub/postgres:/var/lib/postgresql/data
+volumes:
+      - /volume1/docker/mediahub/postgres:/var/lib/postgresql/data/pgdata
+    # 注意：POSTGRES_PORT 是宿主机端口（对外暴露），容器内固定用 5432
     ports:
       - "${POSTGRES_PORT}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -p 5432"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -55,8 +56,8 @@ services:
       API_MODE: ${API_MODE}
       API_JWT_SECRET: ${API_JWT_SECRET}
       API_LOG_LEVEL: ${API_LOG_LEVEL}
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:${REDIS_PORT}/0
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
       TMDB_API_KEY: ${TMDB_API_KEY}
       TMDB_LANGUAGE: ${TMDB_LANGUAGE}
       TMDB_BASE_URL: ${TMDB_BASE_URL}
@@ -74,6 +75,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # 健康检查（admin / web-player 依赖）
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     # DS920+ 硬件转码需要 Intel 设备直通
     devices:
       - /dev/dri:/dev/dri
@@ -90,7 +98,8 @@ services:
     ports:
       - "${ADMIN_PORT}:80"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     networks:
       - mediahub-net
 
@@ -104,7 +113,8 @@ services:
     ports:
       - "${WEB_PORT}:80"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     networks:
       - mediahub-net
 
