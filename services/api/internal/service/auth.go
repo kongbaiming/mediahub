@@ -168,12 +168,26 @@ func (s *AuthService) ParseToken(tokenStr string) (*Claims, error) {
 }
 
 // EnsureDefaultAdmin 启动时确保存在默认管理员（首次启动）
+//
+// 行为：
+//   - admin 不存在 → 创建用户 + 默认 Profile "主人"
+//   - admin 已存在但没 Profile → 补建默认 Profile "主人"
+//     （历史原因：000001 schema 缺 updated_at 列导致首次启动 Profile 创建失败，
+//      留下无 Profile 的孤儿 admin；schema 修好后重启就能补上）
+//   - admin 已存在且有 Profile → 直接返回
 func (s *AuthService) EnsureDefaultAdmin(ctx context.Context) error {
 	const defaultUsername = "admin"
 	const defaultPassword = "admin123" // 首次登录后必须修改！
 
 	existing, err := s.users.GetByUsername(ctx, defaultUsername)
 	if err == nil && existing != nil {
+		// admin 已存在；检查是否需要补 Profile
+		if len(existing.Profiles) == 0 {
+			return s.users.CreateProfile(ctx, &user.Profile{
+				UserID: existing.ID,
+				Name:   "主人",
+			})
+		}
 		return nil
 	}
 	if ae, ok := apperr.As(err); ok && ae.Code != apperr.CodeNotFound {
