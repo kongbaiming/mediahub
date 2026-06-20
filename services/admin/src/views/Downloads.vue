@@ -203,8 +203,12 @@ async function remove(row: Download) {
 async function checkCompleted() {
   checking.value = true
   try {
-    const res = await downloaderApi.checkCompleted()
-    ElMessage.success(`扫描完成，自动入库 ${(res as any).imported} 部`)
+    const res = await downloaderApi.checkCompleted() as { status?: string; imported?: number; message?: string }
+    if (res.status === 'unavailable') {
+      ElMessage.warning(res.message || '下载器不可用，请检查 qBittorrent 连接')
+      return
+    }
+    ElMessage.success(`扫描完成，自动入库 ${res.imported ?? 0} 部`)
     load()
   } finally {
     checking.value = false

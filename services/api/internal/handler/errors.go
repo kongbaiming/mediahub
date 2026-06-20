@@ -19,5 +19,6 @@ func respondError(c *gin.Context, err error) {
 	c.AbortWithStatusJSON(500, gin.H{
 		"error":   apperr.CodeInternal,
 		"message": "服务内部异常",
+		"detail":  err.Error(),
 	})
 }

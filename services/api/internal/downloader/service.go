@@ -108,7 +108,7 @@ func (s *Service) CheckCompleted(ctx context.Context) (int, error) {
 	}
 
 	for _, t := range all {
-		if t.State != string(StatusCompleted) {
+		if !isTorrentCompleted(t) {
 			continue
 		}
 
@@ -166,6 +166,11 @@ func (s *Service) StartWatcher(ctx context.Context, interval time.Duration) {
 			}
 		}
 	}
+}
+
+// isTorrentCompleted qBit 完成态用 progress>=1 判断（state 为 uploading/stalledUP 等，没有 "completed"）
+func isTorrentCompleted(t Torrent) bool {
+	return t.Progress >= 1.0
 }
 
 // inferTypeFromCategory 根据 category 推断类型

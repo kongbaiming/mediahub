@@ -1,18 +1,21 @@
 #!/usr/bin/env bash
 # scripts/fix-qbit-password.sh
 #
-# 一次性脚本：固化 qBittorrent WebUI 密码，解决"每次容器重启密码都变"的问题。
+# 【推荐】新部署已支持自动同步：在 .env 设置 QBIT_PASSWORD 后
+#   docker compose restart qbittorrent api
+# 即可（scripts/qbit-init-password.sh 会在启动前写入 conf）。
+#
+# 本脚本用于以下场景的一次性修复：
+#   - 旧部署尚未挂载 qbit-init-password.sh
+#   - 需要从 docker logs 抓取临时密码并固化到 .env
 #
 # 根因：linuxserver/qbittorrent 镜像启动时如果 /config/qBittorrent/qBittorrent.conf
 # 里没有 WebUI\Password_PBKDF2 行，就生成一次性临时密码（只在内存，重启即丢）。
-# 必须在 WebUI/API 里**显式改一次密码**才会写进 conf。
-#
-# 做法：用 qBit 自己的 Web API 改密码（比点 WebUI 更稳，绕过任何前端缓存问题）
 #
 # 用法：
 #   1. cd /volume1/progect/mediahub
 #   2. bash scripts/fix-qbit-password.sh
-#   3. 输入新密码（或回车用默认 MyNAS2026!qBit）
+#   3. 或指定密码：FIX_QBIT_PASSWORD="你的密码" bash scripts/fix-qbit-password.sh
 
 set -euo pipefail
 

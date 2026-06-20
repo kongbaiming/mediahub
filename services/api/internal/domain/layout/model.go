@@ -18,8 +18,8 @@ type Layout struct {
 	IsTemplate       bool                `gorm:"default:false;index" json:"is_template"`
 	Version          int                 `gorm:"default:1" json:"version"`
 	Status           common.LayoutStatus `gorm:"type:varchar(20);default:'draft';index" json:"status"`
-	Config           LayoutConfig        `gorm:"type:jsonb;default:'{}'::jsonb;serializer:json" json:"config"`
-	LastPublishedAt  *time.Time          `json:"last_published_at,omitempty"`
+	Config           LayoutConfig        `gorm:"type:jsonb;default:'{}'::jsonb" json:"config"`
+	LastPublishedAt  *time.Time          `gorm:"column:last_published_at" json:"last_published_at,omitempty"`
 
 	Publications []Publication `gorm:"foreignKey:LayoutID;constraint:OnDelete:CASCADE" json:"publications,omitempty"`
 }
@@ -59,13 +59,13 @@ type Publication struct {
 	LayoutID       uuid.UUID         `gorm:"type:uuid;not null;index" json:"layout_id"`
 	Version        int               `gorm:"not null" json:"version"`
 	TargetPlatform common.Platform   `gorm:"type:varchar(20);not null" json:"target_platform"`
-	TrafficSplit   map[string]int    `gorm:"type:jsonb;serializer:json" json:"traffic_split,omitempty"` // AB 权重 {"A":50,"B":50}
+	TrafficSplit   TrafficSplit      `gorm:"type:jsonb" json:"traffic_split,omitempty"` // AB 权重 {"A":50,"B":50}
 	Enabled        bool              `gorm:"default:true" json:"enabled"`
 	ActiveFrom     *time.Time        `json:"active_from,omitempty"`
 	ActiveTo       *time.Time        `json:"active_to,omitempty"`
 
 	// 动态规则（按时间段 / 星期几筛选）
-	DynamicRules *DynamicRules `gorm:"type:jsonb;serializer:json" json:"dynamic_rules,omitempty"`
+	DynamicRules *DynamicRules `gorm:"type:jsonb" json:"dynamic_rules,omitempty"`
 }
 
 // DynamicRules 动态布局规则

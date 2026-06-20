@@ -24,7 +24,7 @@ func NewLayoutRepo(db *gorm.DB) *LayoutRepo {
 // Create 创建布局
 func (r *LayoutRepo) Create(ctx context.Context, l *layout.Layout) error {
 	if err := r.db.WithContext(ctx).Create(l).Error; err != nil {
-		return apperr.Wrap(err, apperr.CodeInternal, "创建布局失败")
+		return wrapDBErr(err, "创建布局失败")
 	}
 	return nil
 }
@@ -63,15 +63,16 @@ func (r *LayoutRepo) List(ctx context.Context, isTemplate *bool, status string) 
 func (r *LayoutRepo) Update(ctx context.Context, l *layout.Layout) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(l).Updates(map[string]any{
-			"name":        l.Name,
-			"description": l.Description,
-			"config":      l.Config,
-			"is_template": l.IsTemplate,
-			"parent_id":   l.ParentID,
-			"version":     l.Version,
-			"status":      l.Status,
+			"name":                l.Name,
+			"description":         l.Description,
+			"config":              l.Config,
+			"is_template":         l.IsTemplate,
+			"parent_id":           l.ParentID,
+			"version":             l.Version,
+			"status":              l.Status,
+			"last_published_at":   l.LastPublishedAt,
 		}).Error; err != nil {
-			return apperr.Wrap(err, apperr.CodeInternal, "更新布局失败")
+			return wrapDBErr(err, "更新布局失败")
 		}
 		return nil
 	})
@@ -227,4 +228,13 @@ func hashToBucket(s string, total int) int {
 		h = h*31 + uint32(c)
 	}
 	return int(h % uint32(total))
+}
+
+func wrapDBErr(err error, msg string) *apperr.AppError {
+	return &apperr.AppError{
+		Code:    apperr.CodeInternal,
+		Message: msg,
+		Err:     err,
+		Detail:  err.Error(),
+	}
 }

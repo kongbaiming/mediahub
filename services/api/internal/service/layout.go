@@ -160,7 +160,7 @@ func (s *LayoutService) Publish(ctx context.Context, id string, req PublishReque
 		LayoutID:       l.ID,
 		Version:        l.Version,
 		TargetPlatform: req.TargetPlatform,
-		TrafficSplit:   req.TrafficSplit,
+		TrafficSplit:   layout.TrafficSplit(req.TrafficSplit),
 		DynamicRules:   req.DynamicRules,
 		ActiveFrom:     req.ActiveFrom,
 		ActiveTo:       req.ActiveTo,

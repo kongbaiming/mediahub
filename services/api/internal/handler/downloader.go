@@ -93,10 +93,18 @@ func (h *DownloaderHandler) Resume(c *gin.Context) {
 }
 
 // CheckCompleted 手动触发检查完成入库
+//
+// 降级策略：与 List 一致，qBittorrent 不可用时返回 imported=0 + status=unavailable，
+// 避免 admin 页点击「检查已完成」时出现 500。
 func (h *DownloaderHandler) CheckCompleted(c *gin.Context) {
 	n, err := h.svc.CheckCompleted(c.Request.Context())
 	if err != nil {
-		respondError(c, err)
+		logger.Warn("check-completed 降级返回", "err", err)
+		c.JSON(200, gin.H{
+			"status":   "unavailable",
+			"imported": 0,
+			"message":  err.Error(),
+		})
 		return
 	}
 	c.JSON(200, gin.H{

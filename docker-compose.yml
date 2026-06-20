@@ -76,6 +76,14 @@ services:
       TRANSCODE_ENABLED: ${TRANSCODE_ENABLED}
       TRANSCODE_HW_ACCEL: ${TRANSCODE_HW_ACCEL}
       SCRAPER_WORKER_COUNT: ${SCRAPER_WORKER_COUNT}
+      DOWNLOAD_ROOT: ${DOWNLOAD_ROOT}
+      DOWNLOADER_ENABLED: ${DOWNLOADER_ENABLED:-true}
+      DOWNLOADER_WATCH_INTERVAL: ${DOWNLOADER_WATCH_INTERVAL:-5}
+      QBIT_HOST: ${QBIT_HOST:-qbittorrent}
+      QBIT_PORT: ${QBIT_PORT:-8080}
+      QBIT_USER: ${QBIT_USER:-admin}
+      QBIT_PASSWORD: ${QBIT_PASSWORD}
+      QBIT_TLS: ${QBIT_TLS:-false}
     volumes:
       - ${NAS_MEDIA_HOST}:${MEDIA_ROOT}
       - ${NAS_DOWNLOADS_HOST}:${DOWNLOAD_ROOT}
@@ -139,9 +147,13 @@ services:
       PGID: 100
       TZ: Asia/Shanghai
       WEBUI_PORT: 8080
+      # 启动前由 scripts/qbit-init-password.sh 写入 qBittorrent.conf
+      QBIT_USER: ${QBIT_USER:-admin}
+      QBIT_PASSWORD: ${QBIT_PASSWORD}
     volumes:
       - /volume1/docker/mediahub/qbittorrent/config:/config
       - ${NAS_DOWNLOADS_HOST}:/downloads
+      - ./scripts/qbit-init-password.sh:/config/custom-cont-init.d/99-set-password:ro
     ports:
       - "${QBIT_PORT}:8080"
     networks:
