@@ -112,8 +112,13 @@ export interface Profile {
 
 export const feedApi = {
   async get(platform = 'web'): Promise<Feed> {
-    const body = (await http.get<unknown>(`/api/v1/feed/${platform}`)) as { data: Feed }
-    return body.data
+    const body = (await http.get<unknown>(`/api/v1/feed/${platform}`)) as
+      | { data: Feed }
+      | Feed
+    if (body && typeof body === 'object' && 'data' in body && body.data) {
+      return body.data
+    }
+    return body as Feed
   },
 }
 

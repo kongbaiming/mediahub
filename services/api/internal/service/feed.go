@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"sort"
 	"time"
 
@@ -57,10 +58,26 @@ func (s *FeedService) BuildFeed(ctx context.Context, platform string, profileID 
 		if err != nil {
 			return nil, err
 		}
-		return cached.(*layout.Feed), nil
+		return decodeFeed(cached)
 	}
 
 	return s.buildFeedInternal(ctx, platform, profileID)
+}
+
+// decodeFeed 缓存命中时 JSON 反序列化为 map，需转回 *layout.Feed
+func decodeFeed(v any) (*layout.Feed, error) {
+	if feed, ok := v.(*layout.Feed); ok {
+		return feed, nil
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	var feed layout.Feed
+	if err := json.Unmarshal(b, &feed); err != nil {
+		return nil, err
+	}
+	return &feed, nil
 }
 
 // buildFeedInternal 实际构建逻辑（被缓存层调用）

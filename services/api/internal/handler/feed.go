@@ -44,5 +44,5 @@ func (h *FeedHandler) Get(c *gin.Context) {
 		respondError(c, err)
 		return
 	}
-	c.JSON(200, feed)
+	c.JSON(200, gin.H{"data": feed})
 }
