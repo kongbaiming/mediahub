@@ -132,7 +132,13 @@ func (s *Service) StartWatcher(ctx context.Context, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	// 启动时立即扫一次
+	// 启动时先迁移误入库的剧集单集，再全量扫描
+	if n, err := s.RemigrateMisplacedMovies(ctx); err != nil {
+		logger.Warn("剧集单集迁移失败", "err", err)
+	} else if n > 0 {
+		logger.Info("启动时已迁移误入库剧集单集", "count", n)
+	}
+
 	if _, err := s.ScanAll(ctx); err != nil {
 		logger.Warn("初始扫描失败", "err", err)
 	}

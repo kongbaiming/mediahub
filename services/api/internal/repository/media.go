@@ -128,6 +128,15 @@ func (r *MediaRepo) GetByID(ctx context.Context, id string) (*media.Media, error
 	return &m, nil
 }
 
+// ListByType 按类型列出全部媒资（启动迁移等批处理用）
+func (r *MediaRepo) ListByType(ctx context.Context, mediaType string) ([]media.Media, error) {
+	var items []media.Media
+	if err := r.db.WithContext(ctx).Where("type = ?", mediaType).Find(&items).Error; err != nil {
+		return nil, apperr.Wrap(err, apperr.CodeInternal, "查询媒资失败")
+	}
+	return items, nil
+}
+
 // GetByStoragePath 按文件路径获取（用于去重）
 func (r *MediaRepo) GetByStoragePath(ctx context.Context, path string) (*media.Media, error) {
 	var m media.Media

@@ -252,7 +252,7 @@ func main() {
 		Addr:           ":" + cfg.Port,
 		Handler:        r,
 		ReadTimeout:    30 * time.Second,
-		WriteTimeout:   60 * time.Second,
+		WriteTimeout:   35 * time.Minute, // 库扫描等长任务需较长时间
 		IdleTimeout:    120 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
