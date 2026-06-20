@@ -20,6 +20,9 @@ dist/
 .DS_Store
 *.local
 .vite/
+# unplugin-auto-import / unplugin-vue-components 生成的 d.ts
+**/auto-imports.d.ts
+**/components.d.ts
 
 # ============================================================
 # 环境变量

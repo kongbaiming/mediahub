@@ -10,10 +10,16 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-const props = defineProps({
-  visible: { type: Boolean, required: true },
-  message: { type: String, required: true },
-  type: { type: String, default: 'info' },
+type ToastType = 'info' | 'success' | 'warning' | 'error'
+
+interface Props {
+  visible: boolean
+  message: string
+  type?: ToastType
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  type: 'info',
 })
 
 const icon = computed(() => {

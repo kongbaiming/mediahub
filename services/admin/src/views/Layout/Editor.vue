@@ -39,7 +39,7 @@
     <div class="editor-body">
       <aside class="component-panel">
         <div class="panel-title">组件</div>
-        <draggable
+        <VueDraggable
           :list="paletteItems"
           :group="{ name: 'layout', pull: 'clone', put: false }"
           :clone="clonePaletteItem"
@@ -53,7 +53,7 @@
               <span>{{ element.label }}</span>
             </div>
           </template>
-        </draggable>
+        </VueDraggable>
 
         <div class="panel-title mt-16">数据源</div>
         <el-select v-model="selectedDataSource" placeholder="选择数据源类型" size="small">
@@ -74,7 +74,7 @@
       <main class="canvas-area">
         <div class="canvas-frame" :style="{ transform: `scale(${zoom})` }">
           <div class="canvas-inner" :class="`platform-${previewPlatform}`">
-            <draggable
+            <VueDraggable
               v-model="layoutRows"
               :group="{ name: 'layout' }"
               item-key="id"
@@ -113,7 +113,7 @@
                   </div>
                 </div>
               </template>
-            </draggable>
+            </VueDraggable>
 
             <div v-if="!layoutRows.length" class="empty-canvas">
               <el-empty description="从左侧拖入组件开始编辑" />
@@ -306,7 +306,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import draggable from 'vue-draggable-plus'
+import { VueDraggable } from 'vue-draggable-plus'
 import { layoutApi, type Layout, type LayoutRow, type Publication, type DynamicRules } from '@/api/layout'
 import type { Layout as LayoutType } from '@/api/types'
 
