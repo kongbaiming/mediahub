@@ -16,7 +16,8 @@
     "pinia": "^2.1.7",
     "axios": "^1.7.2",
     "hls.js": "^1.5.13",
-    "video.js": "^8.17.4"
+    "video.js": "^8.17.4",
+    "element-plus": "^2.7.5"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
