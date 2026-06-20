@@ -318,6 +318,13 @@ func enqueuePendingScrapes(repo *repository.MediaRepo, q *queue.Queue) {
 	}
 	time.Sleep(5 * time.Second)
 	ctx := context.Background()
+
+	if n, err := repo.ResetStuckScraping(ctx); err != nil {
+		logger.Warn("重置卡住 scraping 失败", "err", err)
+	} else if n > 0 {
+		logger.Info("已重置卡住的刮削任务", "count", n)
+	}
+
 	items, _, err := repo.List(ctx, repository.MediaFilter{ScrapeStatus: "pending"}, 5000, 0)
 	if err != nil {
 		logger.Warn("补入队 pending 刮削失败", "err", err)

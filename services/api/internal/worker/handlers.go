@@ -78,9 +78,8 @@ func (h *Handlers) HandleScrape(ctx context.Context, t *asynq.Task) error {
 		return fmt.Errorf("加载媒资: %w", err)
 	}
 
-	// 2. 标记 scraping
-	m.ScrapeStatus = common.ScrapeStatusScraping
-	_ = h.mediaRepo.Update(ctx, m)
+	// 2. 标记 scraping（仅更新状态，不清空已有元数据）
+	_ = h.mediaRepo.UpdateScrapeStatus(ctx, mid.String(), string(common.ScrapeStatusScraping), "")
 
 	// 3. 搜索 TMDB
 	var tmdbInfo *scraperResult
@@ -92,9 +91,7 @@ func (h *Handlers) HandleScrape(ctx context.Context, t *asynq.Task) error {
 	}
 
 	if err != nil {
-		m.ScrapeStatus = common.ScrapeStatusFailed
-		m.ScrapeError = err.Error()
-		_ = h.mediaRepo.Update(ctx, m)
+		_ = h.mediaRepo.UpdateScrapeStatus(ctx, mid.String(), string(common.ScrapeStatusFailed), err.Error())
 		return fmt.Errorf("TMDB 刮削: %w", err)
 	}
 
@@ -134,7 +131,7 @@ func (h *Handlers) HandleScrape(ctx context.Context, t *asynq.Task) error {
 	now := nowTime()
 	m.LastScrapeAt = &now
 
-	if err := h.mediaRepo.Update(ctx, m); err != nil {
+	if err := h.mediaRepo.ApplyScrapeResult(ctx, m); err != nil {
 		return fmt.Errorf("更新媒资: %w", err)
 	}
 

@@ -102,13 +102,10 @@ func (s *MediaService) CreateManual(ctx context.Context, m *media.Media) error {
 
 // Rescan 重新刮削
 func (s *MediaService) Rescan(ctx context.Context, id string) error {
-	m, err := s.repo.GetByID(ctx, id)
-	if err != nil {
+	if _, err := s.repo.GetByID(ctx, id); err != nil {
 		return err
 	}
-	m.ScrapeStatus = common.ScrapeStatusPending
-	m.ScrapeError = ""
-	if err := s.repo.Update(ctx, m); err != nil {
+	if err := s.repo.UpdateScrapeStatus(ctx, id, string(common.ScrapeStatusPending), ""); err != nil {
 		return err
 	}
 	if s.queue != nil {

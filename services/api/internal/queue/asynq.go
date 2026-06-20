@@ -85,6 +85,7 @@ func (q *Queue) Enqueue(ctx context.Context, task *asynq.Task, opts ...asynq.Opt
 }
 
 // EnqueueScrape 入队刮削任务（默认队列）
+// TaskID 固定为 scrape:{mediaID}，避免同一媒资并发刮削互相覆盖元数据。
 func (q *Queue) EnqueueScrape(ctx context.Context, mediaID string) error {
 	payload, err := json.Marshal(map[string]string{"media_id": mediaID})
 	if err != nil {
@@ -95,9 +96,12 @@ func (q *Queue) EnqueueScrape(ctx context.Context, mediaID string) error {
 		asynq.Queue("default"),
 		asynq.MaxRetry(3),
 		asynq.Timeout(5*time.Minute),
-		asynq.TaskID(fmt.Sprintf("scrape:%s:%d", mediaID, time.Now().Unix())),
+		asynq.TaskID("scrape:"+mediaID),
 	)
-	return err
+	if err != nil && err != asynq.ErrTaskIDConflict {
+		return err
+	}
+	return nil
 }
 
 // EnqueueThumb 入队缩略图任务

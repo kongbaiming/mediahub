@@ -161,6 +161,69 @@ func (r *MediaRepo) Create(ctx context.Context, m *media.Media) error {
 	return nil
 }
 
+// UpdateScrapeStatus 仅更新刮削状态（不触碰 poster/overview 等元数据）
+func (r *MediaRepo) UpdateScrapeStatus(ctx context.Context, id string, status string, scrapeError string) error {
+	if err := r.db.WithContext(ctx).Model(&media.Media{}).Where("id = ?", id).Updates(map[string]any{
+		"scrape_status": status,
+		"scrape_error":  scrapeError,
+	}).Error; err != nil {
+		return apperr.Wrap(err, apperr.CodeInternal, "更新刮削状态失败")
+	}
+	return nil
+}
+
+// ApplyScrapeResult 写入 TMDB 刮削结果（局部更新，避免并发 Save 覆盖）
+func (r *MediaRepo) ApplyScrapeResult(ctx context.Context, m *media.Media) error {
+	genres := m.Genres
+	if genres == nil {
+		genres = media.StringArray{}
+	}
+	tags := m.Tags
+	if tags == nil {
+		tags = media.StringArray{}
+	}
+	if err := r.db.WithContext(ctx).Model(m).Where("id = ?", m.ID).Updates(map[string]any{
+		"scrape_status":   m.ScrapeStatus,
+		"scrape_error":    m.ScrapeError,
+		"last_scrape_at":  m.LastScrapeAt,
+		"title":           m.Title,
+		"original_title":  m.OriginalTitle,
+		"year":            m.Year,
+		"runtime":         m.Runtime,
+		"overview":        m.Overview,
+		"poster_url":      m.PosterURL,
+		"backdrop_url":    m.BackdropURL,
+		"rating":          m.Rating,
+		"vote_count":      m.VoteCount,
+		"tmdb_id":         m.TMDBID,
+		"genres":          genres,
+		"tags":            tags,
+		"file_size":       m.FileSize,
+		"video_codec":     m.VideoCodec,
+		"audio_codec":     m.AudioCodec,
+		"resolution":      m.Resolution,
+		"has_subtitle":    m.HasSubtitle,
+		"is_adult":        m.IsAdult,
+	}).Error; err != nil {
+		return apperr.Wrap(err, apperr.CodeInternal, "写入刮削结果失败")
+	}
+	return nil
+}
+
+// ResetStuckScraping 将卡在 scraping 的媒资重置为 pending（API 重启时恢复）
+func (r *MediaRepo) ResetStuckScraping(ctx context.Context) (int64, error) {
+	res := r.db.WithContext(ctx).Model(&media.Media{}).
+		Where("scrape_status = ?", "scraping").
+		Updates(map[string]any{
+			"scrape_status": "pending",
+			"scrape_error":  "",
+		})
+	if res.Error != nil {
+		return 0, apperr.Wrap(res.Error, apperr.CodeInternal, "重置刮削状态失败")
+	}
+	return res.RowsAffected, nil
+}
+
 // Update 更新（按主键，不触碰 seasons/episodes 关联）
 func (r *MediaRepo) Update(ctx context.Context, m *media.Media) error {
 	if err := r.db.WithContext(ctx).
