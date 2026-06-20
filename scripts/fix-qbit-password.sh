@@ -40,6 +40,19 @@ if [ -z "$TEMP_PW" ]; then
 fi
 info "TEMP_PW=$TEMP_PW"
 
+# 立刻验证一次——避免 docker logs 显示旧密码、qBit 实际已经重启过的情况
+info "立即验证临时密码（防止 logs 与运行实例不一致）..."
+VERIFY=$(curl -sS -m 5 -X POST "$QBIT_URL/api/v2/auth/login" \
+  --data-urlencode "username=admin" \
+  --data-urlencode "password=$TEMP_PW" 2>&1 || echo "CURL_ERR")
+if [ "$VERIFY" != "Ok." ]; then
+  err "logs 里的临时密码 $TEMP_PW 已失效（响应: $VERIFY）"
+  err "可能 qBit 刚刚重启过，临时密码已经更新。再跑一次脚本试试；"
+  err "或者直接用 WebUI 登录（http://nas.local:8080），在 UI 里改密码。"
+  exit 1
+fi
+info "临时密码验证通过 ✓"
+
 # ---------- 2. 如果 conf 已经有密码，跳过 ----------
 if grep -q '^WebUI\\Password_PBKDF2' "$CONF_PATH" 2>/dev/null; then
   info "conf 已经有 Password_PBKDF2 —— 密码已经固化，不需要改"
