@@ -53,6 +53,11 @@ services:
       dockerfile: Dockerfile
     container_name: mediahub-api
     restart: unless-stopped
+    # 用 NAS 文件系统所有者 UID 跑进程，否则挂载的目录全部 permission denied
+    # （NAS 上 /volume1/* 通常属于 admin:users，UID/GID 在每台机器不一样；
+    # 这里默认 1026:100，跟 qbittorrent 的 PUID/PGID 对齐；如果你的 NAS 不是
+    # 这两个值，改成 NAS 上 admin 用户的 UID/GID，可用 `id admin` 查看。）
+    user: "1026:100"
     environment:
       API_PORT: ${API_PORT}
       API_MODE: ${API_MODE}

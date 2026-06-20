@@ -177,12 +177,24 @@ func main() {
 		}()
 	}
 
-	// 库扫描服务（按 NAS 媒体目录扫描）
-	scannerSvc := scanner.NewService([]string{cfg.Media.Root}, mediaRepo, q)
+	// 库扫描服务（扫媒体库 + 下载目录）
+	//
+	// 为什么也要扫 DOWNLOAD_ROOT：
+	//   qBit 下载完成的电影默认放在 DOWNLOAD_ROOT（如 /downloads），
+	//   不在 MEDIA_ROOT 下。如果只扫 MEDIA_ROOT，下载的电影永远不会
+	//   入库到 media 表，CMS 后台看不到。
+	//
+	// 去重：DOWNLOAD_ROOT 可能被故意配成与 MEDIA_ROOT 相同，这种
+	// 情况只扫一次，避免重复入库。
+	roots := []string{cfg.Media.Root}
+	if cfg.Media.DownloadRoot != "" && cfg.Media.DownloadRoot != cfg.Media.Root {
+		roots = append(roots, cfg.Media.DownloadRoot)
+	}
+	scannerSvc := scanner.NewService(roots, mediaRepo, q)
 
 	// 启动库扫描 watcher（30 分钟一次）
 	go scannerSvc.StartWatcher(context.Background(), 30*time.Minute)
-	logger.Info("库扫描已启动", "root", cfg.Media.Root, "interval", "30m")
+	logger.Info("库扫描已启动", "roots", roots, "interval", "30m")
 
 	// 字幕服务
 	subtitleSvc := subtitle.NewService(mediaRepo)
