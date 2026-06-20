@@ -108,7 +108,20 @@
                       </div>
                     </div>
                     <div class="row-preview" :class="`card-style-${element.card_style || 'poster'}`">
-                      <div v-for="i in 5" :key="i" class="preview-card"></div>
+                      <template v-if="previewItems(element.id).length">
+                        <div
+                          v-for="item in previewItems(element.id).slice(0, 8)"
+                          :key="item.media_id"
+                          class="preview-card preview-card--real"
+                          :title="item.title"
+                        >
+                          <img v-if="item.poster_url" :src="item.poster_url" :alt="item.title" loading="lazy" />
+                          <span v-else class="preview-card-label">{{ item.title?.slice(0, 4) }}</span>
+                        </div>
+                      </template>
+                      <template v-else>
+                        <div v-for="i in 5" :key="i" class="preview-card preview-card--placeholder"></div>
+                      </template>
                     </div>
                   </div>
                 </div>
@@ -307,7 +320,7 @@ import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { VueDraggable } from 'vue-draggable-plus'
-import { layoutApi, type Layout, type LayoutRow, type Publication, type DynamicRules } from '@/api/layout'
+import { layoutApi, type Layout, type LayoutRow, type Publication, type DynamicRules, type FeedRow } from '@/api/layout'
 import type { Layout as LayoutType } from '@/api/types'
 
 const route = useRoute()
@@ -322,6 +335,7 @@ const showPublications = ref(false)
 
 const layout = ref<Layout | null>(null)
 const layoutRows = ref<LayoutRow[]>([])
+const previewMap = ref<Record<string, FeedRow>>({})
 const templateLayouts = ref<LayoutType[]>([])
 const publications = ref<Publication[]>([])
 
@@ -429,11 +443,35 @@ function onDataSourceParamsChange() {
   }
 }
 
+function previewItems(rowId: string) {
+  return previewMap.value[rowId]?.items || []
+}
+
+function rowsForSave(): LayoutRow[] {
+  return layoutRows.value
+    .filter((r) => !r._inherited)
+    .map(({ _inherited, ...r }) => r)
+}
+
+async function loadPreview() {
+  if (!layout.value) return
+  try {
+    const res = await layoutApi.preview(layout.value.id, previewPlatform.value)
+    const map: Record<string, FeedRow> = {}
+    for (const row of res.data.rows || []) {
+      map[row.id] = row
+    }
+    previewMap.value = map
+  } catch {
+    previewMap.value = {}
+  }
+}
+
 async function load() {
   loading.value = true
   try {
     const [l, t] = await Promise.all([
-      layoutApi.get(route.params.id as string),
+      layoutApi.get(route.params.id as string, { editor: true }),
       layoutApi.list({ is_template: true }),
     ])
     layout.value = l.data
@@ -444,6 +482,7 @@ async function load() {
       source: r.source || { type: 'trending', params: {} },
     }))
     templateLayouts.value = t.data
+    await loadPreview()
   } finally {
     loading.value = false
   }
@@ -454,10 +493,11 @@ async function onSave() {
   saving.value = true
   try {
     const updated = await layoutApi.update(layout.value.id, {
-      config: { ...layout.value.config, rows: layoutRows.value },
+      config: { ...layout.value.config, rows: rowsForSave() },
     } as any)
     layout.value = (updated as any).data
     ElMessage.success('保存成功')
+    await load()
   } finally {
     saving.value = false
   }
@@ -553,6 +593,8 @@ function formatDate(s: string) {
   if (!s) return '-'
   return new Date(s).toLocaleString('zh-CN')
 }
+
+watch(previewPlatform, loadPreview)
 
 watch(showPublications, (val) => {
   if (val) loadPublications()
@@ -807,6 +849,35 @@ onMounted(load)
   background: linear-gradient(135deg, #334155, #1e293b);
   border-radius: 6px;
   flex-shrink: 0;
+  overflow: hidden;
+  position: relative;
+
+  &--real {
+    background: #1e293b;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+  }
+
+  &--placeholder {
+    opacity: 0.6;
+  }
+
+  .preview-card-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: #94a3b8;
+    padding: 4px;
+    text-align: center;
+  }
 
   .card-style-poster & {
     width: 120px;

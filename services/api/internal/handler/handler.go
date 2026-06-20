@@ -44,18 +44,17 @@ func NewHandlers(
 	subSvc *subtitle.Service,
 	mediaRoot string,
 	hlsCacheRoot string,
-	transcodeHW string,
-	transcodeBitrate string,
+	transcode HLSTranscodeSettings,
 ) *Handlers {
 	h := &Handlers{
 		Media:         NewMediaHandler(media),
-		Layout:        NewLayoutHandler(layout),
+		Layout:        NewLayoutHandler(layout, feed),
 		Auth:          NewAuthHandler(auth),
 		Feed:          NewFeedHandler(feed),
 		History:       NewHistoryHandler(history),
 		Profile:       NewProfileHandler(profile),
 		Recommend:     NewRecommendHandler(recommend),
-		Stream:        StreamHandler(mediaRoot, hlsCacheRoot, transcodeHW, transcodeBitrate),
+		Stream:        StreamHandler(mediaRoot, hlsCacheRoot, transcode),
 		HLSPlaylist:   ServeHLSPlaylist(hlsCacheRoot),
 		HLSTaskStatus: GetHLSTaskStatus(hlsCacheRoot),
 		HLSCacheRoot:  hlsCacheRoot,
@@ -100,6 +99,7 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 
 		// 布局
 		v1.GET("/layouts", h.Layout.List)
+		v1.GET("/layouts/:id/preview", middleware.Auth(h.Auth.svc), h.Layout.Preview)
 		v1.GET("/layouts/:id", h.Layout.Get)
 		v1.POST("/layouts", middleware.Auth(h.Auth.svc), h.Layout.Create)
 		v1.PATCH("/layouts/:id", middleware.Auth(h.Auth.svc), h.Layout.Update)

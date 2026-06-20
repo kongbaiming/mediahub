@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sort"
 	"time"
 
@@ -87,15 +88,17 @@ func (s *FeedService) buildFeedInternal(ctx context.Context, platform string, pr
 		return nil, err
 	}
 
-	// 模板继承合并
-	if l.ParentID != nil {
-		parent, err := s.layout.GetByID(ctx, l.ParentID.String())
-		if err == nil && parent != nil {
-			l = mergeLayoutInherit(parent, l)
-		}
+	// 模板继承合并（递归）
+	l, err = s.resolveLayoutInheritance(ctx, l)
+	if err != nil {
+		return nil, err
 	}
 
-	// 检查是否是儿童模式（家长过滤成人内容）
+	return s.BuildFeedFromLayout(ctx, l, platform, profileID)
+}
+
+// BuildFeedFromLayout 从已合并的布局构建 Feed（编辑器预览 / 播放端共用）
+func (s *FeedService) BuildFeedFromLayout(ctx context.Context, l *layout.Layout, platform, profileID string) (*layout.Feed, error) {
 	isKid := s.checkIsKid(ctx, profileID)
 
 	feed := &layout.Feed{
@@ -106,7 +109,7 @@ func (s *FeedService) buildFeedInternal(ctx context.Context, platform string, pr
 	}
 
 	for _, row := range l.Config.Rows {
-		if !row.Visible {
+		if !layout.RowIsVisible(row) {
 			continue
 		}
 		feedRow := layout.FeedRow{
@@ -120,7 +123,6 @@ func (s *FeedService) buildFeedInternal(ctx context.Context, platform string, pr
 
 		items, err := s.resolveDataSource(ctx, row.Source, profileID, isKid)
 		if err != nil {
-			// 数据源失败不阻塞整个 feed，跳过该行
 			continue
 		}
 		feedRow.Items = items
@@ -128,6 +130,33 @@ func (s *FeedService) buildFeedInternal(ctx context.Context, platform string, pr
 	}
 
 	return feed, nil
+}
+
+// resolveLayoutInheritance 递归合并父布局
+func (s *FeedService) resolveLayoutInheritance(ctx context.Context, l *layout.Layout) (*layout.Layout, error) {
+	if l.ParentID == nil {
+		return l, nil
+	}
+
+	visited := map[uuid.UUID]bool{l.ID: true}
+	current := l
+	for current.ParentID != nil {
+		if visited[*current.ParentID] {
+			return nil, fmt.Errorf("布局继承存在循环引用")
+		}
+		visited[*current.ParentID] = true
+
+		parent, err := s.layout.GetByID(ctx, current.ParentID.String())
+		if err != nil {
+			return nil, fmt.Errorf("加载父布局: %w", err)
+		}
+		current = mergeLayoutInherit(parent, current)
+
+		if len(visited) > 10 {
+			return nil, fmt.Errorf("布局继承深度超过 10 层")
+		}
+	}
+	return current, nil
 }
 
 // InvalidateFeed 失效 Feed 缓存（布局发布 / 媒资变更时调用）

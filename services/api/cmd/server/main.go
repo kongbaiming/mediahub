@@ -233,7 +233,13 @@ func main() {
 	if hlsCache == "" {
 		hlsCache = "/data/hls-cache"
 	}
-	h := handler.NewHandlers(mediaSvc, layoutSvc, authSvc, feedSvc, historySvc, profileSvc, recommendSvc, downloaderSvc, scannerSvc, subtitleSvc, cfg.Media.Root, hlsCache, cfg.Transcode.HWAccel, cfg.Transcode.MaxBitrate)
+	h := handler.NewHandlers(mediaSvc, layoutSvc, authSvc, feedSvc, historySvc, profileSvc, recommendSvc, downloaderSvc, scannerSvc, subtitleSvc, cfg.Media.Root, hlsCache, handler.HLSTranscodeSettings{
+		HWAccel:     cfg.Transcode.HWAccel,
+		MaxBitrate:  cfg.Transcode.MaxBitrate,
+		MaxHeight:   cfg.Transcode.MaxHeight,
+		Preset:      cfg.Transcode.Preset,
+		SegmentTime: cfg.Transcode.SegmentTime,
+	})
 
 	// ---------- 10. 路由 ----------
 	r := gin.New()

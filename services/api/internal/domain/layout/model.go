@@ -42,8 +42,9 @@ type Row struct {
 	Subtitle  string         `json:"subtitle,omitempty"`
 	CardStyle string         `json:"card_style,omitempty"` // poster | landscape | square | banner
 	Source    DataSource     `json:"source"`               // 数据源
-	Visible   bool           `json:"visible,omitempty"`    // 是否显示
+	Visible   *bool          `json:"visible,omitempty"`    // 是否显示（省略=显示）
 	Config    map[string]any `json:"config,omitempty"`     // 额外配置
+	Inherited bool           `json:"_inherited,omitempty"` // 编辑器：来自父布局（不持久化）
 }
 
 // DataSource 数据源（10 种类型）
@@ -127,7 +128,10 @@ func (d *DynamicRules) Matches(now time.Time) bool {
 
 func (Publication) TableName() string { return "layout_publications" }
 
-// FeedRow 播放端拉取的 Feed（运行时数据 + 元数据合并）
+// RowIsVisible 行是否可见（省略 visible 时默认显示）
+func RowIsVisible(r Row) bool {
+	return r.Visible == nil || *r.Visible
+}
 type FeedRow struct {
 	ID        string         `json:"id"`
 	Type      string         `json:"type"`

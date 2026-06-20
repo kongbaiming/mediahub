@@ -18,13 +18,22 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// HLSTranscodeSettings HLS 转码参数（来自环境变量）
+type HLSTranscodeSettings struct {
+	HWAccel     string
+	MaxBitrate  string
+	MaxHeight   int
+	Preset      string
+	SegmentTime int
+}
+
 // StreamHandler 流代理
 // 路径（具体路由，不再用 catch-all，因为 Gin 不允许 wildcard 和 static 段共存）：
 //   - /api/v1/stream/direct?path=<absolute-path>       直接 ServeFile（适合内网 + 客户端硬解）
 //   - /api/v1/stream/hls?path=<absolute-path>&media_id=xxx  启动 HLS 转码流（弱网 / 客户端硬解失败时）
 //
 // 实现：按 request URL path 后缀判断走 direct 还是 hls，避免依赖 c.Param("action")。
-func StreamHandler(mediaRoot, hlsCacheRoot, hwAccel, maxBitrate string) gin.HandlerFunc {
+func StreamHandler(mediaRoot, hlsCacheRoot string, tc HLSTranscodeSettings) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		p := c.Request.URL.Path
 		if strings.HasSuffix(p, "/direct") {
@@ -32,7 +41,7 @@ func StreamHandler(mediaRoot, hlsCacheRoot, hwAccel, maxBitrate string) gin.Hand
 			return
 		}
 		if strings.HasSuffix(p, "/hls") {
-			handleHLS(c, mediaRoot, hlsCacheRoot, hwAccel, maxBitrate)
+			handleHLS(c, mediaRoot, hlsCacheRoot, tc)
 			return
 		}
 		respondError(c, apperr.NotFound("unknown stream action: "+p))
@@ -146,7 +155,7 @@ func hlsPlaylistHasSegments(playlistPath string) bool {
 }
 
 // handleHLS 启动 HLS 转码（异步）
-func handleHLS(c *gin.Context, mediaRoot, cacheRoot, hwAccel, maxBitrate string) {
+func handleHLS(c *gin.Context, mediaRoot, cacheRoot string, tc HLSTranscodeSettings) {
 	mediaID := c.Query("media_id")
 	path := c.Query("path")
 	if path == "" || mediaID == "" {
@@ -213,8 +222,17 @@ func handleHLS(c *gin.Context, mediaRoot, cacheRoot, hwAccel, maxBitrate string)
 		return
 	}
 
-	if maxBitrate == "" {
-		maxBitrate = "4000k"
+	if tc.MaxBitrate == "" {
+		tc.MaxBitrate = "2500k"
+	}
+	if tc.MaxHeight <= 0 {
+		tc.MaxHeight = 480
+	}
+	if tc.Preset == "" {
+		tc.Preset = "ultrafast"
+	}
+	if tc.SegmentTime <= 0 {
+		tc.SegmentTime = 4
 	}
 
 	task := &hlsTask{
@@ -229,7 +247,7 @@ func handleHLS(c *gin.Context, mediaRoot, cacheRoot, hwAccel, maxBitrate string)
 	hlsTasks[mediaID] = task
 	hlsTasksMu.Unlock()
 
-	go runHLSTranscode(task, hwAccel, maxBitrate)
+	go runHLSTranscode(task, tc)
 
 	c.JSON(202, gin.H{
 		"status":   "started",
@@ -238,15 +256,16 @@ func handleHLS(c *gin.Context, mediaRoot, cacheRoot, hwAccel, maxBitrate string)
 	})
 }
 
-func runHLSTranscode(task *hlsTask, hwAccel, maxBitrate string) {
-	tr := transcoder.NewTranscoder("ffmpeg", hwAccel)
+func runHLSTranscode(task *hlsTask, tc HLSTranscodeSettings) {
+	tr := transcoder.NewTranscoder("ffmpeg", tc.HWAccel)
 	opts := transcoder.HLSOptions{
 		Input:        task.Input,
 		OutputDir:    task.OutputDir,
-		Height:       720,
-		Bitrate:      maxBitrate,
+		Height:       tc.MaxHeight,
+		Bitrate:      tc.MaxBitrate,
 		AudioBitrate: "128k",
-		SegmentTime:  6,
+		SegmentTime:  tc.SegmentTime,
+		Preset:       tc.Preset,
 	}
 
 	_, err := tr.TranscodeHLSWithFallback(context.Background(), opts)

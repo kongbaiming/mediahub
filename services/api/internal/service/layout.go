@@ -40,6 +40,8 @@ type UpdateRequest struct {
 	Description *string                `json:"description,omitempty"`
 	IsTemplate  *bool                  `json:"is_template,omitempty"`
 	Config      *layout.LayoutConfig   `json:"config,omitempty"`
+	ParentID    *string                `json:"parent_id,omitempty"`
+	ParentIDSet bool                   `json:"-"` // handler 解析 body 时设置
 }
 
 // PublishRequest 发布请求
@@ -84,6 +86,31 @@ func (s *LayoutService) Get(ctx context.Context, id string) (*layout.Layout, err
 	return s.repo.GetByID(ctx, id)
 }
 
+// GetForEditor 编辑器加载：合并父布局行并标记 _inherited
+func (s *LayoutService) GetForEditor(ctx context.Context, id string) (*layout.Layout, error) {
+	l, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	childRowIDs := make(map[string]bool, len(l.Config.Rows))
+	for _, r := range l.Config.Rows {
+		childRowIDs[r.ID] = true
+	}
+
+	merged, err := s.resolveInheritance(ctx, l)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range merged.Config.Rows {
+		if !childRowIDs[merged.Config.Rows[i].ID] {
+			merged.Config.Rows[i].Inherited = true
+		}
+	}
+	return merged, nil
+}
+
 // List 列表
 func (s *LayoutService) List(ctx context.Context, isTemplate *bool, status string) ([]layout.Layout, error) {
 	return s.repo.List(ctx, isTemplate, status)
@@ -104,8 +131,24 @@ func (s *LayoutService) Update(ctx context.Context, id string, req UpdateRequest
 	if req.IsTemplate != nil {
 		l.IsTemplate = *req.IsTemplate
 	}
+	if req.ParentIDSet {
+		if req.ParentID == nil || *req.ParentID == "" {
+			l.ParentID = nil
+		} else {
+			pid, err := uuid.Parse(*req.ParentID)
+			if err != nil {
+				return nil, apperr.Validation(map[string]string{"parent_id": "格式错误"})
+			}
+			l.ParentID = &pid
+		}
+	}
 	if req.Config != nil {
-		l.Config = *req.Config
+		// 去掉编辑器标记字段，避免写入 DB
+		cfg := *req.Config
+		for i := range cfg.Rows {
+			cfg.Rows[i].Inherited = false
+		}
+		l.Config = cfg
 		l.Version++
 	}
 	if err := s.repo.Update(ctx, l); err != nil {

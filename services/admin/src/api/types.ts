@@ -86,6 +86,7 @@ export interface LayoutRow {
   }
   visible?: boolean
   config?: Record<string, any>
+  _inherited?: boolean
 }
 
 export interface LayoutConfig {

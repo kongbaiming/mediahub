@@ -72,6 +72,9 @@ type TranscodeConfig struct {
 	Enabled      bool
 	HWAccel      string
 	MaxBitrate   string
+	MaxHeight    int
+	Preset       string
+	SegmentTime  int
 }
 
 // Load 加载配置（先尝试读 .env，再读环境变量）
@@ -109,9 +112,12 @@ func Load() (*Config, error) {
 			RetryTimes:  getEnvInt("SCRAPER_RETRY_TIMES", 3),
 		},
 		Transcode: TranscodeConfig{
-			Enabled:    getEnv("TRANSCODE_ENABLED", "true") == "true",
-			HWAccel:    getEnv("TRANSCODE_HW_ACCEL", "qsv"),
-			MaxBitrate: getEnv("TRANSCODE_MAX_BITRATE", "8000k"),
+			Enabled:     getEnv("TRANSCODE_ENABLED", "true") == "true",
+			HWAccel:     getEnv("TRANSCODE_HW_ACCEL", "qsv"),
+			MaxBitrate:  getEnv("TRANSCODE_MAX_BITRATE", "2500k"),
+			MaxHeight:   getEnvInt("TRANSCODE_MAX_HEIGHT", 480),
+			Preset:      getEnv("TRANSCODE_PRESET", "ultrafast"),
+			SegmentTime: getEnvInt("TRANSCODE_SEGMENT_TIME", 4),
 		},
 		Downloader: DownloaderConfig{
 			Enabled:      getEnv("DOWNLOADER_ENABLED", "true") == "true",

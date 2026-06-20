@@ -90,13 +90,15 @@ func (t *Transcoder) GenerateThumbnails(ctx context.Context, opts ThumbnailOptio
 
 // HLSOptions HLS 转码选项
 type HLSOptions struct {
-	Input      string
-	OutputDir  string
-	Width      int
-	Height     int
-	Bitrate    string // 视频码率，如 4000k
+	Input        string
+	OutputDir    string
+	Width        int
+	Height       int
+	Bitrate      string // 视频码率，如 4000k
 	AudioBitrate string // 音频码率
-	SegmentTime int   // 切片秒数
+	SegmentTime  int    // 切片秒数
+	Preset       string // libx264 preset
+	CopyAudio    bool   // 源音频已是 AAC 时直接 copy
 }
 
 // TranscodeHLS 转码为 HLS
@@ -123,13 +125,24 @@ func (t *Transcoder) TranscodeHLSWithFallback(ctx context.Context, opts HLSOptio
 
 func (t *Transcoder) transcodeHLS(ctx context.Context, opts HLSOptions, hwAccel string) (string, error) {
 	if opts.Bitrate == "" {
-		opts.Bitrate = "4000k"
+		opts.Bitrate = "2500k"
 	}
 	if opts.AudioBitrate == "" {
 		opts.AudioBitrate = "128k"
 	}
 	if opts.SegmentTime <= 0 {
-		opts.SegmentTime = 6
+		opts.SegmentTime = 4
+	}
+	if opts.Preset == "" {
+		opts.Preset = "ultrafast"
+	}
+	if opts.Height <= 0 && opts.Width <= 0 {
+		opts.Height = 480
+	}
+
+	// 源音频已是 AAC 时可 copy，跳过重编码
+	if !opts.CopyAudio {
+		opts.CopyAudio = t.probeAudioIsAAC(ctx, opts.Input)
 	}
 
 	playlist := filepath.Join(opts.OutputDir, "playlist.m3u8")
@@ -147,13 +160,16 @@ func (t *Transcoder) transcodeHLS(ctx context.Context, opts HLSOptions, hwAccel 
 
 func (t *Transcoder) buildHLSArgs(opts HLSOptions, playlist string) []string {
 	if opts.Bitrate == "" {
-		opts.Bitrate = "4000k"
+		opts.Bitrate = "2500k"
 	}
 	if opts.AudioBitrate == "" {
 		opts.AudioBitrate = "128k"
 	}
 	if opts.SegmentTime <= 0 {
-		opts.SegmentTime = 6
+		opts.SegmentTime = 4
+	}
+	if opts.Preset == "" {
+		opts.Preset = "ultrafast"
 	}
 
 	args := []string{
@@ -164,21 +180,25 @@ func (t *Transcoder) buildHLSArgs(opts HLSOptions, playlist string) []string {
 		args = append(args, "-hwaccel", "qsv")
 	}
 
-	args = append(args,
-		"-c:v", t.videoEncoder(),
-	)
+	args = append(args, "-c:v", t.videoEncoder())
 	if t.hwAccel == "none" {
-		args = append(args, "-preset", "veryfast")
+		args = append(args, "-preset", opts.Preset)
 	}
+	args = append(args, "-b:v", opts.Bitrate)
+
+	if opts.CopyAudio {
+		args = append(args, "-c:a", "copy")
+	} else {
+		args = append(args, "-c:a", "aac", "-b:a", opts.AudioBitrate)
+	}
+
 	args = append(args,
-		"-b:v", opts.Bitrate,
-		"-c:a", "aac",
-		"-b:a", opts.AudioBitrate,
 		"-hls_time", strconv.Itoa(opts.SegmentTime),
 		"-hls_list_size", "0",
 		"-hls_flags", "independent_segments+temp_file",
 		"-hls_segment_filename", filepath.Join(opts.OutputDir, "seg_%03d.ts"),
 		"-vf", t.scaleFilter(opts.Width, opts.Height),
+		"-max_muxing_queue_size", "1024",
 		"-f", "hls",
 		"-y",
 		playlist,
@@ -216,7 +236,26 @@ func (t *Transcoder) scaleFilter(w, h int) string {
 	if h > 0 {
 		return fmt.Sprintf("scale=-2:%d", h)
 	}
-	return "scale=-2:720"
+	return "scale=-2:480"
+}
+
+// probeAudioIsAAC 检测首个音频流是否为 AAC（可 copy 跳过重编码）
+func (t *Transcoder) probeAudioIsAAC(ctx context.Context, file string) bool {
+	ffprobe := strings.Replace(t.ffmpegBin, "ffmpeg", "ffprobe", 1)
+	args := []string{
+		"-v", "error",
+		"-select_streams", "a:0",
+		"-show_entries", "stream=codec_name",
+		"-of", "default=nw=1",
+		file,
+	}
+	cmd := exec.CommandContext(ctx, ffprobe, args...)
+	out, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	codec := strings.ToLower(strings.TrimSpace(string(out)))
+	return strings.Contains(codec, "aac") || strings.Contains(codec, "mp4a")
 }
 
 func (t *Transcoder) probeDuration(ctx context.Context, file string) (int, error) {

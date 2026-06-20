@@ -9,6 +9,37 @@ export interface DynamicRules {
   tags?: string[]
 }
 
+export interface FeedItem {
+  media_id: string
+  title: string
+  year?: number
+  poster_url?: string
+  backdrop_url?: string
+  rating: number
+  type: string
+}
+
+export interface FeedRow {
+  id: string
+  type: string
+  title?: string
+  subtitle?: string
+  card_style?: string
+  items: FeedItem[]
+}
+
+export interface LayoutRow {
+  id: string
+  type: string
+  title?: string
+  subtitle?: string
+  card_style?: string
+  source: { type: string; params?: Record<string, any> }
+  visible?: boolean
+  config?: Record<string, any>
+  _inherited?: boolean
+}
+
 export interface Publication {
   id: string
   layout_id: string
@@ -30,7 +61,15 @@ export const layoutApi = {
     return http.get<{ data: Layout[]; total: number }>('/api/v1/layouts', { params: q })
   },
 
-  get: (id: string) => http.get<{ data: Layout }>(`/api/v1/layouts/${id}`),
+  get: (id: string, params?: { editor?: boolean }) =>
+    http.get<{ data: Layout }>(`/api/v1/layouts/${id}`, {
+      params: params?.editor ? { editor: '1' } : undefined,
+    }),
+
+  preview: (id: string, platform = 'web') =>
+    http.get<{ data: { rows: FeedRow[] } }>(`/api/v1/layouts/${id}/preview`, {
+      params: { platform },
+    }),
 
   create: (data: {
     name: string
