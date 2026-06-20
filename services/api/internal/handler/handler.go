@@ -80,6 +80,7 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 
 	// ---------- API v1 ----------
 	v1 := r.Group("/api/v1")
+	v1.Use(middleware.InjectProfileID())
 	{
 		// 认证（无需登录）
 		v1.POST("/auth/login", h.Auth.Login)
@@ -155,18 +156,22 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 			v1.POST("/subtitle/:id/download", h.Subtitle.Download)
 		}
 
-		// 历史 / 收藏 / Profile（需要登录）
+		// 播放进度 / 续播 / 收藏（播放端：仅需 X-Profile-ID，无需 JWT）
+		playback := v1.Group("/")
+		playback.Use(middleware.RequireProfile())
+		{
+			playback.POST("/history", h.History.Record)
+			playback.GET("/resume/:media_id", h.History.GetResumePoint)
+			playback.GET("/continue-watching", h.History.ContinueWatching)
+			playback.POST("/favorites", h.History.ToggleFavorite)
+			playback.GET("/favorites", h.History.ListFavorites)
+		}
+
+		// 历史 / Profile 管理（CMS 需登录）
 		authed := v1.Group("/")
 		authed.Use(middleware.Auth(h.Auth.svc))
 		{
-			authed.POST("/history", h.History.Record)
 			authed.GET("/history", h.History.List)
-			authed.GET("/continue-watching", h.History.ContinueWatching)
-			authed.GET("/resume/:media_id", h.History.GetResumePoint)
-			authed.POST("/favorites", h.History.ToggleFavorite)
-			authed.GET("/favorites", h.History.ListFavorites)
-
-			// Profile 管理
 			authed.GET("/profiles", h.Profile.List)
 			authed.POST("/profiles", h.Profile.Create)
 			authed.PATCH("/profiles/:id", h.Profile.Update)
