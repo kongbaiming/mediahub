@@ -116,10 +116,13 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 		v1.GET("/recommend/similar/:id", h.Recommend.SimilarTo)
 
 		// 流代理（无需登录）
-		v1.GET("/stream/*action", h.Stream)
+		// 注意：Gin 不允许先注册 catch-all 再注册具体路径，会 panic
+		// ("conflicts with existing wildcard")。所以具体 HLS 路由必须先注册，
+		// catch-all /stream/*action 放最后。
 		v1.GET("/stream/hls/:media_id/playlist.m3u8", h.HLSPlaylist)
 		v1.GET("/stream/hls/:media_id/:file", h.HLSPlaylist)
 		v1.GET("/stream/hls/:media_id/status", h.HLSTaskStatus)
+		v1.GET("/stream/*action", h.Stream)
 
 		// 下载管理（无需登录，但生产应该限管理员）
 		if h.Downloader != nil {
