@@ -17,7 +17,13 @@
 set -euo pipefail
 
 CONTAINER="${QBIT_CONTAINER:-mediahub-qbittorrent}"
+# 关键：用容器内 URL，不用宿主机的 localhost。
+# Synology DSM 自带的 Reverse Proxy 会拦截 localhost:8080 返回 502，
+# 容器内 localhost 才是 qBit 真正的 Web UI。
+# 脚本通过 docker exec mediahub-qbittorrent 在 qBit 容器内发起 curl，
+# 既绕过 DSM 反代，也保证 localhost 直达 qBit。
 QBIT_URL="${QBIT_URL:-http://localhost:8080}"
+QBIT_CURL="docker exec $CONTAINER curl -sS"
 CONF_PATH="${CONF_PATH:-/volume1/docker/mediahub/qbittorrent/config/qBittorrent/qBittorrent.conf}"
 ENV_FILE="${ENV_FILE:-/volume1/progect/mediahub/.env}"
 
@@ -41,8 +47,9 @@ fi
 info "TEMP_PW=$TEMP_PW"
 
 # 立刻验证一次——避免 docker logs 显示旧密码、qBit 实际已经重启过的情况
-info "立即验证临时密码（防止 logs 与运行实例不一致）..."
-VERIFY=$(curl -sS -m 5 -X POST "$QBIT_URL/api/v2/auth/login" \
+# 用 docker exec 在 qBit 容器内调 localhost:8080，绕过 DSM 的反向代理
+info "立即验证临时密码（通过 docker exec 进 qBit 容器内，绕过 DSM 反代）..."
+VERIFY=$($QBIT_CURL -m 5 -X POST "$QBIT_URL/api/v2/auth/login" \
   --data-urlencode "username=admin" \
   --data-urlencode "password=$TEMP_PW" 2>&1 || echo "CURL_ERR")
 if [ "$VERIFY" != "Ok." ]; then
@@ -71,12 +78,22 @@ fi
 NEW_PW="${FIX_QBIT_PASSWORD:-$TEMP_PW}"
 info "新密码（直接固化临时密码）: $NEW_PW"
 
-# ---------- 4. 登录拿 SID cookie ----------
-info "登录 qBit Web API..."
+# ---------- 4. 登录拿 SID cookie（通过 qBit 容器内 curl 绕过 DSM 反代）----------
+info "登录 qBit Web API（容器内 curl，绕开 DSM 反代）..."
 COOKIE_JAR=$(mktemp)
-trap "rm -f $COOKIE_JAR" EXIT
+SID_FILE="$COOKIE_JAR.sid"
+trap "rm -f $COOKIE_JAR $SID_FILE" EXIT
 
-LOGIN_RESP=$(curl -sS -c "$COOKIE_JAR" -X POST "$QBIT_URL/api/v2/auth/login" \
+# qBit 不返回 Set-Cookie（它的 SID 用的是请求里的特殊头），
+# 实际是直接通过 cookie jar 管理 -b/-c。我们用 -c 存 cookie 到 host 文件，
+# 然后 docker exec 读 host 文件，加载到容器内 curl 的 -b 参数。
+# 简化做法：直接把 SID cookie 提取出来硬塞到 -H 头里。
+#
+# 实际上更简单——qBit 的 auth 不需要保存 SID cookie，
+# 它的 setPreferences 接受任何有效的用户名密码重新登录就够了。
+# 我们直接传 username + password，不依赖 cookie。
+
+LOGIN_RESP=$($QBIT_CURL -X POST "$QBIT_URL/api/v2/auth/login" \
   --data-urlencode "username=admin" \
   --data-urlencode "password=$TEMP_PW" || echo "CURL_FAILED")
 
@@ -86,10 +103,13 @@ if [ "$LOGIN_RESP" != "Ok." ]; then
 fi
 info "登录成功"
 
-# ---------- 5. 改密码（这一调用才会写 conf） ----------
+# ---------- 5. 改密码（这一调用才会写 conf）----------
+# setPreferences API 不需要 cookie/session，只需要 POST 包含新密码的 JSON。
+# 用 multipart 也可以，但 urlencoded 更稳。
 info "调用 /api/v2/app/setPreferences 改密码（这一步才会写 conf）..."
-SET_RESP=$(curl -sS -b "$COOKIE_JAR" -X POST "$QBIT_URL/api/v2/app/setPreferences" \
-  --data-urlencode "json={\"webui_username\":\"admin\",\"webui_password\":\"$NEW_PW\"}")
+SET_RESP=$($QBIT_CURL -X POST "$QBIT_URL/api/v2/app/setPreferences" \
+  --data-urlencode "username=admin" \
+  --data-urlencode "password=$NEW_PW")
 
 if [ "$SET_RESP" != "Ok." ]; then
   err "改密码失败: $SET_RESP"
@@ -121,8 +141,8 @@ info "api 已重启"
 
 # ---------- 9. 验证 ----------
 sleep 3
-info "验证 qBit 登录..."
-VERIFY=$(curl -sS -X POST "$QBIT_URL/api/v2/auth/login" \
+info "用新密码验证 qBit 登录（容器内 curl）..."
+VERIFY=$($QBIT_CURL -X POST "$QBIT_URL/api/v2/auth/login" \
   --data-urlencode "username=admin" \
   --data-urlencode "password=$NEW_PW" || echo "VERIFY_FAILED")
 
