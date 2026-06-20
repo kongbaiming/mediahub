@@ -47,7 +47,7 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import Hls from 'hls.js'
-import { mediaApi, historyApi, type MediaDetail, type ResumeInfo } from '@/api'
+import { mediaApi, historyApi, type MediaDetail, type ResumeInfo, type EpisodeDetail } from '@/api'
 
 const route = useRoute()
 const videoRef = ref<HTMLVideoElement>()
@@ -56,9 +56,47 @@ const media = ref<MediaDetail | null>(null)
 const resumeInfo = ref<ResumeInfo | null>(null)
 const hls = ref<Hls | null>(null)
 const showShortcutTip = ref(true)
+const currentEpisodeId = ref<string | undefined>()
+const playablePath = ref('')
 
 const lastReportAt = ref(0)
 const REPORT_INTERVAL = 10
+
+function isSeriesType(type: string) {
+  return type === 'tvshow' || type === 'anime'
+}
+
+function listEpisodes(detail: MediaDetail): EpisodeDetail[] {
+  const out: EpisodeDetail[] = []
+  for (const season of detail.seasons || []) {
+    for (const ep of season.episodes || []) {
+      if (ep.file_path) out.push(ep)
+    }
+  }
+  out.sort((a, b) => a.episode_number - b.episode_number)
+  return out
+}
+
+function resolvePlayback(detail: MediaDetail, preferredEpisodeId?: string) {
+  if (!isSeriesType(detail.type)) {
+    return { filePath: detail.storage_path, episodeId: undefined as string | undefined }
+  }
+
+  const episodes = listEpisodes(detail)
+  if (preferredEpisodeId) {
+    const picked = episodes.find((e) => e.id === preferredEpisodeId)
+    if (picked?.file_path) {
+      return { filePath: picked.file_path, episodeId: picked.id }
+    }
+  }
+
+  const first = episodes[0]
+  if (first?.file_path) {
+    return { filePath: first.file_path, episodeId: first.id }
+  }
+
+  throw new Error('该剧集暂无可播放的单集文件')
+}
 
 async function loadMedia() {
   try {
@@ -72,7 +110,14 @@ async function loadMedia() {
       // no history
     }
 
-    setupVideo()
+    const queryEpisode = route.query.episode_id as string | undefined
+    const resumeEpisode = resumeInfo.value?.episode_id
+
+    const playback = resolvePlayback(data, queryEpisode || resumeEpisode)
+    currentEpisodeId.value = playback.episodeId
+    playablePath.value = playback.filePath
+
+    await setupVideo()
   } catch (e: any) {
     console.error('加载媒资失败', e)
     window.toast?.(`加载失败：${e?.message || '未知错误'}`, 'error', 5000)
@@ -84,18 +129,18 @@ function sleep(ms: number) {
 }
 
 async function setupVideo() {
-  if (!videoRef.value || !media.value) return
+  if (!videoRef.value || !media.value || !playablePath.value) return
 
-  const storagePath = media.value.storage_path
+  const storagePath = playablePath.value
   const ext = storagePath.split('.').pop()?.toLowerCase() || ''
   if (ext === 'mp4' || ext === 'm4v' || ext === 'webm') {
     switchToDirect(storagePath)
     return
   }
 
-  const mediaID = media.value.id
+  const streamId = currentEpisodeId.value || media.value.id
   try {
-    await startHLSPlayback(mediaID, storagePath)
+    await startHLSPlayback(streamId, storagePath)
   } catch (e: any) {
     console.error('HLS 启动失败', e)
     window.toast?.(`HLS 转码失败：${e?.message || '未知错误'}`, 'error', 5000)
@@ -103,12 +148,12 @@ async function setupVideo() {
   }
 }
 
-async function startHLSPlayback(mediaID: string, storagePath: string) {
-  const startUrl = `/api/v1/stream/hls?path=${encodeURIComponent(storagePath)}&media_id=${mediaID}`
+async function startHLSPlayback(streamId: string, storagePath: string) {
+  const startUrl = `/api/v1/stream/hls?path=${encodeURIComponent(storagePath)}&media_id=${streamId}`
   const resp = await fetch(startUrl)
   const data = await resp.json()
 
-  const playlistUrl = `/api/v1/stream/hls/${mediaID}/playlist.m3u8`
+  const playlistUrl = `/api/v1/stream/hls/${streamId}/playlist.m3u8`
 
   if (data.status === 'ready' || data.cached) {
     attachHlsPlaylist(playlistUrl)
@@ -122,14 +167,14 @@ async function startHLSPlayback(mediaID: string, storagePath: string) {
     return
   }
 
-  await pollHLSReady(mediaID)
+  await pollHLSReady(streamId)
   attachHlsPlaylist(playlistUrl)
 }
 
-async function pollHLSReady(mediaID: string, maxAttempts = 180) {
+async function pollHLSReady(streamId: string, maxAttempts = 180) {
   for (let i = 0; i < maxAttempts; i++) {
     await sleep(2000)
-    const resp = await fetch(`/api/v1/stream/hls/${mediaID}/status`)
+    const resp = await fetch(`/api/v1/stream/hls/${streamId}/status`)
     const st = await resp.json()
     if (st.status === 'done') return
     if (st.status === 'failed') {
@@ -196,6 +241,7 @@ async function reportProgress() {
   if (!videoRef.value || !media.value) return
   await historyApi.record({
     media_id: media.value.id,
+    episode_id: currentEpisodeId.value,
     progress: Math.floor(videoRef.value.currentTime),
     duration: Math.floor(videoRef.value.duration || 0),
   })

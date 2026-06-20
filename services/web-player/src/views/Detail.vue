@@ -35,9 +35,19 @@
         <p v-if="media.overview" class="overview">{{ media.overview }}</p>
 
         <div class="actions-row">
-          <button class="btn btn-primary" @click="$router.push(`/play/${media.id}`)">▶ 播放</button>
-          <button class="btn btn-secondary" @click="$router.push(`/play/${media.id}`)">
-            ℹ 更多
+          <button
+            v-if="!isSeries"
+            class="btn btn-primary"
+            @click="$router.push(`/play/${media.id}`)"
+          >
+            ▶ 播放
+          </button>
+          <button
+            v-else-if="firstEpisodeId"
+            class="btn btn-primary"
+            @click="$router.push(`/play/${media.id}?episode_id=${firstEpisodeId}`)"
+          >
+            ▶ 播放第 1 集
           </button>
         </div>
       </div>
@@ -63,6 +73,22 @@
             <span class="info-label">字幕</span>
             <span class="info-value">{{ media.has_subtitle ? '含字幕' : '无字幕' }}</span>
           </div>
+        </div>
+      </div>
+
+      <!-- 剧集选集 -->
+      <div v-if="isSeries && episodes.length" class="section">
+        <h2 class="section-title">选集</h2>
+        <div class="episode-list">
+          <button
+            v-for="ep in episodes"
+            :key="ep.id"
+            class="episode-btn"
+            @click="$router.push(`/play/${media.id}?episode_id=${ep.id}`)"
+          >
+            <span class="ep-num">第 {{ ep.episode_number }} 集</span>
+            <span class="ep-title">{{ ep.title || `第 ${ep.episode_number} 集` }}</span>
+          </button>
         </div>
       </div>
 
@@ -93,13 +119,28 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { mediaApi, historyApi, recommendApi, type MediaDetail, type MediaSummary } from '@/api'
+import { mediaApi, historyApi, recommendApi, type MediaDetail, type MediaSummary, type EpisodeDetail } from '@/api'
 
 const route = useRoute()
 const loading = ref(false)
 const media = ref<MediaDetail | null>(null)
 const favorited = ref(false)
 const similar = ref<MediaSummary[]>([])
+
+const isSeries = computed(() => media.value?.type === 'tvshow' || media.value?.type === 'anime')
+
+const episodes = computed((): EpisodeDetail[] => {
+  if (!media.value?.seasons) return []
+  const out: EpisodeDetail[] = []
+  for (const s of media.value.seasons) {
+    for (const ep of s.episodes || []) {
+      if (ep.file_path) out.push(ep)
+    }
+  }
+  return out.sort((a, b) => a.episode_number - b.episode_number)
+})
+
+const firstEpisodeId = computed(() => episodes.value[0]?.id)
 
 const heroBg = computed(() => {
   const url = media.value?.backdrop_url || media.value?.poster_url
@@ -439,5 +480,41 @@ onMounted(load)
 .card-meta {
   font-size: 11px;
   color: #94a3b8;
+}
+
+.episode-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.episode-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  color: #e2e8f0;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(99, 102, 241, 0.15);
+    border-color: rgba(99, 102, 241, 0.35);
+  }
+}
+
+.ep-num {
+  flex-shrink: 0;
+  font-size: 13px;
+  color: #94a3b8;
+  min-width: 72px;
+}
+
+.ep-title {
+  font-size: 14px;
 }
 </style>

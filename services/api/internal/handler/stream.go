@@ -130,6 +130,18 @@ func handleHLS(c *gin.Context, mediaRoot, cacheRoot, hwAccel, maxBitrate string)
 		return
 	}
 
+	if info, err := os.Stat(cleanPath); err != nil {
+		if os.IsNotExist(err) {
+			respondError(c, apperr.NotFound("file not found"))
+			return
+		}
+		respondError(c, apperr.Internal(err.Error()))
+		return
+	} else if info.IsDir() {
+		respondError(c, apperr.BadRequest("path is a directory; tvshow must use episode file_path"))
+		return
+	}
+
 	outDir := filepath.Join(cacheRoot, mediaID)
 	playlistPath := filepath.Join(outDir, "playlist.m3u8")
 

@@ -78,27 +78,7 @@ func (s *HistoryService) GetContinueWatching(ctx context.Context, profileID stri
 
 // GetResumePoint 获取某媒资的续播位置
 func (s *HistoryService) GetResumePoint(ctx context.Context, profileID, mediaID string) (*history.History, error) {
-	hs, err := s.repo.ListInProgress(ctx, profileID, 1)
-	if err != nil {
-		return nil, err
-	}
-	// 找匹配 media_id 的
-	for _, h := range hs {
-		if h.MediaID.String() == mediaID {
-			return &h, nil
-		}
-	}
-	// 查历史（可能已完成）
-	hs2, err := s.repo.ListByProfile(ctx, profileID, 50)
-	if err != nil {
-		return nil, err
-	}
-	for _, h := range hs2 {
-		if h.MediaID.String() == mediaID {
-			return &h, nil
-		}
-	}
-	return nil, nil // 没有历史
+	return s.repo.GetLatestByMedia(ctx, profileID, mediaID)
 }
 
 // ToggleFavorite 切换收藏

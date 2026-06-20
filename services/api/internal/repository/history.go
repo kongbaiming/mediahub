@@ -60,6 +60,22 @@ func (r *HistoryRepo) UpsertHistory(ctx context.Context, h *history.History) err
 	})
 }
 
+// GetLatestByMedia 取某媒资最近一条播放记录
+func (r *HistoryRepo) GetLatestByMedia(ctx context.Context, profileID, mediaID string) (*history.History, error) {
+	var h history.History
+	err := r.db.WithContext(ctx).
+		Where("profile_id = ? AND media_id = ?", profileID, mediaID).
+		Order("updated_at DESC").
+		First(&h).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, apperr.Wrap(err, apperr.CodeInternal, "查询续播记录失败")
+	}
+	return &h, nil
+}
+
 // ListByProfile 按 Profile 拉取历史
 func (r *HistoryRepo) ListByProfile(ctx context.Context, profileID string, limit int) ([]history.History, error) {
 	var hs []history.History

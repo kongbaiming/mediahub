@@ -132,12 +132,14 @@ func (h *HistoryHandler) GetResumePoint(c *gin.Context) {
 		c.JSON(200, gin.H{"data": nil})
 		return
 	}
-	c.JSON(200, gin.H{
-		"data": gin.H{
-			"progress":  h_.Progress,
-			"duration":  h_.Duration,
-			"completed": h_.Completed,
-			"updated_at": h_.UpdatedAt,
-		},
-	})
+	resp := gin.H{
+		"progress":   h_.Progress,
+		"duration":   h_.Duration,
+		"completed":  h_.Completed,
+		"updated_at": h_.UpdatedAt,
+	}
+	if h_.EpisodeID != nil {
+		resp["episode_id"] = h_.EpisodeID.String()
+	}
+	c.JSON(200, gin.H{"data": resp})
 }

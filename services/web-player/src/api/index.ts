@@ -62,6 +62,21 @@ export interface Feed {
   rows: FeedRow[]
 }
 
+export interface EpisodeDetail {
+  id: string
+  episode_number: number
+  title?: string
+  file_path?: string
+  duration?: number
+}
+
+export interface SeasonDetail {
+  id: string
+  season_number: number
+  title?: string
+  episodes?: EpisodeDetail[]
+}
+
 export interface MediaDetail {
   id: string
   title: string
@@ -79,6 +94,7 @@ export interface MediaDetail {
   audio_codec?: string
   resolution?: string
   storage_path: string
+  seasons?: SeasonDetail[]
 }
 
 export interface MediaSummary {
@@ -97,6 +113,7 @@ export interface ResumeInfo {
   duration: number
   completed: boolean
   updated_at: string
+  episode_id?: string
 }
 
 export interface Profile {
