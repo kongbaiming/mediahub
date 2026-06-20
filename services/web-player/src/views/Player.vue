@@ -156,35 +156,50 @@ async function startHLSPlayback(streamId: string, storagePath: string) {
   const playlistUrl = `/api/v1/stream/hls/${streamId}/playlist.m3u8`
 
   if (data.status === 'ready' || data.cached) {
-    attachHlsPlaylist(playlistUrl)
+    attachHlsPlaylist(playlistUrl, false)
     return
   }
   if (data.status === 'failed') {
     throw new Error(data.error || '转码失败')
   }
   if (data.status === 'done') {
-    attachHlsPlaylist(data.playlist || playlistUrl)
+    attachHlsPlaylist(data.playlist || playlistUrl, false)
+    return
+  }
+  if (data.playable) {
+    await pollAndPlayHLS(streamId, playlistUrl, true)
     return
   }
 
-  await pollHLSReady(streamId)
-  attachHlsPlaylist(playlistUrl)
+  await pollAndPlayHLS(streamId, playlistUrl, false)
 }
 
-async function pollHLSReady(streamId: string, maxAttempts = 180) {
-  for (let i = 0; i < maxAttempts; i++) {
-    await sleep(2000)
+async function pollAndPlayHLS(streamId: string, playlistUrl: string, alreadyAttached: boolean) {
+  let attached = alreadyAttached
+  if (attached) {
+    attachHlsPlaylist(playlistUrl, true)
+  }
+
+  for (let i = 0; i < 3600; i++) {
+    await sleep(1500)
     const resp = await fetch(`/api/v1/stream/hls/${streamId}/status`)
     const st = await resp.json()
-    if (st.status === 'done') return
     if (st.status === 'failed') {
       throw new Error(st.error || 'HLS 转码失败')
+    }
+    const progressive = st.status !== 'done' && st.status !== 'ready'
+    if (!attached && (st.playable || st.status === 'done')) {
+      attachHlsPlaylist(playlistUrl, progressive)
+      attached = true
+    }
+    if (st.status === 'done' || st.status === 'ready') {
+      return
     }
   }
   throw new Error('转码超时，请稍后重试')
 }
 
-function attachHlsPlaylist(playlistUrl: string) {
+function attachHlsPlaylist(playlistUrl: string, progressive = false) {
   if (!videoRef.value) return
   const video = videoRef.value
 
@@ -193,6 +208,17 @@ function attachHlsPlaylist(playlistUrl: string) {
     hls.value = new Hls({
       enableWorker: true,
       lowLatencyMode: false,
+      maxBufferLength: progressive ? 45 : 300,
+      maxMaxBufferLength: progressive ? 90 : 600,
+      manifestLoadingTimeOut: 20000,
+      manifestLoadingMaxRetry: 8,
+      manifestLoadingRetryDelay: 1500,
+      ...(progressive
+        ? {
+            liveSyncDurationCount: 2,
+            liveMaxLatencyDurationCount: 8,
+          }
+        : {}),
     })
     hls.value.loadSource(playlistUrl)
     hls.value.attachMedia(video)

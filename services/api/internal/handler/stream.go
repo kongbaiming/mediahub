@@ -106,12 +106,43 @@ func hlsStatusResponse(c *gin.Context, t *hlsTask) {
 	if t.Error != "" {
 		resp["error"] = t.Error
 	}
+	enrichHLSPlayable(resp, t.OutputDir, t.MediaID)
 	if t.Status == "done" {
 		resp["playlist"] = hlsPlaylistURL(t.MediaID)
 		c.JSON(200, resp)
 		return
 	}
 	c.JSON(202, resp)
+}
+
+func enrichHLSPlayable(resp gin.H, outputDir, mediaID string) {
+	playlistPath := filepath.Join(outputDir, "playlist.m3u8")
+	if isHLSPlaylistComplete(playlistPath) {
+		resp["status"] = "done"
+		resp["playable"] = true
+		resp["playlist"] = hlsPlaylistURL(mediaID)
+		return
+	}
+	if hlsPlaylistHasSegments(playlistPath) {
+		resp["playable"] = true
+		resp["playlist"] = hlsPlaylistURL(mediaID)
+	}
+}
+
+func isHLSPlaylistComplete(playlistPath string) bool {
+	data, err := os.ReadFile(playlistPath)
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(data), "#EXT-X-ENDLIST")
+}
+
+func hlsPlaylistHasSegments(playlistPath string) bool {
+	data, err := os.ReadFile(playlistPath)
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(data), "#EXTINF:")
 }
 
 // handleHLS 启动 HLS 转码（异步）
@@ -146,12 +177,22 @@ func handleHLS(c *gin.Context, mediaRoot, cacheRoot, hwAccel, maxBitrate string)
 	playlistPath := filepath.Join(outDir, "playlist.m3u8")
 
 	if _, err := os.Stat(playlistPath); err == nil {
-		c.JSON(200, gin.H{
-			"status":   "ready",
-			"playlist": hlsPlaylistURL(mediaID),
-			"cached":   true,
-		})
-		return
+		if isHLSPlaylistComplete(playlistPath) {
+			c.JSON(200, gin.H{
+				"status":   "ready",
+				"playlist": hlsPlaylistURL(mediaID),
+				"cached":   true,
+			})
+			return
+		}
+		hlsTasksMu.RLock()
+		runningTask, ok := hlsTasks[mediaID]
+		hlsTasksMu.RUnlock()
+		if ok && runningTask.Status == "running" {
+			hlsStatusResponse(c, runningTask)
+			return
+		}
+		_ = os.RemoveAll(outDir)
 	}
 
 	hlsTasksMu.Lock()
@@ -215,6 +256,7 @@ func runHLSTranscode(task *hlsTask, hwAccel, maxBitrate string) {
 	if err != nil {
 		task.Status = "failed"
 		task.Error = err.Error()
+		_ = os.RemoveAll(task.OutputDir)
 		return
 	}
 	task.Status = "done"
@@ -246,11 +288,12 @@ func ServeHLSPlaylist(cacheRoot string) gin.HandlerFunc {
 
 		if strings.HasSuffix(file, ".m3u8") {
 			c.Header("Content-Type", "application/vnd.apple.mpegurl")
+			c.Header("Cache-Control", "no-cache, no-store")
 		} else if strings.HasSuffix(file, ".ts") {
 			c.Header("Content-Type", "video/mp2t")
+			c.Header("Cache-Control", "public, max-age=86400")
 		}
 
-		c.Header("Cache-Control", "public, max-age=60")
 		c.File(path)
 	}
 }
@@ -272,21 +315,26 @@ func GetHLSTaskStatus(cacheRoot string) gin.HandlerFunc {
 				"started":   t.StartedAt,
 				"elapsed_s": int(time.Since(t.StartedAt).Seconds()),
 			}
-			if t.Status == "done" {
+			enrichHLSPlayable(resp, t.OutputDir, t.MediaID)
+			if resp["status"] == "done" || t.Status == "done" {
 				resp["playlist"] = hlsPlaylistURL(t.MediaID)
 			}
 			c.JSON(200, resp)
 			return
 		}
 
-		playlistPath := filepath.Join(cacheRoot, mediaID, "playlist.m3u8")
+		outDir := filepath.Join(cacheRoot, mediaID)
+		playlistPath := filepath.Join(outDir, "playlist.m3u8")
 		if _, err := os.Stat(playlistPath); err == nil {
-			c.JSON(200, gin.H{
-				"media_id": mediaID,
-				"status":   "done",
-				"playlist": hlsPlaylistURL(mediaID),
-			})
-			return
+			if isHLSPlaylistComplete(playlistPath) {
+				c.JSON(200, gin.H{
+					"media_id": mediaID,
+					"status":   "done",
+					"playlist": hlsPlaylistURL(mediaID),
+				})
+				return
+			}
+			_ = os.RemoveAll(outDir)
 		}
 
 		respondError(c, apperr.NotFound("task not found"))

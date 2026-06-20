@@ -176,6 +176,7 @@ func (t *Transcoder) buildHLSArgs(opts HLSOptions, playlist string) []string {
 		"-b:a", opts.AudioBitrate,
 		"-hls_time", strconv.Itoa(opts.SegmentTime),
 		"-hls_list_size", "0",
+		"-hls_flags", "independent_segments+temp_file",
 		"-hls_segment_filename", filepath.Join(opts.OutputDir, "seg_%03d.ts"),
 		"-vf", t.scaleFilter(opts.Width, opts.Height),
 		"-f", "hls",
