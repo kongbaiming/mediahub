@@ -53,11 +53,15 @@ services:
       dockerfile: Dockerfile
     container_name: mediahub-api
     restart: unless-stopped
-    # 用 NAS 文件系统所有者 UID 跑进程，否则挂载的目录全部 permission denied
-    # （NAS 上 /volume1/* 通常属于 admin:users，UID/GID 在每台机器不一样；
-    # 这里默认 1026:100，跟 qbittorrent 的 PUID/PGID 对齐；如果你的 NAS 不是
-    # 这两个值，改成 NAS 上 admin 用户的 UID/GID，可用 `id admin` 查看。）
-    user: "1026:100"
+    # 注意：API 进程以容器默认 root 身份跑（user 不设）。
+    #   - 优势：能直接读 /volume1/* bind mount 的所有文件（walker 不报权限错）
+    #   - 副作用：fsnotify.Add() 在容器内 root 跨 mount namespace 会被内核拒，
+    #     所以实时监听失效（WARN "添加监听失败"）。但 scanner.StartWatcher
+    #     里同时跑 30 分钟一次的 filepath.Walk 轮询，不依赖 fsnotify，
+    #     所以功能不受影响——只是新建文件后要等最多 30 分钟才入库。
+    #   - 想要实时监听：把这一行打开并设成 NAS 上能访问挂载目录的 UID/GID
+    #     （比如 qbittorrent 用 1026:100，但你 SSH 是 root 的话用 root 更稳）
+    # user: "0:0"
     environment:
       API_PORT: ${API_PORT}
       API_MODE: ${API_MODE}
