@@ -14,7 +14,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - /volume1/docker/mediahub/postgres:/var/lib/postgresql/data/pgdata
+      # 挂载点必须是父目录，PGDATA 子目录由 postgres 自己管理
+      # （postgres entrypoint 会检测 PGDATA/pg_version，存在则不 init）
+      - /volume1/docker/mediahub/postgres:/var/lib/postgresql/data
     # 注意：POSTGRES_PORT 是宿主机端口（对外暴露），容器内固定用 5432
     ports:
       - "${POSTGRES_PORT}:5432"
