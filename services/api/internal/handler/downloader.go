@@ -3,6 +3,7 @@ package handler
 import (
 	"github.com/mediahub/api/internal/apperr"
 	"github.com/mediahub/api/internal/downloader"
+	"github.com/mediahub/api/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 )
@@ -36,16 +37,27 @@ func (h *DownloaderHandler) Add(c *gin.Context) {
 }
 
 // List 列出下载任务
+//
+// 降级策略：qBittorrent 不可用时返回空列表 + status=unavailable，
+// 而不是 500。这样 admin 下载管理页能渲染"暂无可用下载器"空状态，
+// 不会让用户以为整个 CMS 挂了。家庭场景下 qBit 挂了不应该阻塞主流程。
 func (h *DownloaderHandler) List(c *gin.Context) {
 	category := c.Query("category")
 	items, err := h.svc.List(c.Request.Context(), category)
 	if err != nil {
-		respondError(c, err)
+		logger.Warn("downloader list 降级返回空列表", "err", err, "category", category)
+		c.JSON(200, gin.H{
+			"data":    []any{},
+			"total":   0,
+			"status":  "unavailable",
+			"message": err.Error(),
+		})
 		return
 	}
 	c.JSON(200, gin.H{
-		"data":  items,
-		"total": len(items),
+		"data":   items,
+		"total":  len(items),
+		"status": "ok",
 	})
 }
 
