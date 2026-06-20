@@ -104,15 +104,17 @@ fi
 info "登录成功"
 
 # ---------- 5. 改密码（这一调用才会写 conf）----------
-# setPreferences API 不需要 cookie/session，只需要 POST 包含新密码的 JSON。
-# 用 multipart 也可以，但 urlencoded 更稳。
+# qBit 5.x CSRF 保护：所有非 GET 必须带 Referer 头匹配 WebUI 地址，
+# 否则返回 Forbidden。所以加 -H "Referer: ..."。
 info "调用 /api/v2/app/setPreferences 改密码（这一步才会写 conf）..."
 SET_RESP=$($QBIT_CURL -X POST "$QBIT_URL/api/v2/app/setPreferences" \
-  --data-urlencode "username=admin" \
-  --data-urlencode "password=$NEW_PW")
+  -H "Referer: $QBIT_URL" \
+  -H "Origin: $QBIT_URL" \
+  --data-urlencode "json={\"webui_username\":\"admin\",\"webui_password\":\"$NEW_PW\"}")
 
 if [ "$SET_RESP" != "Ok." ]; then
   err "改密码失败: $SET_RESP"
+  err "如果持续 Forbidden，多半是 qBit 5.x CSRF token 流程需要先 login 拿 SID + X-XSRF-TOKEN"
   exit 1
 fi
 info "改密码 API 返回 Ok."
