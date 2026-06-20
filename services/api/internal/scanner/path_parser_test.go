@@ -1,6 +1,9 @@
 package scanner
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestParseFilePath_NumericEpisodeInAlbum(t *testing.T) {
 	got := ParseFilePath("/media/冰河世纪4/053.MP4")
@@ -108,5 +111,24 @@ func TestParseFilePath_DetectiveChinatownUsesFolderTitle(t *testing.T) {
 func TestIsMediaFile_EmbySuffix(t *testing.T) {
 	if !IsMediaFile("/media/陈佩斯朱时茂小品集/吃面.mp4 5678") {
 		t.Fatal("expected emby-style mp4 basename to match")
+	}
+}
+
+func TestParseFilePath_SketchCollection(t *testing.T) {
+	got := ParseFilePath("/media/陈佩斯朱时茂小品集[4KHDR.CN]/吃面.mp4 5678")
+	if got.Type != "episode" {
+		t.Fatalf("Type = %q, want episode", got.Type)
+	}
+	if !strings.Contains(got.Title, "小品集") {
+		t.Fatalf("Title = %q, want album name containing 小品集", got.Title)
+	}
+	if got.Episode != nil {
+		t.Fatalf("Episode should be nil for collection items, got %v", *got.Episode)
+	}
+}
+
+func TestCollectionEpisodeTitle(t *testing.T) {
+	if got := collectionEpisodeTitle("/media/陈佩斯朱时茂小品集/吃面.mp4 5678"); got != "吃面" {
+		t.Fatalf("title = %q, want 吃面", got)
 	}
 }

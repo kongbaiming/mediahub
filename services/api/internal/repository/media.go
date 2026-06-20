@@ -266,6 +266,28 @@ func (r *MediaRepo) UpsertEpisode(ctx context.Context, mediaID uuid.UUID, season
 	return &ep, nil
 }
 
+// NextEpisodeNumber 取季内下一个可用集号（小品集等无集号命名时使用）
+func (r *MediaRepo) NextEpisodeNumber(ctx context.Context, mediaID uuid.UUID, seasonNum int) (int, error) {
+	var season media.Season
+	err := r.db.WithContext(ctx).
+		Where("media_id = ? AND season_number = ?", mediaID, seasonNum).
+		First(&season).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return 1, nil
+	}
+	if err != nil {
+		return 0, apperr.Wrap(err, apperr.CodeInternal, "查询季失败")
+	}
+	var maxEp int
+	if err := r.db.WithContext(ctx).Model(&media.Episode{}).
+		Where("season_id = ?", season.ID).
+		Select("COALESCE(MAX(episode_number), 0)").
+		Scan(&maxEp).Error; err != nil {
+		return 0, apperr.Wrap(err, apperr.CodeInternal, "查询集数失败")
+	}
+	return maxEp + 1, nil
+}
+
 // UpdateScrapeStatus 仅更新刮削状态（不触碰 poster/overview 等元数据）
 func (r *MediaRepo) UpdateScrapeStatus(ctx context.Context, id string, status string, scrapeError string) error {
 	if err := r.db.WithContext(ctx).Model(&media.Media{}).Where("id = ?", id).Updates(map[string]any{

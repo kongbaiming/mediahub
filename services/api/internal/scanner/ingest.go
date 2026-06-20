@@ -91,12 +91,8 @@ func ingestEpisodeFile(ctx context.Context, deps IngestDeps, filePath string, pa
 
 	seriesDir := filepath.Dir(filePath)
 	seasonNum := 1
-	epNum := 1
 	if parsed.Season != nil && *parsed.Season > 0 {
 		seasonNum = *parsed.Season
-	}
-	if parsed.Episode != nil && *parsed.Episode > 0 {
-		epNum = *parsed.Episode
 	}
 
 	series, err := deps.MediaRepo.GetBySeriesPath(ctx, seriesDir)
@@ -117,7 +113,19 @@ func ingestEpisodeFile(ctx context.Context, deps IngestDeps, filePath string, pa
 		isNewSeries = true
 	}
 
-	if _, err := deps.MediaRepo.UpsertEpisode(ctx, series.ID, seasonNum, epNum, filePath, parsed.OriginalName); err != nil {
+	epNum := 1
+	epTitle := parsed.OriginalName
+	if parsed.Episode != nil && *parsed.Episode > 0 {
+		epNum = *parsed.Episode
+	} else if isCollectionAlbumDir(filepath.Base(seriesDir)) {
+		epNum, err = deps.MediaRepo.NextEpisodeNumber(ctx, series.ID, seasonNum)
+		if err != nil {
+			return res, err
+		}
+		epTitle = collectionEpisodeTitle(filePath)
+	}
+
+	if _, err := deps.MediaRepo.UpsertEpisode(ctx, series.ID, seasonNum, epNum, filePath, epTitle); err != nil {
 		return res, err
 	}
 

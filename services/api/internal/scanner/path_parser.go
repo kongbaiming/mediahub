@@ -87,6 +87,17 @@ func ParseFilePath(fullPath string) *ParsedFile {
 		return p
 	}
 
+	// 小品集/综艺等：同文件夹内多视频合并为一部剧集专辑
+	if isCollectionAlbumDir(seriesName) && isSeriesAlbumDir(parentDir, seriesName) {
+		p.Type = "episode"
+		p.Title = cleanTitle(seriesName)
+		if p.Season == nil {
+			s := 1
+			p.Season = &s
+		}
+		return p
+	}
+
 	// SxxExx 但剧名不可靠（如只有数字）→ 用文件夹名
 	if p.Type == "episode" && isSeriesAlbumDir(parentDir, seriesName) {
 		p.Title = cleanTitle(seriesName)
@@ -113,6 +124,30 @@ func isWeakSeriesTitle(title string) bool {
 		return true
 	}
 	return numericEpRe.MatchString(title)
+}
+
+// isCollectionAlbumDir 小品集、综艺等同文件夹多视频应合并为一部专辑
+func isCollectionAlbumDir(folderName string) bool {
+	hints := []string{"小品集", "综艺", "选集", "专场", "片集", "相声", "脱口秀"}
+	for _, h := range hints {
+		if strings.Contains(folderName, h) {
+			return true
+		}
+	}
+	return false
+}
+
+// collectionEpisodeTitle 从 Emby 风格文件名提取单集标题（如「吃面.mp4 5678」→「吃面」）
+func collectionEpisodeTitle(filePath string) string {
+	base := filepath.Base(filePath)
+	lower := strings.ToLower(base)
+	for _, ext := range []string{".mp4", ".mkv", ".m4v", ".avi", ".mov", ".webm", ".ts"} {
+		if i := strings.Index(lower, ext); i > 0 {
+			return strings.TrimSpace(base[:i])
+		}
+	}
+	name := strings.TrimSuffix(base, filepath.Ext(base))
+	return cleanTitle(name)
 }
 
 // isSeriesAlbumDir 判断父目录是否可作为剧集专辑名（排除 movies 等分类目录）
