@@ -81,11 +81,10 @@ func (h *Handlers) HandleScrape(ctx context.Context, t *asynq.Task) error {
 	// 2. 标记 scraping（仅更新状态，不清空已有元数据）
 	_ = h.mediaRepo.UpdateScrapeStatus(ctx, mid.String(), string(common.ScrapeStatusScraping), "")
 
-	// 3. 搜索 TMDB
+	// 3. 搜索 TMDB（剧集始终用专辑名，不用单集文件名）
 	var tmdbInfo *scraperResult
 	if m.IsTV() {
-		season, episode := extractSeasonEpisode(m)
-		tmdbInfo, err = h.searchTVShow(ctx, m.Title, m.Year, season, episode)
+		tmdbInfo, err = h.searchTVShow(ctx, m.Title, m.Year, nil, nil)
 	} else {
 		tmdbInfo, err = h.searchMovie(ctx, m.Title, m.Year)
 	}
@@ -98,8 +97,14 @@ func (h *Handlers) HandleScrape(ctx context.Context, t *asynq.Task) error {
 	// 4. 合并元数据
 	h.applyTMDB(m, tmdbInfo)
 
-	// 5. 探测文件（ffprobe）
-	if info, err := scanner.Probe(ctx, "", m.StoragePath); err == nil {
+	// 5. 探测文件（ffprobe）；剧集专辑探测第一集文件
+	probePath := m.StoragePath
+	if m.IsTV() {
+		if epPath, err := h.mediaRepo.GetFirstEpisodeFilePath(ctx, mid.String()); err == nil {
+			probePath = epPath
+		}
+	}
+	if info, err := scanner.Probe(ctx, "", probePath); err == nil {
 		mi := info.Extract()
 		if m.Runtime == nil && mi.Duration > 0 {
 			d := mi.Duration / 60
@@ -351,37 +356,13 @@ func (h *Handlers) HandleScan(ctx context.Context, t *asynq.Task) error {
 		if !scanner.IsMediaFile(ev.Path) {
 			return
 		}
-		// 落库（如果不存在）
-		existing, _ := h.mediaRepo.GetByStoragePath(ctx, ev.Path)
-		if existing != nil {
-			return
-		}
-
-		parsed := ev.Parsed
-		if parsed == nil {
-			parsed = scanner.ParseFileName(ev.Path)
-		}
-
-		m := &media.Media{
-			Type:        common.MediaType(scanner.InferMediaType(parsed, filepath.Dir(ev.Path))),
-			Title:       parsed.Title,
-			Year:        parsed.Year,
-			StoragePath: ev.Path,
-			Container:   &parsed.Container,
-			VideoCodec:  strPtr(parsed.VideoCodec),
-			AudioCodec:  strPtr(parsed.AudioCodec),
-			ScrapeStatus: common.ScrapeStatusPending,
-			Tags:        []string{parsed.Resolution, parsed.Source, parsed.Group},
-		}
-		if m.Tags[0] == "" {
-			m.Tags = []string{}
-		}
-		if err := h.mediaRepo.Create(ctx, m); err != nil {
+		deps := scanner.IngestDeps{MediaRepo: h.mediaRepo}
+		if _, err := scanner.IngestMediaFile(ctx, deps, ev.Path); err != nil {
 			logger.Warn("入库失败", "path", ev.Path, "err", err)
 			return
 		}
 		count++
-		logger.Info("媒资入库", "id", m.ID, "title", m.Title, "path", ev.Path)
+		logger.Info("媒资入库", "path", ev.Path)
 	})
 
 	scanCtx, cancel := context.WithTimeout(ctx, 30*60*1e9) // 30 分钟
@@ -393,16 +374,6 @@ func (h *Handlers) HandleScan(ctx context.Context, t *asynq.Task) error {
 }
 
 // ---- helpers ----
-
-func extractSeasonEpisode(m *media.Media) (*int, *int) {
-	// 从第一个 episode 提取（实际应从 episodes 表查询）
-	if len(m.Seasons) == 0 || len(m.Seasons[0].Episodes) == 0 {
-		return nil, nil
-	}
-	ep := m.Seasons[0].Episodes[0]
-	s := m.Seasons[0].SeasonNumber
-	return &s, &ep.EpisodeNumber
-}
 
 func strconvAtoi(s string) (int, error) {
 	if len(s) < 4 {

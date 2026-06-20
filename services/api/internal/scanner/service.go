@@ -2,17 +2,13 @@ package scanner
 
 import (
 	"context"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/mediahub/api/internal/domain/common"
-	"github.com/mediahub/api/internal/domain/media"
 	"github.com/mediahub/api/internal/queue"
 	"github.com/mediahub/api/internal/repository"
 	"github.com/mediahub/api/pkg/logger"
-
-	"github.com/google/uuid"
 )
 
 // Service 库扫描业务
@@ -101,54 +97,26 @@ func (s *Service) scanRoot(ctx context.Context, root string, result *ScanResult)
 	sc.Start(scanCtx)
 
 	// 处理扫描到的文件
+	deps := IngestDeps{MediaRepo: s.mediaRepo, Queue: s.queue}
 	for _, p := range paths {
 		count++
 		result.Total++
 
-		// 检查是否已存在
-		existing, _ := s.mediaRepo.GetByStoragePath(ctx, p)
-		if existing != nil {
-			result.Skipped++
-			continue
-		}
-
-		// 解析文件名
-		parsed := ParseFileName(p)
-
-		// 推断媒体类型
-		mtype := inferTypeFromDir(parsed, filepath.Dir(p))
-
-		// 创建媒资记录
-		m := &media.Media{
-			Type:         mtype,
-			Title:        parsed.Title,
-			Year:         parsed.Year,
-			StoragePath:  p,
-			Container:    &parsed.Container,
-			VideoCodec:   strPtr(parsed.VideoCodec),
-			AudioCodec:   strPtr(parsed.AudioCodec),
-			ScrapeStatus: common.ScrapeStatusPending,
-			Tags:         buildTags(parsed),
-		}
-		if parsed.Resolution != "" {
-			r := parsed.Resolution
-			m.Resolution = &r
-		}
-
-		if err := s.mediaRepo.Create(ctx, m); err != nil {
+		ingestRes, err := IngestMediaFile(ctx, deps, p)
+		if err != nil {
 			logger.Warn("入库失败", "path", p, "err", err)
 			result.Failed++
 			continue
 		}
-
-		result.Added++
-
-		// 入队刮削
-		if s.queue != nil {
-			_ = s.queue.EnqueueScrape(ctx, m.ID.String())
+		if ingestRes == nil {
+			continue
 		}
-
-		logger.Info("媒资入库", "id", m.ID, "title", m.Title, "path", p)
+		if ingestRes.Added {
+			result.Added++
+		}
+		if ingestRes.Skipped {
+			result.Skipped++
+		}
 	}
 
 	return count, nil
@@ -218,8 +186,4 @@ func buildTags(p *ParsedFile) []string {
 		tags = append(tags, p.VideoCodec)
 	}
 	return tags
-}
-
-func parseUUID(s string) (uuid.UUID, error) {
-	return uuid.Parse(s)
 }

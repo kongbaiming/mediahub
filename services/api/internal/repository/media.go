@@ -14,6 +14,7 @@ import (
 	"github.com/mediahub/api/internal/domain/media"
 
 	"gorm.io/gorm"
+	"github.com/google/uuid"
 )
 
 // MediaRepo 媒资仓储
@@ -159,6 +160,101 @@ func (r *MediaRepo) Create(ctx context.Context, m *media.Media) error {
 		return apperr.Wrap(err, apperr.CodeInternal, "创建媒资失败")
 	}
 	return nil
+}
+
+// GetBySeriesPath 按剧集专辑目录查找（电视剧 storage_path 为文件夹）
+func (r *MediaRepo) GetBySeriesPath(ctx context.Context, seriesDir string) (*media.Media, error) {
+	var m media.Media
+	err := r.db.WithContext(ctx).
+		Where("storage_path = ? AND type IN ?", seriesDir, []string{"tvshow", "anime"}).
+		First(&m).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, apperr.NotFound("剧集专辑不存在")
+		}
+		return nil, apperr.Wrap(err, apperr.CodeInternal, "查询剧集专辑失败")
+	}
+	return &m, nil
+}
+
+// GetEpisodeByFilePath 按单集文件路径查找
+func (r *MediaRepo) GetEpisodeByFilePath(ctx context.Context, filePath string) (*media.Episode, error) {
+	var ep media.Episode
+	err := r.db.WithContext(ctx).Where("file_path = ?", filePath).First(&ep).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, apperr.NotFound("单集不存在")
+		}
+		return nil, apperr.Wrap(err, apperr.CodeInternal, "查询单集失败")
+	}
+	return &ep, nil
+}
+
+// GetFirstEpisodeFilePath 取专辑下第一个单集文件（ffprobe 用）
+func (r *MediaRepo) GetFirstEpisodeFilePath(ctx context.Context, mediaID string) (string, error) {
+	var ep media.Episode
+	err := r.db.WithContext(ctx).
+		Where("media_id = ? AND file_path <> ''", mediaID).
+		Order("season_id, episode_number").
+		First(&ep).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", apperr.NotFound("无单集文件")
+		}
+		return "", apperr.Wrap(err, apperr.CodeInternal, "查询单集失败")
+	}
+	return ep.FilePath, nil
+}
+
+// UpsertEpisode 创建或更新季/集记录
+func (r *MediaRepo) UpsertEpisode(ctx context.Context, mediaID uuid.UUID, seasonNum, epNum int, filePath, epTitle string) (*media.Episode, error) {
+	var season media.Season
+	err := r.db.WithContext(ctx).
+		Where("media_id = ? AND season_number = ?", mediaID, seasonNum).
+		First(&season).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		season = media.Season{
+			MediaID:      mediaID,
+			SeasonNumber: seasonNum,
+		}
+		if err := r.db.WithContext(ctx).Create(&season).Error; err != nil {
+			return nil, apperr.Wrap(err, apperr.CodeInternal, "创建季失败")
+		}
+	} else if err != nil {
+		return nil, apperr.Wrap(err, apperr.CodeInternal, "查询季失败")
+	}
+
+	var ep media.Episode
+	err = r.db.WithContext(ctx).
+		Where("season_id = ? AND episode_number = ?", season.ID, epNum).
+		First(&ep).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		ep = media.Episode{
+			SeasonID:      season.ID,
+			MediaID:       mediaID,
+			EpisodeNumber: epNum,
+			Title:         epTitle,
+			FilePath:      filePath,
+		}
+		if err := r.db.WithContext(ctx).Create(&ep).Error; err != nil {
+			return nil, apperr.Wrap(err, apperr.CodeInternal, "创建集失败")
+		}
+	} else if err != nil {
+		return nil, apperr.Wrap(err, apperr.CodeInternal, "查询集失败")
+	} else {
+		ep.Title = epTitle
+		ep.FilePath = filePath
+		if err := r.db.WithContext(ctx).Save(&ep).Error; err != nil {
+			return nil, apperr.Wrap(err, apperr.CodeInternal, "更新集失败")
+		}
+	}
+
+	// 更新季集数
+	var count int64
+	r.db.WithContext(ctx).Model(&media.Episode{}).Where("season_id = ?", season.ID).Count(&count)
+	r.db.WithContext(ctx).Model(&season).Update("episode_count", count)
+
+	return &ep, nil
 }
 
 // UpdateScrapeStatus 仅更新刮削状态（不触碰 poster/overview 等元数据）
