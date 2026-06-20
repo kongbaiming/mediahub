@@ -325,18 +325,20 @@ func enqueuePendingScrapes(repo *repository.MediaRepo, q *queue.Queue) {
 		logger.Info("已重置卡住的刮削任务", "count", n)
 	}
 
-	items, _, err := repo.List(ctx, repository.MediaFilter{ScrapeStatus: "pending"}, 5000, 0)
-	if err != nil {
-		logger.Warn("补入队 pending 刮削失败", "err", err)
-		return
-	}
 	enqueued := 0
-	for _, m := range items {
-		if err := q.EnqueueScrape(ctx, m.ID.String()); err != nil {
-			logger.Warn("刮削入队失败", "media_id", m.ID, "err", err)
+	for _, status := range []string{"pending", "failed"} {
+		items, _, err := repo.List(ctx, repository.MediaFilter{ScrapeStatus: status}, 5000, 0)
+		if err != nil {
+			logger.Warn("补入队刮削列表失败", "status", status, "err", err)
 			continue
 		}
-		enqueued++
+		for _, m := range items {
+			if err := q.EnqueueScrape(ctx, m.ID.String()); err != nil {
+				logger.Warn("刮削入队失败", "media_id", m.ID, "err", err)
+				continue
+			}
+			enqueued++
+		}
 	}
 	if enqueued > 0 {
 		logger.Info("已补入队待刮削媒资", "count", enqueued)
