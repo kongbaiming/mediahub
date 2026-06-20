@@ -10,7 +10,9 @@ RUN npm config set registry https://registry.npmmirror.com
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+# 显式安装 devDependencies：vue-tsc / vite / typescript 都在 devDependencies 里
+# Docker 构建时 NODE_ENV 默认可能是 production，会跳过 devDeps 导致 build 失败
+RUN npm ci --include=dev
 
 COPY . .
 
