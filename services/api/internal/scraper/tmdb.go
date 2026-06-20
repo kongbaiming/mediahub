@@ -4,8 +4,10 @@ package scraper
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -23,14 +25,23 @@ type TMDBClient struct {
 }
 
 // NewTMDBClient 构造
-func NewTMDBClient(apiKey, baseURL, language string) *TMDBClient {
+func NewTMDBClient(apiKey, baseURL, language string, timeoutSec int, imageBase string) *TMDBClient {
+	if timeoutSec <= 0 {
+		timeoutSec = 45
+	}
+	if imageBase == "" {
+		imageBase = "https://image.tmdb.org/t/p"
+	}
 	return &TMDBClient{
 		apiKey:    apiKey,
 		baseURL:   strings.TrimRight(baseURL, "/"),
 		language:  language,
-		imageBase: "https://image.tmdb.org/t/p",
+		imageBase: strings.TrimRight(imageBase, "/"),
 		http: &http.Client{
-			Timeout: 15 * time.Second,
+			Timeout: time.Duration(timeoutSec) * time.Second,
+			Transport: &http.Transport{
+				Proxy: http.ProxyFromEnvironment,
+			},
 		},
 	}
 }
@@ -127,28 +138,56 @@ type SearchEntry struct {
 
 // ---- API 调用 ----
 
-// SearchMovie 搜索电影
+// SearchMovie 搜索电影（多关键词 + 重试）
 func (c *TMDBClient) SearchMovie(ctx context.Context, query string, year *int) (*SearchResult, error) {
-	q := url.Values{}
-	q.Set("query", query)
-	q.Set("language", c.language)
-	q.Set("include_adult", "false")
-	if year != nil {
-		q.Set("year", strconv.Itoa(*year))
+	var lastErr error
+	for _, q := range SearchQueries(query) {
+		params := url.Values{}
+		params.Set("query", q)
+		params.Set("language", c.language)
+		params.Set("include_adult", "false")
+		if year != nil {
+			params.Set("year", strconv.Itoa(*year))
+		}
+		var r SearchResult
+		if err := c.get(ctx, "/search/movie", params, &r); err != nil {
+			lastErr = err
+			continue
+		}
+		if len(r.Results) > 0 {
+			return &r, nil
+		}
 	}
-	return c.search(ctx, "/search/movie", q)
+	if lastErr != nil {
+		return nil, lastErr
+	}
+	return &SearchResult{}, nil
 }
 
-// SearchTV 搜索剧集
+// SearchTV 搜索剧集（多关键词 + 重试）
 func (c *TMDBClient) SearchTV(ctx context.Context, query string, year *int) (*SearchResult, error) {
-	q := url.Values{}
-	q.Set("query", query)
-	q.Set("language", c.language)
-	q.Set("include_adult", "false")
-	if year != nil {
-		q.Set("first_air_date_year", strconv.Itoa(*year))
+	var lastErr error
+	for _, q := range SearchQueries(query) {
+		params := url.Values{}
+		params.Set("query", q)
+		params.Set("language", c.language)
+		params.Set("include_adult", "false")
+		if year != nil {
+			params.Set("first_air_date_year", strconv.Itoa(*year))
+		}
+		var r SearchResult
+		if err := c.get(ctx, "/search/tv", params, &r); err != nil {
+			lastErr = err
+			continue
+		}
+		if len(r.Results) > 0 {
+			return &r, nil
+		}
 	}
-	return c.search(ctx, "/search/tv", q)
+	if lastErr != nil {
+		return nil, lastErr
+	}
+	return &SearchResult{}, nil
 }
 
 // GetMovie 获取电影详情
@@ -235,33 +274,73 @@ func (c *TMDBClient) get(ctx context.Context, path string, q url.Values, out any
 		u += "?api_key=" + c.apiKey
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "MediaHub/0.1.0")
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(time.Duration(attempt) * 2 * time.Second):
+			}
+		}
 
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return fmt.Errorf("TMDB 请求失败: %w", err)
-	}
-	defer resp.Body.Close()
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Accept", "application/json")
+		req.Header.Set("User-Agent", "MediaHub/0.1.0")
 
-	if resp.StatusCode == 401 {
-		return fmt.Errorf("TMDB API key 无效（401）")
-	}
-	if resp.StatusCode == 429 {
-		return fmt.Errorf("TMDB 限速（429）")
-	}
-	if resp.StatusCode >= 400 {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("TMDB 错误 %d: %s", resp.StatusCode, string(body))
-	}
+		resp, err := c.http.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("TMDB 请求失败: %w", err)
+			if isRetryableTMDBErr(err) {
+				continue
+			}
+			return lastErr
+		}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
+		body, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if readErr != nil {
+			lastErr = readErr
+			continue
+		}
+
+		if resp.StatusCode == 401 {
+			return fmt.Errorf("TMDB API key 无效（401）")
+		}
+		if resp.StatusCode == 429 {
+			lastErr = fmt.Errorf("TMDB 限速（429）")
+			continue
+		}
+		if resp.StatusCode >= 400 {
+			return fmt.Errorf("TMDB 错误 %d: %s", resp.StatusCode, string(body))
+		}
+
+		return json.Unmarshal(body, out)
 	}
-	return json.Unmarshal(body, out)
+	if lastErr != nil {
+		return lastErr
+	}
+	return errors.New("TMDB 请求失败")
+}
+
+func isRetryableTMDBErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "timeout") ||
+		strings.Contains(msg, "connection reset") ||
+		strings.Contains(msg, "connection refused") ||
+		strings.Contains(msg, "no such host") ||
+		strings.Contains(msg, "i/o timeout")
 }

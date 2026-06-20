@@ -103,7 +103,13 @@ func main() {
 	recommendRepo := repository.NewRecommendRepo(database.DB)
 
 	// 启动 Asynq worker（注册具体的 handler）
-	tmdbClient := scraper.NewTMDBClient(cfg.TMDB.APIKey, cfg.TMDB.BaseURL, cfg.TMDB.Language)
+	tmdbClient := scraper.NewTMDBClient(
+		cfg.TMDB.APIKey,
+		cfg.TMDB.BaseURL,
+		cfg.TMDB.Language,
+		cfg.TMDB.Timeout,
+		cfg.TMDB.ImageBase,
+	)
 	trans := transcoder.NewTranscoder("ffmpeg", "qsv")
 	handlers := worker.NewHandlers(tmdbClient, trans, mediaRepo, "/data/thumbnails")
 	mux := asynq.NewServeMux()

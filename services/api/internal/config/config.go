@@ -51,9 +51,11 @@ type RedisConfig struct {
 }
 
 type TMDBConfig struct {
-	APIKey   string
-	Language string
-	BaseURL  string
+	APIKey    string
+	Language  string
+	BaseURL   string
+	ImageBase string
+	Timeout   int // 秒
 }
 
 type MediaConfig struct {
@@ -92,9 +94,11 @@ func Load() (*Config, error) {
 			URL: getEnv("REDIS_URL", ""),
 		},
 		TMDB: TMDBConfig{
-			APIKey:   getEnv("TMDB_API_KEY", ""),
-			Language: getEnv("TMDB_LANGUAGE", "zh-CN"),
-			BaseURL:  getEnv("TMDB_BASE_URL", "https://api.themoviedb.org/3"),
+			APIKey:    getEnv("TMDB_API_KEY", ""),
+			Language:  getEnv("TMDB_LANGUAGE", "zh-CN"),
+			BaseURL:   getEnv("TMDB_BASE_URL", "https://api.themoviedb.org/3"),
+			ImageBase: getEnv("TMDB_IMAGE_BASE_URL", "https://image.tmdb.org/t/p"),
+			Timeout:   getEnvInt("TMDB_TIMEOUT", 45),
 		},
 		Media: MediaConfig{
 			Root:         getEnv("MEDIA_ROOT", "/media"),
