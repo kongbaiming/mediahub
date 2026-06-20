@@ -136,9 +136,9 @@ func (s *StringArray) Scan(src any) error {
 // Value 实现 driver.Valuer（写入数据库）
 func (s StringArray) Value() (any, error) {
 	if s == nil {
-		return "{}", nil
+		return []string{}, nil
 	}
-	return s, nil
+	return []string(s), nil
 }
 
 func (s *StringArray) scanBytes(b []byte) error {

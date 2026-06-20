@@ -150,6 +150,12 @@ func (h *MediaHandler) Update(c *gin.Context) {
 		}
 		existing.Genres = gs
 	}
+	if existing.Genres == nil {
+		existing.Genres = media.StringArray{}
+	}
+	if existing.Tags == nil {
+		existing.Tags = media.StringArray{}
+	}
 
 	if err := h.svc.Update(c.Request.Context(), existing.Media); err != nil {
 		respondError(c, err)

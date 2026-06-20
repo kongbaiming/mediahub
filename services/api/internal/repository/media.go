@@ -161,9 +161,12 @@ func (r *MediaRepo) Create(ctx context.Context, m *media.Media) error {
 	return nil
 }
 
-// Update 更新（按主键）
+// Update 更新（按主键，不触碰 seasons/episodes 关联）
 func (r *MediaRepo) Update(ctx context.Context, m *media.Media) error {
-	if err := r.db.WithContext(ctx).Save(m).Error; err != nil {
+	if err := r.db.WithContext(ctx).
+		Session(&gorm.Session{FullSaveAssociations: false}).
+		Omit("Seasons").
+		Save(m).Error; err != nil {
 		return apperr.Wrap(err, apperr.CodeInternal, "更新媒资失败")
 	}
 	return nil
