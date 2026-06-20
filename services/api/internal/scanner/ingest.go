@@ -76,6 +76,12 @@ func ingestMovieFile(ctx context.Context, deps IngestDeps, filePath string, pars
 func ingestEpisodeFile(ctx context.Context, deps IngestDeps, filePath string, parsed *ParsedFile, mtype common.MediaType) (*IngestResult, error) {
 	res := &IngestResult{}
 
+	// 旧版扫描把单集误入库为 movie（storage_path=文件路径），需删除后重建专辑结构
+	migrated, err := removeMisplacedMovieRecord(ctx, deps.MediaRepo, filePath)
+	if err != nil {
+		return res, err
+	}
+
 	if _, err := deps.MediaRepo.GetEpisodeByFilePath(ctx, filePath); err == nil {
 		res.Skipped = true
 		return res, nil
@@ -109,17 +115,19 @@ func ingestEpisodeFile(ctx context.Context, deps IngestDeps, filePath string, pa
 			return res, err
 		}
 		isNewSeries = true
-		res.Added = true
 	}
 
 	if _, err := deps.MediaRepo.UpsertEpisode(ctx, series.ID, seasonNum, epNum, filePath, parsed.OriginalName); err != nil {
 		return res, err
 	}
 
-	if !isNewSeries {
-		res.Skipped = true
+	if isNewSeries || migrated {
+		res.Added = true
+		if isNewSeries {
+			logger.Info("剧集专辑入库", "id", series.ID, "title", series.Title, "path", seriesDir)
+		}
 	} else {
-		logger.Info("剧集专辑入库", "id", series.ID, "title", series.Title, "path", seriesDir)
+		res.Skipped = true
 	}
 
 	enqueueScrape(ctx, deps.Queue, series.ID.String(), series.ScrapeStatus != common.ScrapeStatusDone)
@@ -131,4 +139,23 @@ func enqueueScrape(ctx context.Context, q *queue.Queue, mediaID string, need boo
 		return
 	}
 	_ = q.EnqueueScrape(ctx, mediaID)
+}
+
+// removeMisplacedMovieRecord 删除误将剧集单集按电影入库的记录，便于重新聚合为专辑
+func removeMisplacedMovieRecord(ctx context.Context, repo *repository.MediaRepo, filePath string) (bool, error) {
+	if repo == nil {
+		return false, nil
+	}
+	existing, err := repo.GetByStoragePath(ctx, filePath)
+	if err != nil {
+		return false, err
+	}
+	if existing == nil || existing.Type != common.MediaTypeMovie {
+		return false, nil
+	}
+	if err := repo.Delete(ctx, existing.ID.String()); err != nil {
+		return false, err
+	}
+	logger.Info("迁移错误入库的单集电影记录", "id", existing.ID, "title", existing.Title, "path", filePath)
+	return true, nil
 }

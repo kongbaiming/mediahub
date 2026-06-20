@@ -50,3 +50,21 @@ func TestParseFilePath_SeasonSubfolder(t *testing.T) {
 		t.Fatalf("Episode = %v, want 1", got.Episode)
 	}
 }
+
+func TestParseFilePath_NumericEpisodeUnderMovieCategoryDir(t *testing.T) {
+	// NAS 挂载 /volume1/data -> /media 时，剧集在 /media/电影/剧名/01.mp4
+	got := ParseFilePath("/media/电影/冰河世纪4/053.MP4")
+	if got.Type != "episode" {
+		t.Fatalf("Type = %q, want episode", got.Type)
+	}
+	if got.Title != "冰河世纪4" {
+		t.Fatalf("Title = %q, want 冰河世纪4", got.Title)
+	}
+}
+
+func TestParseFilePath_DirectFileInCategoryDirIsMovie(t *testing.T) {
+	got := ParseFilePath("/media/电影/Kung Fu Panda 4.mp4")
+	if got.Type != "movie" {
+		t.Fatalf("Type = %q, want movie", got.Type)
+	}
+}

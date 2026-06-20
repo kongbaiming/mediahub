@@ -110,13 +110,7 @@ func isSeriesAlbumDir(parentDir, folderName string) bool {
 		}
 	}
 
-	// 排除电影库路径下的单文件
-	if strings.Contains(lower, "/movies") || strings.Contains(lower, "\\movies") ||
-		strings.Contains(lower, "/movie/") || strings.Contains(lower, "电影") {
-		return false
-	}
-
-	// 默认：/media/专辑名/单集.ext 视为剧集专辑
+	// 默认：/media/专辑名/单集.ext 视为剧集专辑（分类目录名已在 skipNames 排除）
 	return true
 }
 
