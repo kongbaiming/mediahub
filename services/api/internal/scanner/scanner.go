@@ -162,7 +162,7 @@ func (s *Scanner) handleEvent(ev fsnotify.Event) {
 
 // mediaExtensions 常见视频扩展
 var mediaExtensions = map[string]bool{
-	".mkv": true, ".mp4": true, ".avi": true, ".mov": true,
+	".mkv": true, ".mp4": true, ".m4v": true, ".avi": true, ".mov": true,
 	".wmv": true, ".flv": true, ".webm": true, ".ts": true,
 	".m2ts": true, ".iso": true, ".bdmv": true,
 }

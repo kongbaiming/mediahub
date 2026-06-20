@@ -94,7 +94,8 @@ func (s *Service) scanRoot(ctx context.Context, root string, result *ScanResult)
 
 	scanCtx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
-	sc.Start(scanCtx)
+	// 同步 walk 后立即入库；Start() 会阻塞到 ctx 超时，导致入库延迟 30 分钟
+	sc.FullScan(scanCtx)
 
 	// 处理扫描到的文件
 	deps := IngestDeps{MediaRepo: s.mediaRepo, Queue: s.queue}
