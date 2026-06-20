@@ -225,6 +225,13 @@ func ServeHLSPlaylist(cacheRoot string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		mediaID := c.Param("media_id")
 		file := c.Param("file")
+		if file == "" && strings.HasSuffix(c.Request.URL.Path, "playlist.m3u8") {
+			file = "playlist.m3u8"
+		}
+		if file == "" {
+			respondError(c, apperr.BadRequest("missing segment file"))
+			return
+		}
 
 		path := filepath.Join(cacheRoot, mediaID, file)
 		expectedPrefix := filepath.Join(cacheRoot, mediaID)
