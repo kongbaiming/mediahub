@@ -180,11 +180,15 @@ func (s *StringArray) scanBytes(b []byte) error {
 }
 
 // MarshalJSON JSON 序列化
+//
+// 注意：必须先把 s 转成 []string 再交给 json.Marshal，否则
+// json.Marshal 会看到参数实现了 json.Marshaler，再次调用
+// s.MarshalJSON()，导致 stack overflow（fatal error: stack overflow）。
 func (s StringArray) MarshalJSON() ([]byte, error) {
 	if s == nil {
 		return []byte("[]"), nil
 	}
-	return jsonMarshal(s)
+	return jsonMarshal([]string(s))
 }
 
 // UnmarshalJSON JSON 反序列化

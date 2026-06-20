@@ -2,6 +2,7 @@
 package history
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/mediahub/api/internal/domain/common"
@@ -118,4 +119,15 @@ func (u UUIDArray) Value() (any, error) {
 		return "{}", nil
 	}
 	return u, nil
+}
+
+// MarshalJSON JSON 序列化（避免 stack overflow）
+//
+// json.Marshal 会识别实现了 json.Marshaler 的类型并再次调用它的 MarshalJSON。
+// 直接把 UUIDArray 传进去会无限递归。必须先转成 []uuid.UUID（不是自定义类型）。
+func (u UUIDArray) MarshalJSON() ([]byte, error) {
+	if u == nil {
+		return []byte("[]"), nil
+	}
+	return json.Marshal([]uuid.UUID(u))
 }
