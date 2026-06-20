@@ -48,10 +48,15 @@ if grep -q '^WebUI\\Password_PBKDF2' "$CONF_PATH" 2>/dev/null; then
   exit 0
 fi
 
-# ---------- 3. 询问新密码 ----------
-read -r -p "新密码（直接回车用默认 MyNAS2026!qBit）: " NEW_PW
-NEW_PW="${NEW_PW:-MyNAS2026!qBit}"
-info "新密码: $NEW_PW"
+# ---------- 3. 默认用临时密码作为永久密码 ----------
+# 不需要询问用户——直接拿当前临时密码固化为永久密码。
+# 临时密码本身已经是随机生成的、强度足够（10 字符 [a-zA-Z0-9]），
+# 没有必要再换一个。省掉交互步骤也避免用户输入错误。
+#
+# 如果想指定别的密码，传环境变量即可：
+#   FIX_QBIT_PASSWORD="MyStrongPwd!" bash scripts/fix-qbit-password.sh
+NEW_PW="${FIX_QBIT_PASSWORD:-$TEMP_PW}"
+info "新密码（直接固化临时密码）: $NEW_PW"
 
 # ---------- 4. 登录拿 SID cookie ----------
 info "登录 qBit Web API..."
