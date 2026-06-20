@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc --noEmit && vite build",
+    "build": "vite build",
+    "build:check": "vue-tsc --noEmit && vite build",
     "preview": "vite preview --port 8080",
     "lint": "eslint . --ext .vue,.js,.ts,.tsx",
     "type-check": "vue-tsc --noEmit"
