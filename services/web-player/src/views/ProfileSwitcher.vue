@@ -49,7 +49,6 @@
 
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
-import { ElMessage } from 'element-plus'
 
 interface Profile {
   id: string
@@ -113,14 +112,14 @@ function onSelect(p: Profile) {
     // 这里需要从后端验证 PIN（W2 已经实现）
     // 简化：先信任前端 PIN 校验（生产环境必须走后端）
     if (pin.length < 4) {
-      ElMessage.warning('PIN 长度至少 4 位')
+      window.toast?.('PIN 长度至少 4 位', 'warning', 2000)
       return
     }
   }
   activeId.value = p.id
   localStorage.setItem('mediahub_profile_id', p.id)
   emit('switched', p)
-  ElMessage.success(`已切换到「${p.name}」`)
+  window.toast?.(`已切换到「${p.name}」`, 'success', 2000)
   visible.value = false
 }
 
@@ -133,7 +132,7 @@ function onCreate() {
 
 function onCreateConfirm() {
   if (!newProfile.name.trim()) {
-    ElMessage.warning('请输入昵称')
+    window.toast?.('请输入昵称', 'warning', 2000)
     return
   }
   creating.value = true
@@ -149,7 +148,7 @@ function onCreateConfirm() {
     saveProfiles()
     creating.value = false
     createVisible.value = false
-    ElMessage.success(`已添加「${p.name}」`)
+    window.toast?.(`已添加「${p.name}」`, 'success', 2000)
   }, 300)
 }
 </script>

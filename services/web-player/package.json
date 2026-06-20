@@ -11,7 +11,7 @@
     "type-check": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "vue": "^3.4.27",
+    "vue": "^3.5.13",
     "vue-router": "^4.3.2",
     "pinia": "^2.1.7",
     "axios": "^1.7.2",
@@ -24,9 +24,9 @@
     "@types/video.js": "^7.3.58",
     "@vitejs/plugin-vue": "^5.0.4",
     "@vue/tsconfig": "^0.5.1",
-    "typescript": "^5.4.5",
+    "typescript": "~5.4.5",
+    "vue-tsc": "~2.0.29",
     "vite": "^5.2.13",
-    "vue-tsc": "^2.0.21",
     "sass": "^1.77.5"
   }
 }

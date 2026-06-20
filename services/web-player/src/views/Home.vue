@@ -174,7 +174,7 @@ async function loadRecommendations() {
     let hotItems: FeedItem[] = []
     try {
       const hot = await recommendApi.hot(15)
-      hotItems = (hot.data || []).map((m: any) => ({
+      hotItems = hot.map((m: any) => ({
         media_id: m.id,
         title: m.title,
         year: m.year,

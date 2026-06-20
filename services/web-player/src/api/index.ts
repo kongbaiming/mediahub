@@ -1,12 +1,22 @@
-import axios from 'axios'
+import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from 'axios'
 
-const http = axios.create({
+/**
+ * 后端响应格式（统一约定）：
+ *  - 详情 / Feed / Profile：{ data: T }
+ *  - 列表：{ items: T[]; total: number; page: number; size: number }
+ *  - 续播：{ data: T | null }
+ *  - 简单操作：{ status: string } / { status: string; ...payload }
+ *
+ * axios 拦截器解出 res.data（去掉 axios 外壳）。
+ * api 方法用类型断言把响应转为业务类型 T。
+ */
+
+const http: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '',
   timeout: 30000,
 })
 
-// 自动注入 X-Profile-ID
-http.interceptors.request.use((config) => {
+http.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const profileId = localStorage.getItem('mediahub_profile_id')
   if (profileId && config.headers) {
     config.headers['X-Profile-ID'] = profileId
@@ -14,10 +24,13 @@ http.interceptors.request.use((config) => {
   return config
 })
 
+// 拦截器解出 res.data — 运行时拿到的是后端的整个 response body
 http.interceptors.response.use(
   (res) => res.data,
-  (err) => Promise.reject(err)
+  (err) => Promise.reject(err),
 )
+
+// ─── 类型定义 ───
 
 export interface FeedItem {
   media_id: string
@@ -47,10 +60,6 @@ export interface Feed {
   platform: string
   updated_at: string
   rows: FeedRow[]
-}
-
-export const feedApi = {
-  get: (platform = 'web') => http.get<Feed>(`/api/v1/feed/${platform}`),
 }
 
 export interface MediaDetail {
@@ -83,39 +92,11 @@ export interface MediaSummary {
   genres: string[]
 }
 
-export const mediaApi = {
-  get: (id: string) => http.get<{ data: MediaDetail }>(`/api/v1/media/${id}`),
-  list: (params: { q?: string; type?: string; page?: number; page_size?: number; sort?: string } = {}) =>
-    http.get<{ items: MediaSummary[]; total: number; page: number; size: number }>('/api/v1/media', { params }),
-}
-
-export const historyApi = {
-  record: (data: {
-    media_id: string
-    episode_id?: string
-    progress: number
-    duration: number
-  }) => http.post('/api/v1/history', { profile_id: localStorage.getItem('mediahub_profile_id') || '', ...data, device: 'web' }),
-
-  getResume: (mediaId: string) =>
-    http.get<{ data: { progress: number; duration: number; completed: boolean; updated_at: string } | null }>(`/api/v1/resume/${mediaId}`),
-
-  toggleFavorite: (data: { media_id: string; type?: string }) =>
-    http.post('/api/v1/favorites', { profile_id: localStorage.getItem('mediahub_profile_id') || '', ...data }),
-
-  getContinueWatching: (limit = 12) =>
-    http.get<{ data: any[]; total: number }>('/api/v1/continue-watching', { params: { limit } }),
-}
-
-export const recommendApi = {
-  hot: (limit = 20) =>
-    http.get<{ data: MediaSummary[] }>('/api/v1/recommend/hot', { params: { limit } }),
-
-  similar: (mediaId: string, limit = 12) =>
-    http.get<{ data: MediaSummary[] }>(`/api/v1/recommend/similar/${mediaId}`, { params: { limit } }),
-
-  forMe: (limit = 20) =>
-    http.get<{ data: MediaSummary[] }>('/api/v1/recommend/for-me', { params: { limit } }),
+export interface ResumeInfo {
+  progress: number
+  duration: number
+  completed: boolean
+  updated_at: string
 }
 
 export interface Profile {
@@ -126,7 +107,102 @@ export interface Profile {
   is_kid: boolean
 }
 
+// ─── API 方法 ───
+// 每个方法显式标注返回类型，调用方直接拿到业务类型，不需要 .data 包装
+
+export const feedApi = {
+  async get(platform = 'web'): Promise<Feed> {
+    const body = (await http.get<unknown>(`/api/v1/feed/${platform}`)) as { data: Feed }
+    return body.data
+  },
+}
+
+export const mediaApi = {
+  async get(id: string): Promise<MediaDetail> {
+    const body = (await http.get<unknown>(`/api/v1/media/${id}`)) as { data: MediaDetail }
+    return body.data
+  },
+
+  async list(
+    params: {
+      q?: string
+      type?: string
+      page?: number
+      page_size?: number
+      sort?: string
+    } = {},
+  ): Promise<{ items: MediaSummary[]; total: number; page: number; size: number }> {
+    return (await http.get<unknown>('/api/v1/media', { params })) as unknown as {
+      items: MediaSummary[]
+      total: number
+      page: number
+      size: number
+    }
+  },
+}
+
+export const historyApi = {
+  async record(data: {
+    media_id: string
+    episode_id?: string
+    progress: number
+    duration: number
+  }): Promise<{ status: string }> {
+    return http.post('/api/v1/history', {
+      profile_id: localStorage.getItem('mediahub_profile_id') || '',
+      ...data,
+      device: 'web',
+    }) as Promise<{ status: string }>
+  },
+
+  async getResume(mediaId: string): Promise<ResumeInfo | null> {
+    const body = (await http.get<unknown>(`/api/v1/resume/${mediaId}`)) as {
+      data: ResumeInfo | null
+    }
+    return body.data
+  },
+
+  async toggleFavorite(data: { media_id: string; type?: string }): Promise<{ status: string }> {
+    return http.post('/api/v1/favorites', {
+      profile_id: localStorage.getItem('mediahub_profile_id') || '',
+      ...data,
+    }) as Promise<{ status: string }>
+  },
+
+  async getContinueWatching(limit = 12): Promise<{ data: any[]; total: number }> {
+    return (await http.get<unknown>('/api/v1/continue-watching', {
+      params: { limit },
+    })) as unknown as { data: any[]; total: number }
+  },
+}
+
+export const recommendApi = {
+  async hot(limit = 20): Promise<MediaSummary[]> {
+    const body = (await http.get<unknown>('/api/v1/recommend/hot', {
+      params: { limit },
+    })) as { data: MediaSummary[] }
+    return body.data || []
+  },
+
+  async similar(mediaId: string, limit = 12): Promise<MediaSummary[]> {
+    const body = (await http.get<unknown>(`/api/v1/recommend/similar/${mediaId}`, {
+      params: { limit },
+    })) as { data: MediaSummary[] }
+    return body.data || []
+  },
+
+  async forMe(limit = 20): Promise<MediaSummary[]> {
+    const body = (await http.get<unknown>('/api/v1/recommend/for-me', {
+      params: { limit },
+    })) as { data: MediaSummary[] }
+    return body.data || []
+  },
+}
+
 // Profile API（Web Player 暂不需要登录，但保留接口）
 export const profileApi = {
-  list: () => http.get<{ data: Profile[] }>('/api/v1/profiles'),
+  async list(): Promise<Profile[]> {
+    const body = (await http.get<unknown>('/api/v1/profiles')) as { data: Profile[] }
+    return body.data || []
+  },
 }

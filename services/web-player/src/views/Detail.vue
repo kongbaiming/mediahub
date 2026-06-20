@@ -93,7 +93,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { ElMessage } from 'element-plus'
 import { mediaApi, historyApi, recommendApi, type MediaDetail, type MediaSummary } from '@/api'
 
 const route = useRoute()
@@ -111,13 +110,13 @@ async function load() {
   const id = route.params.id as string
   loading.value = true
   try {
-    const res = await mediaApi.get(id)
-    media.value = res.data
+    const data = await mediaApi.get(id)
+    media.value = data
 
     // 加载相似推荐
     try {
       const simRes = await recommendApi.similar(id, 12)
-      similar.value = (simRes.data || []).filter((m) => m.id !== id)
+      similar.value = simRes.filter((m) => m.id !== id)
     } catch (e) {
       similar.value = []
     }
@@ -134,7 +133,7 @@ async function toggleFavorite() {
       type: 'want',
     })
     favorited.value = !favorited.value
-    ElMessage.success(favorited.value ? '已加入收藏' : '已取消收藏')
+    window.toast?.(favorited.value ? '已加入收藏' : '已取消收藏', 'success', 2000)
   } catch {
     // ignore
   }

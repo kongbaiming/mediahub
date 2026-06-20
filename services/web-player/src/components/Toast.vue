@@ -10,11 +10,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-const props = defineProps<{
-  visible: boolean
-  message: string
-  type?: 'info' | 'success' | 'warning' | 'error'
-}>()
+const props = defineProps({
+  visible: { type: Boolean, required: true },
+  message: { type: String, required: true },
+  type: { type: String, default: 'info' },
+})
 
 const icon = computed(() => {
   switch (props.type) {

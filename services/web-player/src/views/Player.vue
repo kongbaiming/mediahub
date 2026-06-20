@@ -62,12 +62,12 @@ const REPORT_INTERVAL = 10
 
 async function loadMedia() {
   try {
-    const res = await mediaApi.get(route.params.id as string)
-    media.value = res.data
+    const data = await mediaApi.get(route.params.id as string)
+    media.value = data
 
     try {
-      const r = await historyApi.getResume(res.data.id)
-      if (r.data) resumeInfo.value = r.data
+      const resume = await historyApi.getResume(data.id)
+      if (resume) resumeInfo.value = resume
     } catch {
       // no history
     }
