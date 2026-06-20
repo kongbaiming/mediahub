@@ -333,11 +333,7 @@ function formatTime(seconds: number) {
 }
 
 onMounted(async () => {
-  let profileId = localStorage.getItem('mediahub_profile_id')
-  if (!profileId) {
-    profileId = '00000000-0000-0000-0000-000000000001'
-    localStorage.setItem('mediahub_profile_id', profileId)
-  }
+  await historyApi.ensureProfileId()
   await loadMedia()
 
   // 自动聚焦接收键盘事件

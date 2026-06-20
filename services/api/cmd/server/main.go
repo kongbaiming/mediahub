@@ -131,10 +131,13 @@ func main() {
 	if err := authSvc.EnsureDefaultAdmin(context.Background()); err != nil {
 		logger.Warn("确保默认管理员失败", "err", err)
 	}
+	if err := authSvc.EnsureDefaultWebProfile(context.Background()); err != nil {
+		logger.Warn("确保 Web 默认 Profile 失败", "err", err)
+	}
 
 	mediaSvc := service.NewMediaService(mediaRepo, q)
 	layoutSvc := service.NewLayoutService(layoutRepo)
-	historySvc := service.NewHistoryService(historyRepo)
+	historySvc := service.NewHistoryService(historyRepo, userRepo)
 	profileSvc := service.NewProfileService(userRepo)
 
 	// 推荐引擎

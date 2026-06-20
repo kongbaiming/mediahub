@@ -2,15 +2,17 @@ package scanner
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 )
 
 var (
-	bracketTagRe    = regexp.MustCompile(`\[[^\]]*\]`)
-	leadingHanTitle = regexp.MustCompile(`^[\p{Han}丨]+`)
+	bracketTagRe     = regexp.MustCompile(`\[[^\]]*\]`)
+	leadingHanTitle  = regexp.MustCompile(`^[\p{Han}]+`)
 	seriesNoSuffixRe = regexp.MustCompile(`^\d+[\p{Han}]+`)
+	yearInParensRe   = regexp.MustCompile(`[\(（]\s*(19|20)\d{2}\s*[\)）]\.?$`)
 )
 
 // SeriesFolderTitle 从专辑文件夹名提取 TMDB 搜索用剧名（去掉 Emby 画质/发布组后缀）
@@ -18,8 +20,36 @@ func SeriesFolderTitle(folderName string) string {
 	return cleanSeriesAlbumTitle(folderName)
 }
 
-func cleanSeriesAlbumTitle(name string) string {
+// SeriesFolderYear 从文件夹名括号中提取年份（如 「西行(2024)」→ 2024）
+func SeriesFolderYear(folderName string) *int {
+	m := yearInParensRe.FindStringSubmatch(strings.TrimSpace(folderName))
+	if len(m) < 2 {
+		return nil
+	}
+	full := m[0]
+	digits := regexp.MustCompile(`(19|20)\d{2}`).FindString(full)
+	if digits == "" {
+		return nil
+	}
+	y, err := strconv.Atoi(digits)
+	if err != nil || y <= 0 {
+		return nil
+	}
+	return &y
+}
+
+func normalizeSeriesFolderName(name string) string {
 	name = strings.TrimSpace(name)
+	name = strings.TrimSuffix(name, ".")
+	name = strings.ReplaceAll(name, "丨", "")
+	name = strings.ReplaceAll(name, "·", "")
+	name = strings.ReplaceAll(name, "•", "")
+	name = yearInParensRe.ReplaceAllString(name, "")
+	return strings.TrimSpace(name)
+}
+
+func cleanSeriesAlbumTitle(name string) string {
+	name = normalizeSeriesFolderName(name)
 	if name == "" {
 		return ""
 	}

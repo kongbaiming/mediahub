@@ -27,3 +27,17 @@ func TestSearchQueries_StripsBracketTags(t *testing.T) {
 		t.Fatalf("got %v", qs)
 	}
 }
+
+func TestSearchQueries_NormalizesSeriesTitle(t *testing.T) {
+	qs := SearchQueries("唐丨朝诡事录之西行(2024)")
+	found := map[string]bool{}
+	for _, q := range qs {
+		found[q] = true
+	}
+	if !found["唐朝诡事录之西行"] {
+		t.Fatalf("missing cleaned title, got %v", qs)
+	}
+	if !found["唐朝诡事录"] {
+		t.Fatalf("missing parent title, got %v", qs)
+	}
+}

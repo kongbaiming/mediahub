@@ -260,14 +260,10 @@ function loadProfiles() {
 }
 
 onMounted(async () => {
+  await historyApi.ensureProfileId()
   loadProfiles()
 
-  let profileId = localStorage.getItem('mediahub_profile_id')
-  if (!profileId) {
-    profileId = profiles.value[0]?.id || '00000000-0000-0000-0000-000000000001'
-    localStorage.setItem('mediahub_profile_id', profileId)
-    currentProfileId.value = profileId
-  }
+  currentProfileId.value = localStorage.getItem('mediahub_profile_id') || profiles.value[0]?.id || ''
 
   await loadFeed()
   await loadRecommendations()

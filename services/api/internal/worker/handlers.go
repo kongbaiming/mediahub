@@ -84,11 +84,20 @@ func (h *Handlers) HandleScrape(ctx context.Context, t *asynq.Task) error {
 	// 3. 搜索 TMDB（剧集始终用专辑文件夹名，不用 Emby 后缀）
 	var tmdbInfo *scraperResult
 	if m.IsTV() {
-		searchTitle := scanner.SeriesFolderTitle(filepath.Base(m.StoragePath))
+		folder := filepath.Base(m.StoragePath)
+		searchTitle := scanner.SeriesFolderTitle(folder)
 		if searchTitle == "" {
 			searchTitle = m.Title
 		}
-		tmdbInfo, err = h.searchTVShow(ctx, searchTitle, m.Year, nil, nil)
+		searchYear := m.Year
+		if searchYear == nil {
+			searchYear = scanner.SeriesFolderYear(folder)
+		}
+		tmdbInfo, err = h.searchTVShow(ctx, searchTitle, searchYear, nil, nil)
+		if err != nil && searchYear != nil {
+			// 文件夹年份可能与 TMDB first_air_date 不一致，去掉年份再试
+			tmdbInfo, err = h.searchTVShow(ctx, searchTitle, nil, nil, nil)
+		}
 	} else {
 		tmdbInfo, err = h.searchMovie(ctx, m.Title, m.Year)
 	}

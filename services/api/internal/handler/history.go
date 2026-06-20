@@ -19,6 +19,21 @@ func NewHistoryHandler(svc *service.HistoryService) *HistoryHandler {
 	return &HistoryHandler{svc: svc}
 }
 
+// DefaultProfile 返回 Web 播放端默认 Profile（无需登录）
+func (h *HistoryHandler) DefaultProfile(c *gin.Context) {
+	p, err := h.svc.DefaultWebProfile(c.Request.Context())
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"data": gin.H{
+		"id":      p.ID,
+		"name":    p.Name,
+		"is_kid":  p.IsKid,
+		"user_id": p.UserID,
+	}})
+}
+
 // Record 记录播放进度
 func (h *HistoryHandler) Record(c *gin.Context) {
 	var req service.RecordProgress

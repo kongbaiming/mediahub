@@ -164,6 +164,27 @@ export const mediaApi = {
 }
 
 export const historyApi = {
+  async getDefaultProfile(): Promise<Profile> {
+    const body = (await http.get<unknown>('/api/v1/playback/default-profile')) as {
+      data: Profile
+    }
+    return body.data
+  },
+
+  async ensureProfileId(): Promise<string> {
+    const stored = localStorage.getItem('mediahub_profile_id')
+    if (stored) return stored
+    try {
+      const profile = await historyApi.getDefaultProfile()
+      localStorage.setItem('mediahub_profile_id', profile.id)
+      return profile.id
+    } catch {
+      const fallback = '00000000-0000-0000-0000-000000000001'
+      localStorage.setItem('mediahub_profile_id', fallback)
+      return fallback
+    }
+  },
+
   async record(data: {
     media_id: string
     episode_id?: string

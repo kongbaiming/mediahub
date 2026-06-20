@@ -216,6 +216,30 @@ func (s *AuthService) EnsureDefaultAdmin(ctx context.Context) error {
 	return s.users.CreateProfile(ctx, p)
 }
 
+// DefaultWebProfileID 与 Web 播放器 localStorage 约定的默认 Profile
+const DefaultWebProfileID = "00000000-0000-0000-0000-000000000001"
+
+// EnsureDefaultWebProfile 确保 Web 播放端默认 Profile 存在（history FK 依赖）
+func (s *AuthService) EnsureDefaultWebProfile(ctx context.Context) error {
+	if _, err := s.users.GetProfile(ctx, DefaultWebProfileID); err == nil {
+		return nil
+	} else if ae, ok := apperr.As(err); !ok || ae.Code != apperr.CodeNotFound {
+		return err
+	}
+
+	admin, err := s.users.GetByUsername(ctx, "admin")
+	if err != nil {
+		return err
+	}
+
+	p := &user.Profile{
+		UserID: admin.ID,
+		Name:   "默认",
+	}
+	p.ID = uuid.MustParse(DefaultWebProfileID)
+	return s.users.CreateProfile(ctx, p)
+}
+
 // Helper: uuid nil 检查
 func isValidUUID(s string) bool {
 	_, err := uuid.Parse(s)

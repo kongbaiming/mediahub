@@ -6,6 +6,7 @@ import (
 	"github.com/mediahub/api/internal/apperr"
 	"github.com/mediahub/api/internal/domain/common"
 	"github.com/mediahub/api/internal/domain/history"
+	"github.com/mediahub/api/internal/domain/user"
 	"github.com/mediahub/api/internal/repository"
 
 	"github.com/google/uuid"
@@ -13,12 +14,13 @@ import (
 
 // HistoryService 历史与收藏业务
 type HistoryService struct {
-	repo *repository.HistoryRepo
+	repo     *repository.HistoryRepo
+	profiles *repository.UserRepo
 }
 
 // NewHistoryService 构造
-func NewHistoryService(repo *repository.HistoryRepo) *HistoryService {
-	return &HistoryService{repo: repo}
+func NewHistoryService(repo *repository.HistoryRepo, profiles *repository.UserRepo) *HistoryService {
+	return &HistoryService{repo: repo, profiles: profiles}
 }
 
 // RecordProgress 记录播放进度
@@ -57,6 +59,16 @@ func (s *HistoryService) RecordProgress(ctx context.Context, req RecordProgress)
 		}
 		h.EpisodeID = &eid
 	}
+
+	if s.profiles != nil {
+		if _, err := s.profiles.GetProfile(ctx, req.ProfileID); err != nil {
+			if ae, ok := apperr.As(err); ok && ae.Code == apperr.CodeNotFound {
+				return apperr.BadRequest("Profile 不存在，请刷新页面或重新选择成员")
+			}
+			return err
+		}
+	}
+
 	return s.repo.UpsertHistory(ctx, h)
 }
 
@@ -79,6 +91,14 @@ func (s *HistoryService) GetContinueWatching(ctx context.Context, profileID stri
 // GetResumePoint 获取某媒资的续播位置
 func (s *HistoryService) GetResumePoint(ctx context.Context, profileID, mediaID string) (*history.History, error) {
 	return s.repo.GetLatestByMedia(ctx, profileID, mediaID)
+}
+
+// DefaultWebProfile 获取 Web 播放端默认 Profile
+func (s *HistoryService) DefaultWebProfile(ctx context.Context) (*user.Profile, error) {
+	if s.profiles == nil {
+		return nil, apperr.Internal("Profile 服务未配置")
+	}
+	return s.profiles.GetProfile(ctx, DefaultWebProfileID)
 }
 
 // ToggleFavorite 切换收藏

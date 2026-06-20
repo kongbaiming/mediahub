@@ -77,8 +77,8 @@ func TestParseFilePath_S02E01WithQualitySuffix(t *testing.T) {
 	if got.Type != "episode" {
 		t.Fatalf("Type = %q, want episode", got.Type)
 	}
-	if got.Title != "唐丨朝诡事录之西行" {
-		t.Fatalf("Title = %q, want 唐丨朝诡事录之西行", got.Title)
+	if got.Title != "唐朝诡事录之西行" {
+		t.Fatalf("Title = %q, want 唐朝诡事录之西行", got.Title)
 	}
 	if got.Season == nil || *got.Season != 2 {
 		t.Fatalf("Season = %v, want 2", got.Season)
@@ -141,10 +141,18 @@ func TestSeriesFolderTitle(t *testing.T) {
 		{"陈佩斯朱时茂小品集[4KHDR.CN]4K修复版[收藏版]", "陈佩斯朱时茂小品集"},
 		{"T唐朝诡事录0509", "唐朝诡事录"},
 		{"冰河世纪4", "冰河世纪4"},
+		{"唐丨朝诡事录之西行(2024).", "唐朝诡事录之西行"},
 	}
 	for _, tt := range tests {
 		if got := SeriesFolderTitle(tt.in); got != tt.want {
 			t.Errorf("SeriesFolderTitle(%q) = %q, want %q", tt.in, got, tt.want)
 		}
+	}
+}
+
+func TestSeriesFolderYear(t *testing.T) {
+	y := SeriesFolderYear("唐丨朝诡事录之西行(2024).")
+	if y == nil || *y != 2024 {
+		t.Fatalf("year = %v, want 2024", y)
 	}
 }
