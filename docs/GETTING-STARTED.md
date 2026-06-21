@@ -101,7 +101,7 @@ cp .env.example .env
 ```bash
 ssh admin@nas.local
 cd /volume1/docker
-git clone https://github.com/<your-user>/mediahub.git
+git clone https://github.com/kongbaiming/mediahub.git
 cd mediahub
 cp .env.example .env
 ```
@@ -190,8 +190,11 @@ QBIT_PASSWORD=...  # ← 填入
 
 # ====== 转码 ======
 TRANSCODE_ENABLED=true
-TRANSCODE_HW_ACCEL=qsv
-TRANSCODE_MAX_BITRATE=8000k
+TRANSCODE_HW_ACCEL=qsv               # Intel Quick Sync；无 GPU 用 none
+TRANSCODE_MAX_BITRATE=2500k          # HLS 默认码率（v0.3+）
+TRANSCODE_MAX_HEIGHT=480             # HLS 默认分辨率
+TRANSCODE_PRESET=ultrafast
+TRANSCODE_SEGMENT_TIME=4
 
 # ====== 刮削 ======
 SCRAPER_WORKER_COUNT=3
@@ -414,9 +417,12 @@ INFO  media updated   scrape_status=done
 | 2 | Shelf | **最近添加** | 最近添加 | Poster |
 | 3 | Shelf | **类型 - 动作** | 动作片 | Poster |
 | 4 | Shelf | **类型 - 科幻** | 科幻片 | Poster |
-| 5 | Shelf | **推荐 - 热门** | 热门推荐 | Poster |
+| 5 | Shelf | **猜你喜欢** | 猜你喜欢 | Poster |
+| 6 | Shelf | **推荐 - 热门** | 热门推荐 | Poster |
 
-> 💡 **没数据？** 至少添加 `Hero 推荐` + `最近添加` 两行就够了，单个媒资也会显示。
+> **v0.3+ 提示**：「猜你喜欢」数据源类型为 `guess-you-like`，会根据观影历史 + TMDB 推荐；未刮削的媒资也能通过库内兜底显示。保存布局后 Web Player 约 5 分钟内自动刷新 Feed（或 `docker compose restart api` 立即生效）。
+
+> 💡 **没数据？** 至少添加 `Hero 推荐` + `最近添加` 两行；有观影历史后「继续观看」「猜你喜欢」才会有内容。
 
 ### 7.3 启用 + 发布
 
@@ -434,11 +440,11 @@ INFO  media updated   scrape_status=done
 
 浏览器 → **http://nas.local:8081**
 
-**期望看到**：
+**期望看到**（内容与 CMS 已发布布局一致，无额外硬编码行）：
 
-1. 顶部 Hero 区显示刚刮削的电影（带背景大图 + 标题 + 元数据 + 播放/详情按钮）
-2. 下方 4-5 行横滑卡片
-3. 右上角有 🔍 搜索 + 👤 Profile 切换按钮
+1. 顶部 Hero 区（来自 `hero-banner` 行）
+2. 下方各行：继续观看、猜你喜欢、剧集/电影等（按布局顺序）
+3. 右上角 🔍 搜索 + 👤 Profile 切换
 
 📸 **截图保存**：`screenshots/03-webplayer-home.png`
 
@@ -806,7 +812,14 @@ docker exec mediahub-api sh -c \
 
 返回 JSON 说明 key 正确。
 
-### Q3: Web Player 显示空白
+### Q3: Web Player 首页与 CMS 布局不一致
+
+1. 确认布局已在 CMS **发布**到 `web` 平台
+2. 检查 Feed API：`curl -s http://localhost:3000/api/v1/feed/web | jq '.data.version, (.data.rows | length)'`
+3. 若 version 过旧：重启 API 清 Feed 缓存 — `docker compose restart api`
+4. 浏览器 **Ctrl+F5** 强刷，避免前端缓存
+
+### Q4: Web Player 显示空白
 
 打开浏览器 DevTools（F12）→ Console 看错误：
 
@@ -814,16 +827,18 @@ docker exec mediahub-api sh -c \
 - `404 on /api/v1/feed/web` → 布局未发布
 - `401 Unauthorized` → Token 过期，重新登录
 
-### Q4: 视频播放失败
+### Q5: 视频播放失败 / HLS 转码失败
 
 ```bash
 docker compose logs api | grep -i hls
 ```
 
-- `/dev/dri` 不存在 → 检查硬件加速配置
-- 文件不存在 → 检查 `MEDIA_ROOT` 路径是否对得上 NAS 路径
+- `/dev/dri` 不存在 → 检查硬件加速，或 `.env` 设 `TRANSCODE_HW_ACCEL=none`
+- 文件在 `/downloads` → v0.3+ 已支持，确认 `DOWNLOAD_ROOT` 已挂载
+- **EBML header parsing failed / 文件过小** → qBit 尚未下完，等进度 100% 后再播
+- **task not found** → 通常是转码未启动成功，查看上一条；重启 API 后重试
 
-### Q5: qBittorrent WebUI 进不去
+### Q6: qBittorrent WebUI 进不去
 
 默认端口 8082，第一次启动需要等 30 秒初始化。
 
@@ -833,7 +848,7 @@ docker compose logs qbittorrent | tail -20
 
 看到 `WebUI listening on ...` 就 OK 了。
 
-### Q6: Android Studio 同步失败
+### Q7: Android Studio 同步失败
 
 - 检查 `gradle/wrapper/gradle-wrapper.properties` 里的 distribution URL
 - 国内环境换成阿里云镜像：
@@ -841,7 +856,7 @@ docker compose logs qbittorrent | tail -20
   distributionUrl=https\://mirrors.aliyun.com/macports/distfiles/gradle/gradle-8.5-bin.zip
   ```
 
-### Q7: Docker build 太慢
+### Q8: Docker build 太慢
 
 国内加速：
 
@@ -883,7 +898,7 @@ sudo systemctl restart docker
 ## 📚 相关文档
 
 - [README.md](../README.md) - 项目总览
-- [CHANGELOG.md](../CHANGELOG.md) - 版本变更
+- [CHANGELOG.md](../CHANGELOG.md) - 版本变更（当前 **v0.3.0**）
 - [家庭媒资中心-DS920+定制方案.md](家庭媒资中心-DS920+定制方案.md) - 硬件 + 部署方案
 - [Makefile](../Makefile) - 一键命令
 
