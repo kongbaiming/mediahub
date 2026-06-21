@@ -43,9 +43,14 @@ func NewHandlers(
 	scannerSvc *scanner.Service,
 	subSvc *subtitle.Service,
 	mediaRoot string,
+	downloadRoot string,
 	hlsCacheRoot string,
 	transcode HLSTranscodeSettings,
 ) *Handlers {
+	streamRoots := []string{mediaRoot}
+	if downloadRoot != "" && downloadRoot != mediaRoot {
+		streamRoots = append(streamRoots, downloadRoot)
+	}
 	h := &Handlers{
 		Media:         NewMediaHandler(media),
 		Layout:        NewLayoutHandler(layout, feed),
@@ -54,7 +59,7 @@ func NewHandlers(
 		History:       NewHistoryHandler(history),
 		Profile:       NewProfileHandler(profile),
 		Recommend:     NewRecommendHandler(recommend),
-		Stream:        StreamHandler(mediaRoot, hlsCacheRoot, transcode),
+		Stream:        StreamHandler(streamRoots, hlsCacheRoot, transcode),
 		HLSPlaylist:   ServeHLSPlaylist(hlsCacheRoot),
 		HLSTaskStatus: GetHLSTaskStatus(hlsCacheRoot),
 		HLSCacheRoot:  hlsCacheRoot,

@@ -242,7 +242,7 @@ func main() {
 	if hlsCache == "" {
 		hlsCache = "/data/hls-cache"
 	}
-	h := handler.NewHandlers(mediaSvc, layoutSvc, authSvc, feedSvc, historySvc, profileSvc, recommendSvc, downloaderSvc, scannerSvc, subtitleSvc, cfg.Media.Root, hlsCache, handler.HLSTranscodeSettings{
+	h := handler.NewHandlers(mediaSvc, layoutSvc, authSvc, feedSvc, historySvc, profileSvc, recommendSvc, downloaderSvc, scannerSvc, subtitleSvc, cfg.Media.Root, cfg.Media.DownloadRoot, hlsCache, handler.HLSTranscodeSettings{
 		HWAccel:     cfg.Transcode.HWAccel,
 		MaxBitrate:  cfg.Transcode.MaxBitrate,
 		MaxHeight:   cfg.Transcode.MaxHeight,

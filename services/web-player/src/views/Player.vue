@@ -152,6 +152,9 @@ async function startHLSPlayback(streamId: string, storagePath: string) {
   const startUrl = `/api/v1/stream/hls?path=${encodeURIComponent(storagePath)}&media_id=${streamId}`
   const resp = await fetch(startUrl)
   const data = await resp.json()
+  if (!resp.ok) {
+    throw new Error(data.message || data.error || `转码启动失败 (${resp.status})`)
+  }
 
   const playlistUrl = `/api/v1/stream/hls/${streamId}/playlist.m3u8`
 
@@ -184,6 +187,9 @@ async function pollAndPlayHLS(streamId: string, playlistUrl: string, alreadyAtta
     await sleep(1500)
     const resp = await fetch(`/api/v1/stream/hls/${streamId}/status`)
     const st = await resp.json()
+    if (!resp.ok) {
+      throw new Error(st.message || st.error || 'HLS 状态查询失败')
+    }
     if (st.status === 'failed') {
       throw new Error(st.error || 'HLS 转码失败')
     }
