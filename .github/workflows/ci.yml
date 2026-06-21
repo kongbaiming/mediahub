@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   # ---------- 后端 Go ----------
   backend:
@@ -128,18 +132,18 @@ jobs:
         with:
           context: services/api
           push: true
-          tags: ghcr.io/mediahub/mediahub-api:latest,ghcr.io/mediahub/mediahub-api:${{ github.sha }}
+          tags: ghcr.io/${{ github.repository_owner }}/mediahub-api:latest,ghcr.io/${{ github.repository_owner }}/mediahub-api:${{ github.sha }}
 
       - name: Build & push Admin
         uses: docker/build-push-action@v5
         with:
           context: services/admin
           push: true
-          tags: ghcr.io/mediahub/mediahub-admin:latest,ghcr.io/mediahub/mediahub-admin:${{ github.sha }}
+          tags: ghcr.io/${{ github.repository_owner }}/mediahub-admin:latest,ghcr.io/${{ github.repository_owner }}/mediahub-admin:${{ github.sha }}
 
       - name: Build & push Web Player
         uses: docker/build-push-action@v5
         with:
           context: services/web-player
           push: true
-          tags: ghcr.io/mediahub/mediahub-web-player:latest,ghcr.io/mediahub/mediahub-web-player:${{ github.sha }}
+          tags: ghcr.io/${{ github.repository_owner }}/mediahub-web-player:latest,ghcr.io/${{ github.repository_owner }}/mediahub-web-player:${{ github.sha }}
