@@ -98,9 +98,9 @@
         <div class="similar-row">
           <div
             v-for="m in similar"
-            :key="m.media_id"
+            :key="m.id"
             class="similar-card"
-            @click="$router.push(`/media/${m.media_id}`)"
+            @click="$router.push(`/media/${m.id}`)"
           >
             <div class="poster-card">
               <img v-if="m.poster_url" :src="m.poster_url" :alt="m.title" loading="lazy" />

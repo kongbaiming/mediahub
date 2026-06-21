@@ -91,7 +91,7 @@
         description="CMS 里还没有发布布局或媒资。打开后台添加内容吧。"
         :action="{
           label: '前往 CMS Admin',
-          onClick: () => window.open('/admin', '_blank'),
+          onClick: openCmsAdmin,
         }"
       />
     </main>
@@ -150,6 +150,10 @@ const heroBg = computed(() => {
   const url = heroItem.value?.backdrop_url || heroItem.value?.poster_url
   return url ? { backgroundImage: `url(${url})` } : {}
 })
+
+function openCmsAdmin() {
+  window.open('/admin', '_blank')
+}
 
 async function loadFeed() {
   loading.value = true

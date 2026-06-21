@@ -1,6 +1,5 @@
 /// <reference types="vite/client" />
 
-// Vite 环境变量类型
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL: string
 }
@@ -9,7 +8,6 @@ interface ImportMeta {
   readonly env: ImportMetaEnv
 }
 
-// 全局 window 扩展（由 components/ToastHost.vue 挂载）
 interface Window {
   toast: (
     message: string,
@@ -18,8 +16,15 @@ interface Window {
   ) => void
 }
 
-// 全局组件类型（main.ts 里 app.use(ElementPlus) 后可用）
-// vue-tsc 默认不知道全局注册的组件，需要在这里声明
+declare module '*.vue' {
+  import type { DefineComponent } from 'vue'
+  const component: DefineComponent<object, object, unknown>
+  export default component
+}
+
+// 全局 Element Plus 组件（app.use(ElementPlus) 后模板可用）
+import type {} from 'vue'
+
 declare module 'vue' {
   export interface GlobalComponents {
     ElMessage: typeof import('element-plus/es')['ElMessage']
@@ -29,5 +34,7 @@ declare module 'vue' {
     ElButton: typeof import('element-plus/es')['ElButton']
     ElDialog: typeof import('element-plus/es')['ElDialog']
     ElIcon: typeof import('element-plus/es')['ElIcon']
+    ElTag: typeof import('element-plus/es')['ElTag']
+    ElSwitch: typeof import('element-plus/es')['ElSwitch']
   }
 }

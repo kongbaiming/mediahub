@@ -23,7 +23,7 @@ func TestLayoutConfig_JSON(t *testing.T) {
 						"ids": []string{"tt1", "tt2"},
 					},
 				},
-				Visible: true,
+				Visible: boolPtr(true),
 			},
 			{
 				ID:        "row-2",
@@ -202,3 +202,5 @@ func TestFeedRow_JSON(t *testing.T) {
 }
 
 func yearPtr(y int) *int { return &y }
+
+func boolPtr(v bool) *bool { return &v }
