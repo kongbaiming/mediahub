@@ -40,19 +40,20 @@
       <aside class="component-panel">
         <div class="panel-title">组件</div>
         <VueDraggable
-          :list="paletteItems"
+          :model-value="paletteItems"
           :group="{ name: 'layout', pull: 'clone', put: false }"
           :clone="clonePaletteItem"
           :sort="false"
-          item-key="type"
           class="palette"
         >
-          <template #item="{ element }">
-            <div class="palette-item">
-              <el-icon><component :is="element.icon" /></el-icon>
-              <span>{{ element.label }}</span>
-            </div>
-          </template>
+          <div
+            v-for="element in paletteItems"
+            :key="element.type"
+            class="palette-item"
+          >
+            <el-icon><component :is="element.icon" /></el-icon>
+            <span>{{ element.label }}</span>
+          </div>
         </VueDraggable>
 
         <div class="panel-title mt-16">数据源</div>
@@ -77,64 +78,63 @@
             <VueDraggable
               v-model="layoutRows"
               :group="{ name: 'layout' }"
-              item-key="id"
               handle=".row-handle"
-              animation="200"
+              :animation="200"
               class="rows-container"
               @end="onRowOrderChange"
             >
-              <template #item="{ element, index }">
-                <div
-                  class="layout-row"
-                  :class="{
-                    active: selectedRowIndex === index,
-                    'inherited': element._inherited,
-                  }"
-                  @click="selectedRowIndex = index"
-                >
-                  <div class="row-handle">
-                    <el-icon><Rank /></el-icon>
+              <div
+                v-for="(element, index) in layoutRows"
+                :key="element.id"
+                class="layout-row"
+                :class="{
+                  active: selectedRowIndex === index,
+                  inherited: element._inherited,
+                }"
+                @click="selectedRowIndex = index"
+              >
+                <div class="row-handle">
+                  <el-icon><Rank /></el-icon>
+                </div>
+                <div class="row-content">
+                  <div class="row-header">
+                    <el-tag size="small" type="primary">{{ rowTypeLabel(element.type) }}</el-tag>
+                    <el-tag v-if="element._inherited" size="small" type="info">继承</el-tag>
+                    <span class="row-title">{{ element.title || '(未命名)' }}</span>
+                    <span v-if="previewItems(element.id).length" class="row-meta">
+                      {{ previewItems(element.id).length }} 项
+                    </span>
+                    <span v-else class="row-meta row-meta--muted">
+                      {{ dataSourceLabel(element.source?.type) }}
+                    </span>
+                    <div class="row-actions">
+                      <el-switch v-model="element.visible" size="small" :disabled="element._inherited" />
+                      <el-button v-if="!element._inherited" text size="small" @click.stop="removeRow(index)">
+                        <el-icon><Delete /></el-icon>
+                      </el-button>
+                    </div>
                   </div>
-                  <div class="row-content">
-                    <div class="row-header">
-                      <el-tag size="small" type="primary">{{ rowTypeLabel(element.type) }}</el-tag>
-                      <el-tag v-if="element._inherited" size="small" type="info">继承</el-tag>
-                      <span class="row-title">{{ element.title || '(未命名)' }}</span>
-                      <span v-if="previewItems(element.id).length" class="row-meta">
-                        {{ previewItems(element.id).length }} 项
-                      </span>
-                      <span v-else class="row-meta row-meta--muted">
-                        {{ dataSourceLabel(element.source?.type) }}
-                      </span>
-                      <div class="row-actions">
-                        <el-switch v-model="element.visible" size="small" :disabled="element._inherited" />
-                        <el-button v-if="!element._inherited" text size="small" @click.stop="removeRow(index)">
-                          <el-icon><Delete /></el-icon>
-                        </el-button>
-                      </div>
-                    </div>
-                    <div class="row-preview" :class="`card-style-${element.card_style || 'poster'}`">
-                      <template v-if="previewItems(element.id).length">
-                        <div
-                          v-for="item in previewItems(element.id).slice(0, 8)"
-                          :key="item.media_id"
-                          class="preview-card preview-card--real"
-                          :title="item.title"
-                        >
-                          <div class="preview-card-media">
-                            <img v-if="item.poster_url" :src="item.poster_url" :alt="item.title" loading="lazy" />
-                            <span v-else class="preview-card-label">{{ item.title?.slice(0, 6) }}</span>
-                          </div>
-                          <div class="preview-card-caption">{{ item.title }}</div>
+                  <div class="row-preview" :class="`card-style-${element.card_style || 'poster'}`">
+                    <template v-if="previewItems(element.id).length">
+                      <div
+                        v-for="item in previewItems(element.id).slice(0, 8)"
+                        :key="item.media_id"
+                        class="preview-card preview-card--real"
+                        :title="item.title"
+                      >
+                        <div class="preview-card-media">
+                          <img v-if="item.poster_url" :src="item.poster_url" :alt="item.title" loading="lazy" />
+                          <span v-else class="preview-card-label">{{ item.title?.slice(0, 6) }}</span>
                         </div>
-                      </template>
-                      <template v-else>
-                        <div v-for="i in 5" :key="i" class="preview-card preview-card--placeholder"></div>
-                      </template>
-                    </div>
+                        <div class="preview-card-caption">{{ item.title }}</div>
+                      </div>
+                    </template>
+                    <template v-else>
+                      <div v-for="i in 5" :key="i" class="preview-card preview-card--placeholder"></div>
+                    </template>
                   </div>
                 </div>
-              </template>
+              </div>
             </VueDraggable>
 
             <div v-if="!layoutRows.length" class="empty-canvas">
@@ -515,6 +515,17 @@ async function detectPreviewPlatform() {
   }
 }
 
+function unwrapApiData<T>(res: unknown): T {
+  if (!res || typeof res !== 'object') return res as T
+  const obj = res as Record<string, unknown>
+  const inner = obj.data
+  if (inner && typeof inner === 'object' && 'id' in (inner as object)) {
+    return inner as T
+  }
+  if ('id' in obj) return res as T
+  return (inner ?? res) as T
+}
+
 async function load() {
   loading.value = true
   try {
@@ -522,14 +533,15 @@ async function load() {
       layoutApi.get(route.params.id as string, { editor: true }),
       layoutApi.list({ is_template: true }),
     ])
-    layout.value = l.data
-    parentLayoutId.value = l.data.parent_id || ''
-    layoutRows.value = (l.data.config?.rows || []).map((r) => ({
+    const layoutData = unwrapApiData<Layout>(l)
+    layout.value = layoutData
+    parentLayoutId.value = layoutData.parent_id || ''
+    layoutRows.value = (layoutData.config?.rows || []).map((r) => ({
       ...r,
       visible: r.visible !== false,
       source: r.source || { type: 'trending', params: {} },
     }))
-    templateLayouts.value = t.data
+    templateLayouts.value = (t as { data?: LayoutType[] }).data ?? []
     await detectPreviewPlatform()
     await loadPreview()
   } finally {
