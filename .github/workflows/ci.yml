@@ -52,20 +52,13 @@ jobs:
         env:
           DATABASE_URL: postgres://mediahub:postgres@localhost:5432/mediahub_test?sslmode=disable
           REDIS_URL: redis://localhost:6379/0
-        run: go test -race -coverprofile=coverage.out ./...
+        run: go test -race ./...
 
       - name: Build
         working-directory: services/api
         run: |
           CGO_ENABLED=0 go build -o /tmp/mediahub-api ./cmd/server
           CGO_ENABLED=0 GOOS=linux go build -o /tmp/mediahub-api-linux ./cmd/server
-
-      - name: Upload coverage
-        if: github.ref == 'refs/heads/main'
-        uses: codecov/codecov-action@v4
-        with:
-          files: services/api/coverage.out
-          flags: backend
 
   # ---------- 前端 Admin ----------
   admin:
