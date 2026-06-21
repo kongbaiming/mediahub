@@ -66,6 +66,8 @@ func (s *LayoutService) EnsureGuessYouLikeRows(ctx context.Context) error {
 			}
 		}
 	}
+	// 启动时强制刷新首页 Feed 缓存（避免布局已改但 Redis 仍是旧数据）
+	s.invalidateHomeFeeds(ctx)
 	return nil
 }
 
@@ -100,15 +102,7 @@ func (s *LayoutService) ensureGuessRowForLayout(ctx context.Context, layoutID st
 	if err := s.repo.Update(ctx, l); err != nil {
 		return err
 	}
-
-	if s.feedInvalidator != nil {
-		if layoutHasRowID(*l, "hero-web") {
-			_ = s.feedInvalidator(ctx, "web")
-		}
-		if layoutHasRowID(*l, "hero-tv") {
-			_ = s.feedInvalidator(ctx, "android-tv")
-		}
-	}
+	s.invalidateFeedsForLayout(ctx, layoutID)
 	return nil
 }
 

@@ -154,6 +154,9 @@ func (s *LayoutService) Update(ctx context.Context, id string, req UpdateRequest
 	if err := s.repo.Update(ctx, l); err != nil {
 		return nil, err
 	}
+	if req.Config != nil {
+		s.invalidateFeedsForLayout(ctx, id)
+	}
 	return l, nil
 }
 
@@ -231,6 +234,36 @@ func (s *LayoutService) Publish(ctx context.Context, id string, req PublishReque
 // SetFeedInvalidator 注入 Feed 失效回调（由 main.go 在装配时注入）
 func (s *LayoutService) SetFeedInvalidator(fn func(ctx context.Context, platform string) error) {
 	s.feedInvalidator = fn
+}
+
+func (s *LayoutService) invalidateFeedsForLayout(ctx context.Context, layoutID string) {
+	if s.feedInvalidator == nil {
+		return
+	}
+	pubs, err := s.repo.ListPublications(ctx, layoutID)
+	if err != nil {
+		return
+	}
+	seen := map[string]bool{}
+	for _, p := range pubs {
+		if !p.Enabled {
+			continue
+		}
+		plat := string(p.TargetPlatform)
+		if seen[plat] {
+			continue
+		}
+		seen[plat] = true
+		_ = s.feedInvalidator(ctx, plat)
+	}
+}
+
+func (s *LayoutService) invalidateHomeFeeds(ctx context.Context) {
+	if s.feedInvalidator == nil {
+		return
+	}
+	_ = s.feedInvalidator(ctx, "web")
+	_ = s.feedInvalidator(ctx, "android-tv")
 }
 
 // GetFeed 播放端拉取 Feed（含模板继承）

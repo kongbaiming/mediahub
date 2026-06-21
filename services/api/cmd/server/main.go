@@ -170,6 +170,9 @@ func main() {
 	} else {
 		logger.Info("已检查首页布局「猜你喜欢」行")
 	}
+	// 双保险：布局/迁移后清 Feed 缓存
+	_ = feedSvc.InvalidateFeed(context.Background(), "web")
+	_ = feedSvc.InvalidateFeed(context.Background(), "android-tv")
 
 	// 下载管理
 	var downloaderSvc *downloader.Service
