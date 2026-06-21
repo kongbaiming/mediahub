@@ -97,6 +97,55 @@ func (s *Service) SimilarTo(ctx context.Context, mediaID string, limit int) ([]m
 	return s.engine.ContentBased(ctx, mediaID, limit)
 }
 
+// GuessYouLike 猜你喜欢（观影习惯 + TMDB）
+func (s *Service) GuessYouLike(ctx context.Context, profileID string, limit, discoverLimit int) ([]Item, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	if profileID == "" || profileID == "anonymous" {
+		return s.engine.GuessYouLike(ctx, "", limit, discoverLimit)
+	}
+	pid, err := uuid.Parse(profileID)
+	if err != nil {
+		return nil, err
+	}
+
+	cached, err := s.recCache.GetLatest(ctx, &pid, "for-you")
+	if err == nil && cached != nil && time.Now().Before(cached.ExpiresAt) {
+		return s.fetchGuessByIDs(ctx, cached.MediaIDs)
+	}
+
+	items, err := s.engine.GuessYouLike(ctx, profileID, limit, discoverLimit)
+	if err != nil {
+		return nil, err
+	}
+
+	// 缓存库内媒资 ID（外部 TMDB 项不缓存）
+	var ids []uuid.UUID
+	for _, it := range items {
+		if it.Media != nil {
+			ids = append(ids, it.Media.ID)
+		}
+	}
+	if len(ids) > 0 {
+		_ = s.recCache.Save(ctx, &pid, "for-you", ids, time.Now().Add(6*time.Hour))
+	}
+	return items, nil
+}
+
+func (s *Service) fetchGuessByIDs(ctx context.Context, ids []uuid.UUID) ([]Item, error) {
+	medias, err := s.fetchMediaByIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Item, len(medias))
+	for i := range medias {
+		m := medias[i]
+		out[i] = Item{Media: &m}
+	}
+	return out, nil
+}
+
 // fetchMediaByIDs 按 ID 顺序获取媒资
 func (s *Service) fetchMediaByIDs(ctx context.Context, ids []uuid.UUID) ([]media.Media, error) {
 	out := make([]media.Media, 0, len(ids))

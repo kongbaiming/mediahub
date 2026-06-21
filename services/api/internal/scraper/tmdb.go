@@ -234,6 +234,28 @@ func (c *TMDBClient) GetTrending(ctx context.Context, mediaType, period string) 
 	return c.search(ctx, fmt.Sprintf("/trending/%s/%s", mediaType, periodStr), q)
 }
 
+// GetMovieRecommendations TMDB 相似电影推荐
+func (c *TMDBClient) GetMovieRecommendations(ctx context.Context, movieID int) (*SearchResult, error) {
+	q := url.Values{}
+	q.Set("language", c.language)
+	var r SearchResult
+	if err := c.get(ctx, fmt.Sprintf("/movie/%d/recommendations", movieID), q, &r); err != nil {
+		return nil, err
+	}
+	return &r, nil
+}
+
+// GetTVRecommendations TMDB 相似剧集推荐
+func (c *TMDBClient) GetTVRecommendations(ctx context.Context, tvID int) (*SearchResult, error) {
+	q := url.Values{}
+	q.Set("language", c.language)
+	var r SearchResult
+	if err := c.get(ctx, fmt.Sprintf("/tv/%d/recommendations", tvID), q, &r); err != nil {
+		return nil, err
+	}
+	return &r, nil
+}
+
 // PosterURL 海报 URL
 func (c *TMDBClient) PosterURL(path string, size string) string {
 	if path == "" {

@@ -56,3 +56,19 @@ func (h *RecommendHandler) SimilarTo(c *gin.Context) {
 	}
 	c.JSON(200, gin.H{"data": items, "total": len(items)})
 }
+
+// GuessYouLike 猜你喜欢
+func (h *RecommendHandler) GuessYouLike(c *gin.Context) {
+	profileID := middleware.GetProfileID(c)
+	if profileID == "" {
+		profileID = "anonymous"
+	}
+	limit := atoi(c.Query("limit"), 20)
+	discover := atoi(c.Query("discover_limit"), 6)
+	items, err := h.svc.GuessYouLike(c.Request.Context(), profileID, limit, discover)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"data": items, "total": len(items)})
+}

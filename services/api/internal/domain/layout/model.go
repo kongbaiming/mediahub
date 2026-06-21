@@ -50,7 +50,7 @@ type Row struct {
 // DataSource 数据源（10 种类型）
 // 用 JSON oneOf 表达
 type DataSource struct {
-	Type   string         `json:"type"`               // manual | library | tag | trending | similar-to | continue-watching | recently-added | recommend-algorithm | union | exclude
+	Type   string         `json:"type"`               // manual | library | tag | trending | similar-to | continue-watching | recently-added | recommend-algorithm | guess-you-like | union | exclude
 	Params map[string]any `json:"params,omitempty"`   // 各类型参数
 }
 
@@ -144,17 +144,19 @@ type FeedRow struct {
 
 // FeedItem 播放端单个卡片
 type FeedItem struct {
-	MediaID   uuid.UUID `json:"media_id"`
-	Title     string    `json:"title"`
-	Year      *int      `json:"year,omitempty"`
-	PosterURL string    `json:"poster_url,omitempty"`
-	BackdropURL string  `json:"backdrop_url,omitempty"`
-	Rating    float64   `json:"rating"`
-	Type      string    `json:"type"`
-	Duration  *int      `json:"duration,omitempty"`
-	Overview  string    `json:"overview,omitempty"`
-	Genres    []string  `json:"genres,omitempty"`
-	Progress  *int      `json:"progress,omitempty"` // 续播进度（秒）
+	MediaID     uuid.UUID `json:"media_id,omitempty"`
+	Title       string    `json:"title"`
+	Year        *int      `json:"year,omitempty"`
+	PosterURL   string    `json:"poster_url,omitempty"`
+	BackdropURL string    `json:"backdrop_url,omitempty"`
+	Rating      float64   `json:"rating"`
+	Type        string    `json:"type"`
+	Duration    *int      `json:"duration,omitempty"`
+	Overview    string    `json:"overview,omitempty"`
+	Genres      []string  `json:"genres,omitempty"`
+	Progress    *int      `json:"progress,omitempty"` // 续播进度（秒）
+	TMDBID      *int      `json:"tmdb_id,omitempty"`
+	External    bool      `json:"external,omitempty"` // 库外 TMDB 发现（暂不可播）
 }
 
 // Feed 播放端拉取的完整布局

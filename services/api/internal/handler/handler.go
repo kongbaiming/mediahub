@@ -116,6 +116,7 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 
 		// 推荐（无需登录）
 		v1.GET("/recommend/hot", h.Recommend.Hot)
+		v1.GET("/recommend/guess-you-like", h.Recommend.GuessYouLike)
 		v1.GET("/recommend/similar/:id", h.Recommend.SimilarTo)
 
 		// 流代理（无需登录）

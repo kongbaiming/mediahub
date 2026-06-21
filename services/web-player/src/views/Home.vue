@@ -63,13 +63,15 @@
         <div class="row-cards" :class="`card-style-${row.card_style || 'poster'}`">
           <div
             v-for="item in row.items"
-            :key="item.media_id"
+            :key="item.external ? `tmdb-${item.tmdb_id}` : item.media_id"
             class="card"
+            :class="{ 'card-external': item.external }"
             @click="openDetail(item)"
           >
             <div class="card-poster">
               <img v-if="item.poster_url" :src="item.poster_url" :alt="item.title" loading="lazy" />
               <span v-else class="poster-placeholder">{{ item.title.slice(0, 2) }}</span>
+              <div v-if="item.external" class="external-badge">TMDB</div>
               <div v-if="item.progress && item.progress > 0" class="progress-bar">
                 <div class="progress-fill" :style="{ width: progressPct(item) + '%' }"></div>
               </div>
@@ -117,13 +119,18 @@ const currentProfile = computed(() =>
 )
 
 const heroItem = computed<FeedItem | null>(() => {
+  const playable = (items: FeedItem[]) =>
+    items.find((i) => !i.external && i.media_id)
+
   for (const row of rows.value) {
     if (row.type === 'hero-banner' && row.items?.length > 0) {
-      return row.items[0]
+      const item = playable(row.items)
+      if (item) return item
     }
   }
   for (const row of rows.value) {
-    if (row.items?.length > 0) return row.items[0]
+    const item = playable(row.items || [])
+    if (item) return item
   }
   return null
 })
@@ -225,10 +232,18 @@ function progressPct(item: FeedItem) {
 }
 
 function openDetail(item: FeedItem) {
+  if (item.external || !item.media_id) {
+    window.toast?.('该内容尚未加入媒体库，可在 CMS 中搜索入库', 'info', 3500)
+    return
+  }
   router.push(`/media/${item.media_id}`)
 }
 
 function playItem(item: FeedItem) {
+  if (item.external || !item.media_id) {
+    window.toast?.('该内容尚未加入媒体库', 'info', 3000)
+    return
+  }
   router.push(`/play/${item.media_id}`)
 }
 
@@ -530,6 +545,23 @@ onMounted(async () => {
     height: 100%;
     object-fit: cover;
   }
+}
+
+.external-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(99, 102, 241, 0.9);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.card-external .card-poster {
+  outline: 1px dashed rgba(99, 102, 241, 0.5);
 }
 
 .progress-bar {

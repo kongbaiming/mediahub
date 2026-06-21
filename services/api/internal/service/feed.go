@@ -10,6 +10,7 @@ import (
 	"github.com/mediahub/api/internal/cache"
 	"github.com/mediahub/api/internal/domain/layout"
 	"github.com/mediahub/api/internal/domain/media"
+	"github.com/mediahub/api/internal/recommend"
 	"github.com/mediahub/api/internal/repository"
 
 	"github.com/google/uuid"
@@ -30,6 +31,7 @@ type RecommendFetcher interface {
 	Hot(ctx context.Context, limit int) ([]media.Media, error)
 	ForProfile(ctx context.Context, profileID string, limit int) ([]media.Media, error)
 	SimilarTo(ctx context.Context, mediaID string, limit int) ([]media.Media, error)
+	GuessYouLike(ctx context.Context, profileID string, limit, discoverLimit int) ([]recommend.Item, error)
 }
 
 // NewFeedService 构造
@@ -205,6 +207,8 @@ func (s *FeedService) resolveDataSource(ctx context.Context, ds layout.DataSourc
 		return s.fromSimilar(ctx, ds.Params, isKid)
 	case "recommend-algorithm":
 		return s.fromRecommend(ctx, profileID, ds.Params, isKid)
+	case "guess-you-like":
+		return s.fromGuessYouLike(ctx, profileID, ds.Params, isKid)
 	case "tag":
 		return s.fromTag(ctx, ds.Params, isKid)
 	case "union":
@@ -418,6 +422,54 @@ func (s *FeedService) fromRecommend(ctx context.Context, profileID string, param
 	}
 
 	return toFeedItems(medias, nil), nil
+}
+
+func (s *FeedService) fromGuessYouLike(ctx context.Context, profileID string, params map[string]any, isKid bool) ([]layout.FeedItem, error) {
+	limit := 20
+	if v, ok := params["limit"].(float64); ok && v > 0 {
+		limit = int(v)
+	}
+	discoverLimit := 6
+	if v, ok := params["discover_limit"].(float64); ok && v >= 0 {
+		discoverLimit = int(v)
+	}
+	if s.recommend == nil {
+		return nil, nil
+	}
+	items, err := s.recommend.GuessYouLike(ctx, profileID, limit, discoverLimit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]layout.FeedItem, 0, len(items))
+	for _, it := range items {
+		if it.Media != nil {
+			if isKid && it.Media.IsAdult {
+				continue
+			}
+			out = append(out, toFeedItem(it.Media, nil))
+			continue
+		}
+		if !it.External {
+			continue
+		}
+		if isKid {
+			continue
+		}
+		tmdbID := it.TMDBID
+		out = append(out, layout.FeedItem{
+			Title:       it.Title,
+			Year:        it.Year,
+			PosterURL:   it.PosterURL,
+			BackdropURL: it.BackdropURL,
+			Rating:      it.Rating,
+			Type:        it.MediaType,
+			Overview:    it.Overview,
+			Genres:      it.Genres,
+			TMDBID:      &tmdbID,
+			External:    true,
+		})
+	}
+	return out, nil
 }
 
 func (s *FeedService) fromTag(ctx context.Context, params map[string]any, isKid bool) ([]layout.FeedItem, error) {

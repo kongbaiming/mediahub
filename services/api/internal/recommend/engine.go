@@ -17,6 +17,7 @@ import (
 	"github.com/mediahub/api/internal/domain/history"
 	"github.com/mediahub/api/internal/domain/media"
 	"github.com/mediahub/api/internal/repository"
+	"github.com/mediahub/api/internal/scraper"
 
 	"github.com/google/uuid"
 )
@@ -25,11 +26,12 @@ import (
 type Engine struct {
 	mediaRepo *repository.MediaRepo
 	histRepo  *repository.HistoryRepo
+	tmdb      *scraper.TMDBClient
 }
 
 // NewEngine 构造
-func NewEngine(m *repository.MediaRepo, h *repository.HistoryRepo) *Engine {
-	return &Engine{mediaRepo: m, histRepo: h}
+func NewEngine(m *repository.MediaRepo, h *repository.HistoryRepo, tmdb *scraper.TMDBClient) *Engine {
+	return &Engine{mediaRepo: m, histRepo: h, tmdb: tmdb}
 }
 
 // ---- Content-based ----
@@ -261,6 +263,13 @@ func (e *Engine) Hybrid(ctx context.Context, profileID string, seedMediaID strin
 		limit = 20
 	}
 
+	// 无种子时从观影历史取最近观看
+	if seedMediaID == "" && profileID != "" && profileID != "anonymous" {
+		if seeds := pickSeedMediasFromProfile(ctx, e.histRepo, profileID, 1); len(seeds) > 0 {
+			seedMediaID = seeds[0].ID.String()
+		}
+	}
+
 	scores := map[uuid.UUID]float64{}
 
 	// Content-based：基于内容相似度
@@ -320,6 +329,14 @@ func (e *Engine) Hybrid(ctx context.Context, profileID string, seedMediaID strin
 		out = append(out, *m)
 	}
 	return out, nil
+}
+
+func pickSeedMediasFromProfile(ctx context.Context, histRepo *repository.HistoryRepo, profileID string, n int) []*media.Media {
+	hs, err := histRepo.ListByProfile(ctx, profileID, 20)
+	if err != nil {
+		return nil
+	}
+	return pickSeedMedias(hs, n)
 }
 
 // ---- Cache ----

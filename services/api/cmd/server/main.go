@@ -141,7 +141,7 @@ func main() {
 	profileSvc := service.NewProfileService(userRepo)
 
 	// 推荐引擎
-	recommendEngine := recommend.NewEngine(mediaRepo, historyRepo)
+	recommendEngine := recommend.NewEngine(mediaRepo, historyRepo, tmdbClient)
 	recommendSvc := recommend.NewService(recommendEngine, recommendRepo)
 
 	// Feed Service 需要推荐接口（接口注入避免循环依赖）

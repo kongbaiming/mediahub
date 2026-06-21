@@ -33,7 +33,7 @@ http.interceptors.response.use(
 // ─── 类型定义 ───
 
 export interface FeedItem {
-  media_id: string
+  media_id?: string
   title: string
   year?: number
   poster_url?: string
@@ -44,6 +44,8 @@ export interface FeedItem {
   overview?: string
   genres?: string[]
   progress?: number
+  tmdb_id?: number
+  external?: boolean
 }
 
 export interface FeedRow {

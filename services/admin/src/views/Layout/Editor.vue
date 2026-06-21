@@ -399,6 +399,7 @@ const dataSourceTypes = [
   { value: 'recently-added', label: '最近添加' },
   { value: 'similar-to', label: '同类推荐' },
   { value: 'recommend-algorithm', label: '推荐算法' },
+  { value: 'guess-you-like', label: '猜你喜欢' },
   { value: 'tag', label: '按标签' },
   { value: 'union', label: '并集' },
 ]
