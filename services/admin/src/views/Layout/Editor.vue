@@ -100,6 +100,12 @@
                       <el-tag size="small" type="primary">{{ rowTypeLabel(element.type) }}</el-tag>
                       <el-tag v-if="element._inherited" size="small" type="info">继承</el-tag>
                       <span class="row-title">{{ element.title || '(未命名)' }}</span>
+                      <span v-if="previewItems(element.id).length" class="row-meta">
+                        {{ previewItems(element.id).length }} 项
+                      </span>
+                      <span v-else class="row-meta row-meta--muted">
+                        {{ dataSourceLabel(element.source?.type) }}
+                      </span>
                       <div class="row-actions">
                         <el-switch v-model="element.visible" size="small" :disabled="element._inherited" />
                         <el-button v-if="!element._inherited" text size="small" @click.stop="removeRow(index)">
@@ -115,8 +121,11 @@
                           class="preview-card preview-card--real"
                           :title="item.title"
                         >
-                          <img v-if="item.poster_url" :src="item.poster_url" :alt="item.title" loading="lazy" />
-                          <span v-else class="preview-card-label">{{ item.title?.slice(0, 4) }}</span>
+                          <div class="preview-card-media">
+                            <img v-if="item.poster_url" :src="item.poster_url" :alt="item.title" loading="lazy" />
+                            <span v-else class="preview-card-label">{{ item.title?.slice(0, 6) }}</span>
+                          </div>
+                          <div class="preview-card-caption">{{ item.title }}</div>
                         </div>
                       </template>
                       <template v-else>
@@ -453,17 +462,56 @@ function rowsForSave(): LayoutRow[] {
     .map(({ _inherited, ...r }) => r)
 }
 
+function dataSourceLabel(type?: string) {
+  return dataSourceTypes.find((d) => d.value === type)?.label || type || '数据源'
+}
+
+function fillPreviewMap(rows: FeedRow[]) {
+  const map: Record<string, FeedRow> = {}
+  for (const row of rows) {
+    map[row.id] = row
+  }
+  previewMap.value = map
+}
+
 async function loadPreview() {
   if (!layout.value) return
   try {
     const res = await layoutApi.preview(layout.value.id, previewPlatform.value)
-    const map: Record<string, FeedRow> = {}
-    for (const row of res.data.rows || []) {
-      map[row.id] = row
+    fillPreviewMap(res.data?.rows || [])
+    return
+  } catch (e) {
+    console.warn('布局预览 API 失败，尝试已发布 Feed', e)
+  }
+
+  if (layout.value.status === 'published') {
+    try {
+      const res = await layoutApi.getPublishedFeed(previewPlatform.value)
+      fillPreviewMap(res.data?.rows || [])
+      return
+    } catch (e) {
+      console.warn('公开 Feed 回退失败', e)
     }
-    previewMap.value = map
+  }
+  previewMap.value = {}
+}
+
+async function detectPreviewPlatform() {
+  if (!layout.value) return
+  try {
+    const pubs = await layoutApi.listPublications(layout.value.id)
+    const enabled = pubs.data?.find((p) => p.enabled)
+    if (enabled?.target_platform) {
+      previewPlatform.value = enabled.target_platform
+      return
+    }
   } catch {
-    previewMap.value = {}
+    // ignore
+  }
+  if (layout.value.name.includes('TV')) {
+    previewPlatform.value = 'android-tv'
+  } else if (layout.value.name.includes('Web')) {
+    previewPlatform.value = 'web'
   }
 }
 
@@ -482,6 +530,7 @@ async function load() {
       source: r.source || { type: 'trending', params: {} },
     }))
     templateLayouts.value = t.data
+    await detectPreviewPlatform()
     await loadPreview()
   } finally {
     loading.value = false
@@ -832,6 +881,16 @@ onMounted(load)
   flex: 1;
 }
 
+.row-meta {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-left: 8px;
+
+  &--muted {
+    color: #64748b;
+  }
+}
+
 .row-actions {
   display: flex;
   align-items: center;
@@ -854,12 +913,32 @@ onMounted(load)
 
   &--real {
     background: #1e293b;
+    display: flex;
+    flex-direction: column;
 
-    img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
+    .preview-card-media {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      min-height: 0;
+
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+    }
+
+    .preview-card-caption {
+      font-size: 10px;
+      line-height: 1.2;
+      color: #cbd5e1;
+      padding: 4px 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      background: rgba(0, 0, 0, 0.35);
     }
   }
 

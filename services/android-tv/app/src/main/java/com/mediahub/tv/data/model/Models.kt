@@ -1,5 +1,6 @@
 package com.mediahub.tv.data.model
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -7,11 +8,11 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class MediaItem(
-    val mediaId: String,
+    @SerialName("media_id") val mediaId: String,
     val title: String,
     val year: Int? = null,
-    val posterUrl: String? = null,
-    val backdropUrl: String? = null,
+    @SerialName("poster_url") val posterUrl: String? = null,
+    @SerialName("backdrop_url") val backdropUrl: String? = null,
     val rating: Double = 0.0,
     val type: String = "movie",
     val overview: String? = null,
@@ -29,7 +30,7 @@ data class FeedRow(
     val type: String,
     val title: String? = null,
     val subtitle: String? = null,
-    val cardStyle: String? = null,
+    @SerialName("card_style") val cardStyle: String? = null,
     val items: List<MediaItem> = emptyList(),
 )
 
@@ -40,7 +41,7 @@ data class FeedRow(
 data class Feed(
     val version: Int,
     val platform: String,
-    val updatedAt: String,
+    @SerialName("updated_at") val updatedAt: String,
     val rows: List<FeedRow>,
 )
 

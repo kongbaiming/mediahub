@@ -97,9 +97,9 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 		v1.DELETE("/media/:id", middleware.Auth(h.Auth.svc), middleware.RequireAdmin(), h.Media.Delete)
 		v1.POST("/media/:id/rescan", middleware.Auth(h.Auth.svc), h.Media.Rescan)
 
-		// 布局
+		// 布局（preview 与 get 一样只读，无需登录；CMS 编辑器依赖）
+		v1.GET("/layouts/:id/preview", h.Layout.Preview)
 		v1.GET("/layouts", h.Layout.List)
-		v1.GET("/layouts/:id/preview", middleware.Auth(h.Auth.svc), h.Layout.Preview)
 		v1.GET("/layouts/:id", h.Layout.Get)
 		v1.POST("/layouts", middleware.Auth(h.Auth.svc), h.Layout.Create)
 		v1.PATCH("/layouts/:id", middleware.Auth(h.Auth.svc), h.Layout.Update)

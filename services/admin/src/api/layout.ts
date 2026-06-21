@@ -71,6 +71,10 @@ export const layoutApi = {
       params: { platform },
     }),
 
+  /** 已发布平台的公开 Feed（预览失败时的回退） */
+  getPublishedFeed: (platform = 'web') =>
+    http.get<{ data: { rows: FeedRow[] } }>(`/api/v1/feed/${platform}`),
+
   create: (data: {
     name: string
     description?: string

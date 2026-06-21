@@ -47,7 +47,10 @@ class MediaHubApi(private val baseUrl: String) {
                 val body = resp.body?.string()
                     ?: throw MediaHubException("Empty response")
                 if (!resp.isSuccessful) throw MediaHubException("HTTP ${resp.code}: $body")
-                json.decodeFromString(Feed.serializer(), body)
+                val wrapper = json.parseToJsonElement(body).jsonObject
+                val data = wrapper["data"]
+                    ?: throw MediaHubException("Feed response missing data field")
+                json.decodeFromJsonElement(Feed.serializer(), data)
             }
         }
 

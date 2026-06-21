@@ -100,6 +100,16 @@ fun MediaCard(item: MediaItem, onClick: () -> Unit) {
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
                     )
+                } else {
+                    Text(
+                        text = item.title.take(8),
+                        color = Color(0xFF94A3B8),
+                        modifier = Modifier
+                            .align(androidx.compose.ui.Alignment.Center)
+                            .padding(8.dp),
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
             Column(modifier = Modifier.padding(8.dp)) {
