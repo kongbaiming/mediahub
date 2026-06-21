@@ -165,6 +165,12 @@ func main() {
 		return feedSvc.InvalidateFeed(ctx, platform)
 	})
 
+	if err := layoutSvc.EnsureGuessYouLikeRows(context.Background()); err != nil {
+		logger.Warn("补全猜你喜欢布局行失败", "err", err)
+	} else {
+		logger.Info("已检查首页布局「猜你喜欢」行")
+	}
+
 	// 下载管理
 	var downloaderSvc *downloader.Service
 	if cfg.Downloader.Enabled && cfg.Downloader.QBittorrent.Host != "" {
