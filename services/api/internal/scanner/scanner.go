@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/mediahub/api/internal/mediafile"
 	"github.com/mediahub/api/pkg/logger"
 )
 
@@ -173,6 +174,9 @@ var embeddedVideoExt = regexp.MustCompile(`(?i)\.(mkv|mp4|m4v|avi|mov|wmv|flv|we
 
 // IsMediaFile 是否是视频文件
 func IsMediaFile(path string) bool {
+	if mediafile.ShouldSkipScan(path) {
+		return false
+	}
 	ext := strings.ToLower(filepath.Ext(path))
 	if mediaExtensions[ext] {
 		return true

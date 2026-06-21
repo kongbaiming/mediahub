@@ -7,6 +7,7 @@ import (
 	"github.com/mediahub/api/internal/apperr"
 	"github.com/mediahub/api/internal/domain/common"
 	"github.com/mediahub/api/internal/domain/media"
+	"github.com/mediahub/api/internal/mediafile"
 	"github.com/mediahub/api/internal/queue"
 	"github.com/mediahub/api/internal/repository"
 	"github.com/mediahub/api/pkg/logger"
@@ -28,6 +29,13 @@ type IngestResult struct {
 func IngestMediaFile(ctx context.Context, deps IngestDeps, filePath string) (*IngestResult, error) {
 	if deps.MediaRepo == nil {
 		return nil, nil
+	}
+	if mediafile.ShouldSkipScan(filePath) {
+		return &IngestResult{Skipped: true}, nil
+	}
+	if ok, reason := mediafile.IsPlayable(filePath); !ok {
+		logger.Warn("跳过无效媒体文件", "path", filePath, "reason", reason)
+		return &IngestResult{Skipped: true}, nil
 	}
 
 	parsed := ParseFilePath(filePath)

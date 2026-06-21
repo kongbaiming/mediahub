@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/mediahub/api/internal/apperr"
+	"github.com/mediahub/api/internal/mediafile"
 	"github.com/mediahub/api/internal/transcoder"
 
 	"github.com/gin-gonic/gin"
@@ -98,6 +99,11 @@ func handleDirect(c *gin.Context, allowedRoots []string) {
 	}
 	if info.IsDir() {
 		respondError(c, apperr.BadRequest("path is a directory"))
+		return
+	}
+
+	if ok, reason := mediafile.IsPlayable(cleanPath); !ok {
+		respondError(c, apperr.BadRequest(reason))
 		return
 	}
 
@@ -202,6 +208,11 @@ func handleHLS(c *gin.Context, allowedRoots []string, cacheRoot string, tc HLSTr
 		return
 	} else if info.IsDir() {
 		respondError(c, apperr.BadRequest("path is a directory; tvshow must use episode file_path"))
+		return
+	}
+
+	if ok, reason := mediafile.IsPlayable(cleanPath); !ok {
+		respondError(c, apperr.BadRequest(reason))
 		return
 	}
 
