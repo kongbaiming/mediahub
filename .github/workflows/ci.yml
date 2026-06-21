@@ -34,8 +34,8 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
-          cache: true
+          go-version-file: services/api/go.mod
+          cache-dependency-path: services/api/go.sum
 
       - name: Download deps
         working-directory: services/api
