@@ -149,8 +149,70 @@ func (e *Engine) GuessYouLike(ctx context.Context, profileID string, limit, disc
 		}
 	}
 
- ranked := rankScores(scores, limit, discoverLimit)
+	ranked := rankScores(scores, limit, discoverLimit)
+	if len(ranked) == 0 {
+		ranked = e.guessFallback(ctx, watched, limit, discoverLimit)
+	}
 	return e.scoresToItems(ctx, ranked), nil
+}
+
+// guessFallback 无评分/未刮削媒资时仍给出库内推荐
+func (e *Engine) guessFallback(ctx context.Context, watched map[uuid.UUID]bool, limit, discoverLimit int) []itemScore {
+	if limit <= 0 {
+		limit = 20
+	}
+	scores := map[string]itemScore{}
+
+	addLocal := func(m *media.Media, score float64) {
+		if m == nil || watched[m.ID] {
+			return
+		}
+		key := "local:" + m.ID.String()
+		if cur, ok := scores[key]; !ok || score > cur.score {
+			scores[key] = itemScore{local: m, score: score}
+		}
+	}
+
+	addTMDB := func(entry scraper.SearchEntry, score float64) {
+		if entry.ID <= 0 || e.tmdb == nil || discoverLimit <= 0 {
+			return
+		}
+		key := "tmdb:" + strconv.Itoa(entry.ID)
+		if cur, ok := scores[key]; ok && score <= cur.score {
+			return
+		}
+		if local, err := e.mediaRepo.GetByTMDBID(ctx, entry.ID); err == nil && local != nil {
+			if !watched[local.ID] {
+				addLocal(local, score+0.2)
+			}
+			return
+		}
+		scores[key] = itemScore{tmdb: &entry, score: score, external: true}
+	}
+
+	items, _, err := e.mediaRepo.List(ctx, repository.MediaFilter{
+		Sort:     "created_at",
+		SortDesc: true,
+	}, limit*3, 0)
+	if err == nil {
+		for j, m := range items {
+			addLocal(&m, 0.8-float64(j)*0.02)
+		}
+	}
+
+	if e.tmdb != nil {
+		for _, mt := range []string{"tv", "movie"} {
+			trend, err := e.tmdb.GetTrending(ctx, mt, "week")
+			if err != nil {
+				continue
+			}
+			for j, entry := range trend.Results {
+				addTMDB(entry, 0.6-float64(j)*0.02)
+			}
+		}
+	}
+
+	return rankScores(scores, limit, discoverLimit)
 }
 
 type itemScore struct {

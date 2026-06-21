@@ -55,7 +55,7 @@
         </div>
       </section>
 
-      <section v-for="row in rows" :key="row.id" class="row">
+      <section v-for="row in displayRows" :key="row.id" class="row">
         <h2 class="row-title">
           {{ row.title }}
           <span v-if="row.subtitle" class="row-subtitle">{{ row.subtitle }}</span>
@@ -101,7 +101,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { feedApi, recommendApi, historyApi, type Feed, type FeedItem, type FeedRow } from '@/api'
+import { feedApi, historyApi, type FeedItem, type FeedRow } from '@/api'
 import ProfileSwitcher from '@/views/ProfileSwitcher.vue'
 import SkeletonCard from '@/components/SkeletonCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -116,6 +116,17 @@ const currentProfileId = ref('')
 const profiles = ref<Array<{id: string; name: string; is_kid: boolean}>>([])
 const currentProfile = computed(() =>
   profiles.value.find((p) => p.id === currentProfileId.value)
+)
+
+/** 列表区：仅用 CMS Feed，排除 hero 行与空行 */
+const displayRows = computed(() =>
+  rows.value.filter(
+    (r) =>
+      r.type !== 'hero-banner' &&
+      r.type !== 'divider' &&
+      r.type !== 'text-banner' &&
+      (r.items?.length ?? 0) > 0,
+  ),
 )
 
 const heroItem = computed<FeedItem | null>(() => {
@@ -144,85 +155,12 @@ async function loadFeed() {
   loading.value = true
   try {
     const data = await feedApi.get('web')
-    rows.value = data.rows.filter((r) => r.type !== 'divider' && r.type !== 'text-banner')
+    rows.value = data.rows
   } catch (e: any) {
     console.error('拉取 Feed 失败', e)
     window.toast?.(`加载失败：${e?.message || '网络错误'}`, 'error', 4000)
   } finally {
     loading.value = false
-  }
-}
-
-async function loadRecommendations() {
-  try {
-    const profileId = currentProfileId.value
-
-    let continueItems: FeedItem[] = []
-    if (profileId) {
-      try {
-        const cw = await historyApi.getContinueWatching(10)
-        continueItems = cw.data.map((h: any) => ({
-          media_id: h.media_id,
-          title: h.media?.title || '',
-          year: h.media?.year,
-          poster_url: h.media?.poster_url,
-          backdrop_url: h.media?.backdrop_url,
-          rating: h.media?.rating || 0,
-          type: h.media?.type || 'movie',
-          progress: h.progress,
-          overview: h.media?.overview,
-          genres: h.media?.genres,
-        }))
-      } catch (e) {
-        // ignore
-      }
-    }
-
-    let hotItems: FeedItem[] = []
-    try {
-      const hot = await recommendApi.hot(15)
-      hotItems = hot.map((m: any) => ({
-        media_id: m.id,
-        title: m.title,
-        year: m.year,
-        poster_url: m.poster_url,
-        backdrop_url: m.backdrop_url,
-        rating: m.rating,
-        type: m.type,
-        overview: m.overview,
-        genres: m.genres,
-      }))
-    } catch (e) {
-      // ignore
-    }
-
-    const prependRows: FeedRow[] = []
-
-    if (continueItems.length > 0) {
-      prependRows.push({
-        id: 'continue-watching',
-        type: 'shelf',
-        title: '继续观看',
-        subtitle: '从上次的地方继续',
-        card_style: 'poster',
-        items: continueItems,
-      })
-    }
-
-    if (hotItems.length > 0) {
-      prependRows.push({
-        id: 'hot',
-        type: 'shelf',
-        title: '热门推荐',
-        subtitle: '本周最火',
-        card_style: 'poster',
-        items: hotItems,
-      })
-    }
-
-    rows.value = [...prependRows, ...rows.value]
-  } catch (e) {
-    console.error('推荐加载失败', e)
   }
 }
 
@@ -252,10 +190,9 @@ function onSearch() {
   router.push({ path: '/search', query: { q: searchQuery.value } })
 }
 
-function onProfileSwitched(p: any) {
+async function onProfileSwitched(p: any) {
   currentProfileId.value = p.id
-  loadFeed()
-  loadRecommendations()
+  await loadFeed()
 }
 
 function loadProfiles() {
@@ -281,7 +218,6 @@ onMounted(async () => {
   currentProfileId.value = localStorage.getItem('mediahub_profile_id') || profiles.value[0]?.id || ''
 
   await loadFeed()
-  await loadRecommendations()
 })
 </script>
 
