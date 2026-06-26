@@ -105,6 +105,10 @@ func ParseFilePath(fullPath string) *ParsedFile {
 		p.Title = albumSeriesTitle(seriesName)
 	}
 
+	if p.Type == "movie" {
+		refineMovieTitleFromPath(fullPath, p)
+	}
+
 	return p
 }
 

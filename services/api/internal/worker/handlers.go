@@ -107,7 +107,19 @@ func (h *Handlers) HandleScrape(ctx context.Context, t *asynq.Task) error {
 			tmdbInfo, err = h.searchTVShow(ctx, searchTitle, nil, nil, nil)
 		}
 	} else {
-		tmdbInfo, err = h.searchMovie(ctx, m.Title, m.Year)
+		searchYear := m.Year
+		for _, candidate := range scanner.MovieSearchCandidates(m.StoragePath, m.Title) {
+			tmdbInfo, err = h.searchMovie(ctx, candidate, searchYear)
+			if err == nil {
+				break
+			}
+			if searchYear != nil {
+				tmdbInfo, err = h.searchMovie(ctx, candidate, nil)
+				if err == nil {
+					break
+				}
+			}
+		}
 	}
 
 	if err != nil {

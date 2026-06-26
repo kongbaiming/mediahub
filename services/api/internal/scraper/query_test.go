@@ -41,3 +41,10 @@ func TestSearchQueries_NormalizesSeriesTitle(t *testing.T) {
 		t.Fatalf("missing parent title, got %v", qs)
 	}
 }
+
+func TestSearchQueries_StripsQualityNoise(t *testing.T) {
+	qs := SearchQueries("4K 120帧 泰坦尼克号白星加长版")
+	if len(qs) == 0 || qs[0] != "泰坦尼克号" {
+		t.Fatalf("got %v", qs)
+	}
+}
