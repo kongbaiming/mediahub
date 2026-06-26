@@ -107,7 +107,31 @@
             </div>
           </div>
           <p v-if="selectedCredit.person.biography" class="credit-modal-bio">{{ selectedCredit.person.biography }}</p>
-          <p v-else class="credit-modal-empty">暂无人物介绍</p>
+          <p v-else-if="!personDetailLoading" class="credit-modal-empty">暂无人物介绍</p>
+
+          <div v-if="personDetailLoading" class="credit-modal-loading">加载中…</div>
+
+          <div v-if="personWorks.length" class="credit-modal-works">
+            <h4 class="credit-modal-works-title">参演作品</h4>
+            <div class="credit-works-row">
+              <button
+                v-for="work in personWorks"
+                :key="work.id"
+                type="button"
+                class="credit-work-card"
+                @click="goToPersonWork(work.id)"
+              >
+                <div class="credit-work-poster">
+                  <img v-if="work.poster_url" :src="work.poster_url" :alt="work.title" loading="lazy" />
+                  <span v-else>{{ work.title.slice(0, 2) }}</span>
+                  <div v-if="work.rating > 0" class="credit-work-rating">⭐ {{ work.rating.toFixed(1) }}</div>
+                </div>
+                <div class="credit-work-title">{{ work.title }}</div>
+                <div class="credit-work-meta">{{ work.year || '—' }} · {{ typeLabel(work.type) }}</div>
+              </button>
+            </div>
+          </div>
+          <p v-else-if="!personDetailLoading && personWorksLoaded" class="credit-modal-empty">暂无库内参演作品</p>
         </div>
       </div>
 
@@ -197,7 +221,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
   mediaApi,
   catalogApi,
@@ -210,9 +234,11 @@ import {
   type SeasonDetail,
   type MediaCredit,
   type MediaExtra,
+  type PersonBrief,
 } from '@/api'
 
 const route = useRoute()
+const router = useRouter()
 const loading = ref(false)
 const media = ref<MediaDetail | null>(null)
 const favorited = ref(false)
@@ -223,6 +249,9 @@ const contentRating = ref('')
 const trailers = ref<MediaExtra[]>([])
 const creditModalOpen = ref(false)
 const selectedCredit = ref<MediaCredit | null>(null)
+const personWorks = ref<MediaSummary[]>([])
+const personDetailLoading = ref(false)
+const personWorksLoaded = ref(false)
 
 const isSeries = computed(() => media.value?.type === 'tvshow' || media.value?.type === 'anime')
 
@@ -321,9 +350,40 @@ function creditAvatar(c: MediaCredit) {
 function openCreditDetail(c: MediaCredit) {
   selectedCredit.value = c
   creditModalOpen.value = true
+  personWorks.value = []
+  personWorksLoaded.value = false
+  const personId = c.person?.id
+  if (!personId) return
+  personDetailLoading.value = true
+  Promise.all([
+    catalogApi.person(personId).catch(() => null),
+    catalogApi.personWorks(personId).catch(() => [] as MediaSummary[]),
+  ])
+    .then(([person, works]) => {
+      if (selectedCredit.value?.person?.id !== personId) return
+      if (person) {
+        selectedCredit.value = {
+          ...selectedCredit.value,
+          person: { ...selectedCredit.value.person!, ...person },
+        }
+      }
+      const currentId = media.value?.id
+      personWorks.value = works.filter((w) => w.id !== currentId)
+    })
+    .finally(() => {
+      if (selectedCredit.value?.person?.id === personId) {
+        personDetailLoading.value = false
+        personWorksLoaded.value = true
+      }
+    })
 }
 
-function personMeta(p: NonNullable<MediaCredit['person']>) {
+function goToPersonWork(mediaId: string) {
+  creditModalOpen.value = false
+  router.push(`/media/${mediaId}`)
+}
+
+function personMeta(p: PersonBrief) {
   const parts: string[] = []
   if (p.place_of_birth) parts.push(p.place_of_birth)
   if (p.birthday) parts.push(p.birthday.slice(0, 10))
@@ -620,6 +680,99 @@ onMounted(load)
   margin: 0;
   font-size: 14px;
   color: var(--mh-text-muted, #6b6b80);
+}
+
+.credit-modal-loading {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--mh-text-muted, #6b6b80);
+}
+
+.credit-modal-works {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--mh-outline, rgba(255, 255, 255, 0.08));
+}
+
+.credit-modal-works-title {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--mh-text, #f0f0f5);
+}
+
+.credit-works-row {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.credit-work-card {
+  flex-shrink: 0;
+  width: 108px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+
+  &:hover .credit-work-poster {
+    border-color: var(--mh-primary, #6c63ff);
+  }
+}
+
+.credit-work-poster {
+  position: relative;
+  width: 108px;
+  height: 162px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--mh-surface-variant, #1e1e2e);
+  border: 1px solid var(--mh-outline, rgba(255, 255, 255, 0.08));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--mh-text-muted, #6b6b80);
+  margin-bottom: 8px;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.credit-work-rating {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.65);
+  font-size: 10px;
+  color: #fff;
+}
+
+.credit-work-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mh-text, #f0f0f5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.credit-work-meta {
+  font-size: 11px;
+  color: var(--mh-text-muted, #6b6b80);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .extras-row {

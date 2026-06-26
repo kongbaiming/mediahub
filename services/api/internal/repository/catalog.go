@@ -81,6 +81,20 @@ func (r *CatalogRepo) UpsertPersonByTMDB(ctx context.Context, p *catalog.Person)
 	return &existing, nil
 }
 
+func (r *CatalogRepo) PatchPersonProfile(ctx context.Context, personID uuid.UUID, biography, placeOfBirth string) error {
+	updates := map[string]any{}
+	if strings.TrimSpace(biography) != "" {
+		updates["biography"] = strings.TrimSpace(biography)
+	}
+	if strings.TrimSpace(placeOfBirth) != "" {
+		updates["place_of_birth"] = strings.TrimSpace(placeOfBirth)
+	}
+	if len(updates) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).Model(&catalog.Person{}).Where("id = ?", personID).Updates(updates).Error
+}
+
 func (r *CatalogRepo) ReplaceCredits(ctx context.Context, mediaID uuid.UUID, credits []catalog.MediaCredit) error {
 	if err := r.db.WithContext(ctx).Where("media_id = ?", mediaID).Delete(&catalog.MediaCredit{}).Error; err != nil {
 		return apperr.Wrap(err, apperr.CodeInternal, "清除演职员失败")

@@ -52,11 +52,38 @@ func (s *CatalogService) GetPerson(ctx context.Context, id string) (*catalog.Per
 		return nil, err
 	}
 	s.enrichPerson(p)
+	s.refreshPersonBio(ctx, p)
 	return p, nil
 }
 
-func (s *CatalogService) PersonWorks(ctx context.Context, personID string, limit int) ([]media.Media, error) {
-	return s.catalog.ListWorksByPerson(ctx, personID, limit)
+func (s *CatalogService) refreshPersonBio(ctx context.Context, p *catalog.Person) {
+	if p == nil || strings.TrimSpace(p.Biography) != "" || p.TMDBPersonID == nil || s.tmdb == nil {
+		return
+	}
+	rp, err := s.tmdb.GetPersonRich(ctx, *p.TMDBPersonID)
+	if err != nil || rp == nil || strings.TrimSpace(rp.Biography) == "" {
+		return
+	}
+	p.Biography = strings.TrimSpace(rp.Biography)
+	if p.PlaceOfBirth == "" {
+		p.PlaceOfBirth = strings.TrimSpace(rp.PlaceOfBirth)
+	}
+	_ = s.catalog.PatchPersonProfile(ctx, p.ID, p.Biography, p.PlaceOfBirth)
+}
+
+func (s *CatalogService) PersonWorks(ctx context.Context, personID string, limit int) ([]MediaSummary, error) {
+	if limit <= 0 {
+		limit = 40
+	}
+	items, err := s.catalog.ListWorksByPerson(ctx, personID, limit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]MediaSummary, len(items))
+	for i := range items {
+		out[i] = toSummary(&items[i])
+	}
+	return out, nil
 }
 
 func (s *CatalogService) ListCategories(ctx context.Context, kind string) ([]catalog.Category, error) {
@@ -225,7 +252,7 @@ func (s *CatalogService) upsertPersonFromTMDB(ctx context.Context, tmdbPersonID 
 	gender := 0
 	popularity := 0.0
 	if s.tmdb != nil {
-		if p, err := s.tmdb.GetPerson(ctx, tmdbPersonID); err == nil && p != nil {
+		if p, err := s.tmdb.GetPersonRich(ctx, tmdbPersonID); err == nil && p != nil {
 			if p.Name != "" {
 				name = p.Name
 			}

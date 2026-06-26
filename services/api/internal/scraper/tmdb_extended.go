@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 )
 
 // TMDBCastMember 演员
@@ -100,6 +101,30 @@ func (c *TMDBClient) GetPerson(ctx context.Context, id int) (*TMDBPerson, error)
 		return nil, err
 	}
 	return &p, nil
+}
+
+// GetPersonRich 拉取影人详情；主语言 biography 为空时回退 en-US（中文演员常见）
+func (c *TMDBClient) GetPersonRich(ctx context.Context, id int) (*TMDBPerson, error) {
+	p, err := c.GetPerson(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(p.Biography) != "" {
+		return p, nil
+	}
+	q := url.Values{}
+	q.Set("language", "en-US")
+	var en TMDBPerson
+	if err := c.get(ctx, fmt.Sprintf("/person/%d", id), q, &en); err != nil {
+		return p, nil
+	}
+	if bio := strings.TrimSpace(en.Biography); bio != "" {
+		p.Biography = bio
+	}
+	if p.PlaceOfBirth == "" && strings.TrimSpace(en.PlaceOfBirth) != "" {
+		p.PlaceOfBirth = strings.TrimSpace(en.PlaceOfBirth)
+	}
+	return p, nil
 }
 
 func (c *TMDBClient) GetMovieVideos(ctx context.Context, id int) (*TMDBVideos, error) {

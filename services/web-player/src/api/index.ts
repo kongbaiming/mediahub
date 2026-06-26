@@ -131,16 +131,22 @@ export interface MediaCredit {
   role: string
   character_name?: string
   billing_order?: number
-  person?: {
-    id: string
-    name: string
-    profile_path?: string
-    profile_url?: string
-    biography?: string
-    place_of_birth?: string
-    known_for_department?: string
-    birthday?: string
-  }
+  person?: PersonBrief
+}
+
+export interface PersonBrief {
+  id: string
+  name: string
+  profile_path?: string
+  profile_url?: string
+  biography?: string
+  place_of_birth?: string
+  known_for_department?: string
+  birthday?: string
+}
+
+export interface Person extends PersonBrief {
+  original_name?: string
 }
 
 export interface ContentRating {
@@ -348,6 +354,18 @@ export const catalogApi = {
     const body = (await http.get<unknown>(`/api/v1/works/${mediaId}/extras`, {
       params: { type },
     })) as { data: MediaExtra[] }
+    return body.data || []
+  },
+
+  async person(personId: string): Promise<Person> {
+    const body = (await http.get<unknown>(`/api/v1/persons/${personId}`)) as { data: Person }
+    return body.data
+  },
+
+  async personWorks(personId: string, limit = 24): Promise<MediaSummary[]> {
+    const body = (await http.get<unknown>(`/api/v1/persons/${personId}/works`, {
+      params: { limit },
+    })) as { data: MediaSummary[] }
     return body.data || []
   },
 }
