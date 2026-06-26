@@ -367,6 +367,8 @@ func (r *MediaRepo) ApplyScrapeResult(ctx context.Context, m *media.Media) error
 	manualTitle := media.HasTag(current.Tags, media.TagManualTitle)
 
 	updates := map[string]any{
+		"type":           m.Type,
+		"kind":           m.Kind,
 		"scrape_status":  m.ScrapeStatus,
 		"scrape_error":   m.ScrapeError,
 		"last_scrape_at": m.LastScrapeAt,

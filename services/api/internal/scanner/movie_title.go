@@ -95,6 +95,9 @@ func MovieSearchCandidates(storagePath, parsedTitle string) []string {
 	}
 
 	add(parsedTitle)
+	for _, alias := range movieTitleAliases(parsedTitle) {
+		add(alias)
+	}
 	if eng := extractEnglishTitle(parsedTitle); eng != "" {
 		add(eng)
 	}
@@ -120,6 +123,25 @@ func MovieSearchCandidates(storagePath, parsedTitle string) []string {
 		reordered := append([]string{}, out[1:]...)
 		reordered = append(reordered, parsedTitle)
 		return reordered
+	}
+	return out
+}
+
+// movieTitleAliases 常见两岸/别译片名互搜
+func movieTitleAliases(title string) []string {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return nil
+	}
+	pairs := []struct{ a, b string }{
+		{"冰川时代", "冰河世纪"},
+		{"冰河世纪", "冰川时代"},
+	}
+	var out []string
+	for _, p := range pairs {
+		if strings.Contains(title, p.a) {
+			out = append(out, strings.Replace(title, p.a, p.b, 1))
+		}
 	}
 	return out
 }

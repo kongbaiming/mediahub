@@ -55,6 +55,19 @@ func TestRefineMovieTitleFromPath_TitanicFolder(t *testing.T) {
 	}
 }
 
+func TestMovieSearchCandidates_IceAgeAlias(t *testing.T) {
+	candidates := MovieSearchCandidates("/media/冰川时代4/053.MP4", "冰川时代4")
+	found := false
+	for _, c := range candidates {
+		if c == "冰河世纪4" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected 冰河世纪4 alias in %v", candidates)
+	}
+}
+
 func TestIsWeakMovieTitle(t *testing.T) {
 	if !isWeakMovieTitle("D C 3") {
 		t.Fatal("D C 3 should be weak")

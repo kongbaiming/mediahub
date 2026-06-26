@@ -33,8 +33,17 @@ func ParseFilePath(fullPath string) *ParsedFile {
 		}
 	}
 
-	// 纯数字文件名 + 专辑文件夹 → 剧集单集
+	// 纯数字文件名 + 专辑文件夹 → 剧集单集（电影续集文件夹除外，如 冰河世纪4/053.mp4）
 	if numericEpRe.MatchString(strings.TrimSpace(baseName)) && isSeriesAlbumDir(parentDir, seriesName) {
+		if isMovieAlbumFolder(parentDir, seriesName) {
+			p.Type = "movie"
+			p.Title = MovieFolderTitle(seriesName)
+			if p.Title == "" {
+				p.Title = albumSeriesTitle(seriesName)
+			}
+			refineMovieTitleFromPath(fullPath, p)
+			return p
+		}
 		p.Type = "episode"
 		p.Title = albumSeriesTitle(seriesName)
 		if ep, err := strconv.Atoi(strings.TrimSpace(baseName)); err == nil {
@@ -183,6 +192,38 @@ func isSeriesAlbumDir(parentDir, folderName string) bool {
 	// 默认：/media/专辑名/单集.ext 视为剧集专辑（分类目录名已在 skipNames 排除）
 	return true
 }
+
+var movieSequelFolderRe = regexp.MustCompile(`^[\p{Han}]+(?:之[\p{Han}]+)*\d+$`)
+
+// isMovieAlbumFolder 纯数字文件名时，判断文件夹是否更像电影（如 冰河世纪4/053.mp4）而非剧集
+func isMovieAlbumFolder(parentDir, folderName string) bool {
+	if isMovieLibraryPath(parentDir) {
+		return true
+	}
+	title := MovieFolderTitle(folderName)
+	if title == "" {
+		title = albumSeriesTitle(folderName)
+	}
+	if movieSequelFolderRe.MatchString(title) {
+		return true
+	}
+	return englishMovieSequelRe.MatchString(title)
+}
+
+func isMovieLibraryPath(dir string) bool {
+	hints := []string{"movies", "movie", "films", "film", "电影"}
+	for _, seg := range strings.Split(filepath.ToSlash(dir), "/") {
+		lower := strings.ToLower(strings.TrimSpace(seg))
+		for _, h := range hints {
+			if lower == h {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+var englishMovieSequelRe = regexp.MustCompile(`(?i)^[a-z0-9][a-z0-9\s:.'-]*\d+$`)
 
 // IsEpisodeFile 是否为应归入专辑的剧集单集
 func IsEpisodeFile(p *ParsedFile, mtype string) bool {

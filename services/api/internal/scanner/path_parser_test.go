@@ -7,17 +7,14 @@ import (
 
 func TestParseFilePath_NumericEpisodeInAlbum(t *testing.T) {
 	got := ParseFilePath("/media/冰河世纪4/053.MP4")
-	if got.Type != "episode" {
-		t.Fatalf("Type = %q, want episode", got.Type)
+	if got.Type != "movie" {
+		t.Fatalf("Type = %q, want movie", got.Type)
 	}
 	if got.Title != "冰河世纪4" {
 		t.Fatalf("Title = %q, want 冰河世纪4", got.Title)
 	}
-	if got.Episode == nil || *got.Episode != 53 {
-		t.Fatalf("Episode = %v, want 53", got.Episode)
-	}
-	if got.Season == nil || *got.Season != 1 {
-		t.Fatalf("Season = %v, want 1", got.Season)
+	if got.Episode != nil {
+		t.Fatalf("Episode = %v, want nil", got.Episode)
 	}
 }
 
@@ -55,13 +52,23 @@ func TestParseFilePath_SeasonSubfolder(t *testing.T) {
 }
 
 func TestParseFilePath_NumericEpisodeUnderMovieCategoryDir(t *testing.T) {
-	// NAS 挂载 /volume1/data -> /media 时，剧集在 /media/电影/剧名/01.mp4
+	// NAS 挂载 /volume1/data -> /media 时，电影在 /media/电影/片名/053.mp4
 	got := ParseFilePath("/media/电影/冰河世纪4/053.MP4")
-	if got.Type != "episode" {
-		t.Fatalf("Type = %q, want episode", got.Type)
+	if got.Type != "movie" {
+		t.Fatalf("Type = %q, want movie", got.Type)
 	}
 	if got.Title != "冰河世纪4" {
 		t.Fatalf("Title = %q, want 冰河世纪4", got.Title)
+	}
+}
+
+func TestParseFilePath_NumericEpisodeInTVAlbum(t *testing.T) {
+	got := ParseFilePath("/media/tvshows/庆余年/01.mkv")
+	if got.Type != "episode" {
+		t.Fatalf("Type = %q, want episode", got.Type)
+	}
+	if got.Title != "庆余年" {
+		t.Fatalf("Title = %q, want 庆余年", got.Title)
 	}
 }
 
