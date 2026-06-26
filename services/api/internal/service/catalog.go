@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"time"
 
@@ -71,19 +72,123 @@ func (s *CatalogService) refreshPersonBio(ctx context.Context, p *catalog.Person
 	_ = s.catalog.PatchPersonProfile(ctx, p.ID, p.Biography, p.PlaceOfBirth)
 }
 
-func (s *CatalogService) PersonWorks(ctx context.Context, personID string, limit int) ([]MediaSummary, error) {
+// PersonWorkItem 影人参演作品（库内可播或 TMDB 库外参考）
+type PersonWorkItem struct {
+	MediaSummary
+	External bool `json:"external,omitempty"`
+	TMDBID   int  `json:"tmdb_id,omitempty"`
+}
+
+func (s *CatalogService) PersonWorks(ctx context.Context, personID, excludeMediaID string, limit int) ([]PersonWorkItem, error) {
 	if limit <= 0 {
 		limit = 40
 	}
-	items, err := s.catalog.ListWorksByPerson(ctx, personID, limit)
+	localItems, err := s.catalog.ListWorksByPerson(ctx, personID, limit*2)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]MediaSummary, len(items))
-	for i := range items {
-		out[i] = toSummary(&items[i])
+	localByTMDB := map[int]*media.Media{}
+	for i := range localItems {
+		m := &localItems[i]
+		if m.TMDBID != nil && *m.TMDBID > 0 {
+			localByTMDB[*m.TMDBID] = m
+		}
+	}
+
+	var exclude uuid.UUID
+	if excludeMediaID != "" {
+		exclude, _ = uuid.Parse(excludeMediaID)
+	}
+
+	seen := map[string]bool{}
+	var out []PersonWorkItem
+	add := func(item PersonWorkItem) {
+		if exclude != uuid.Nil && item.ID == exclude {
+			return
+		}
+		key := item.ID.String()
+		if item.External || item.ID == uuid.Nil {
+			key = "tmdb:" + strconv.Itoa(item.TMDBID)
+		}
+		if key == "" || key == "tmdb:0" || seen[key] {
+			return
+		}
+		seen[key] = true
+		out = append(out, item)
+	}
+
+	p, _ := s.catalog.GetPerson(ctx, personID)
+	if p != nil && p.TMDBPersonID != nil && *p.TMDBPersonID > 0 && s.tmdb != nil {
+		if cc, err := s.tmdb.GetPersonCombinedCredits(ctx, *p.TMDBPersonID); err == nil && cc != nil {
+			for _, c := range cc.Cast {
+				if len(out) >= limit {
+					break
+				}
+				if c.ID <= 0 {
+					continue
+				}
+				if lm := localByTMDB[c.ID]; lm != nil {
+					item := PersonWorkItem{MediaSummary: toSummary(lm)}
+					if lm.TMDBID != nil {
+						item.TMDBID = *lm.TMDBID
+					}
+					add(item)
+					continue
+				}
+				title := c.Title
+				if title == "" {
+					title = c.Name
+				}
+				if title == "" {
+					continue
+				}
+				mt := common.MediaTypeMovie
+				if c.MediaType == "tv" {
+					mt = common.MediaTypeTVShow
+				}
+				item := PersonWorkItem{
+					MediaSummary: MediaSummary{
+						Title:     title,
+						Year:      parseCreditYear(c.ReleaseDate, c.FirstAirDate),
+						Type:      mt,
+						Rating:    c.VoteAverage,
+						PosterURL: s.tmdb.PosterURL(c.PosterPath, "w500"),
+					},
+					External: true,
+					TMDBID:   c.ID,
+				}
+				add(item)
+			}
+		}
+	}
+
+	for i := range localItems {
+		if len(out) >= limit {
+			break
+		}
+		m := &localItems[i]
+		item := PersonWorkItem{MediaSummary: toSummary(m)}
+		if m.TMDBID != nil {
+			item.TMDBID = *m.TMDBID
+		}
+		add(item)
+	}
+
+	if len(out) > limit {
+		out = out[:limit]
 	}
 	return out, nil
+}
+
+func parseCreditYear(releaseDate, firstAirDate string) *int {
+	for _, d := range []string{releaseDate, firstAirDate} {
+		if len(d) >= 4 {
+			if y, err := strconv.Atoi(d[:4]); err == nil && y > 1800 {
+				return &y
+			}
+		}
+	}
+	return nil
 }
 
 func (s *CatalogService) ListCategories(ctx context.Context, kind string) ([]catalog.Category, error) {

@@ -149,6 +149,11 @@ export interface Person extends PersonBrief {
   original_name?: string
 }
 
+export interface PersonWork extends MediaSummary {
+  external?: boolean
+  tmdb_id?: number
+}
+
 export interface ContentRating {
   country: string
   system: string
@@ -362,10 +367,13 @@ export const catalogApi = {
     return body.data
   },
 
-  async personWorks(personId: string, limit = 24): Promise<MediaSummary[]> {
+  async personWorks(personId: string, opts?: { limit?: number; excludeMediaId?: string }): Promise<PersonWork[]> {
     const body = (await http.get<unknown>(`/api/v1/persons/${personId}/works`, {
-      params: { limit },
-    })) as { data: MediaSummary[] }
+      params: {
+        limit: opts?.limit ?? 24,
+        exclude_media_id: opts?.excludeMediaId || undefined,
+      },
+    })) as { data: PersonWork[] }
     return body.data || []
   },
 }

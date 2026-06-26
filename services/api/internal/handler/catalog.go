@@ -94,7 +94,7 @@ func (h *CatalogHandler) GetPerson(c *gin.Context) {
 }
 
 func (h *CatalogHandler) PersonWorks(c *gin.Context) {
-	items, err := h.svc.PersonWorks(c.Request.Context(), c.Param("id"), atoi(c.Query("limit"), 40))
+	items, err := h.svc.PersonWorks(c.Request.Context(), c.Param("id"), c.Query("exclude_media_id"), atoi(c.Query("limit"), 40))
 	if err != nil {
 		respondError(c, err)
 		return

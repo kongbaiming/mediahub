@@ -116,10 +116,11 @@
             <div class="credit-works-row">
               <button
                 v-for="work in personWorks"
-                :key="work.id"
+                :key="work.id || `tmdb-${work.tmdb_id}`"
                 type="button"
                 class="credit-work-card"
-                @click="goToPersonWork(work.id)"
+                :class="{ 'credit-work-card--external': work.external }"
+                @click="goToPersonWork(work)"
               >
                 <div class="credit-work-poster">
                   <img v-if="work.poster_url" :src="work.poster_url" :alt="work.title" loading="lazy" />
@@ -131,7 +132,7 @@
               </button>
             </div>
           </div>
-          <p v-else-if="!personDetailLoading && personWorksLoaded" class="credit-modal-empty">暂无库内参演作品</p>
+          <p v-else-if="!personDetailLoading && personWorksLoaded" class="credit-modal-empty">暂无参演作品</p>
         </div>
       </div>
 
@@ -236,6 +237,7 @@ import {
   type MediaCredit,
   type MediaExtra,
   type PersonBrief,
+  type PersonWork,
 } from '@/api'
 
 const route = useRoute()
@@ -250,7 +252,7 @@ const contentRating = ref('')
 const trailers = ref<MediaExtra[]>([])
 const creditModalOpen = ref(false)
 const selectedCredit = ref<MediaCredit | null>(null)
-const personWorks = ref<MediaSummary[]>([])
+const personWorks = ref<PersonWork[]>([])
 const personDetailLoading = ref(false)
 const personWorksLoaded = ref(false)
 
@@ -354,11 +356,14 @@ function openCreditDetail(c: MediaCredit) {
   personWorks.value = []
   personWorksLoaded.value = false
   const personId = c.person?.id
-  if (!personId) return
+  if (!personId) {
+    personWorksLoaded.value = true
+    return
+  }
   personDetailLoading.value = true
   Promise.all([
     catalogApi.person(personId).catch(() => null),
-    catalogApi.personWorks(personId).catch(() => [] as MediaSummary[]),
+    catalogApi.personWorks(personId, { excludeMediaId: media.value?.id }).catch(() => [] as PersonWork[]),
   ])
     .then(([person, works]) => {
       if (selectedCredit.value?.person?.id !== personId) return
@@ -368,8 +373,7 @@ function openCreditDetail(c: MediaCredit) {
           person: { ...selectedCredit.value.person!, ...person },
         }
       }
-      const currentId = media.value?.id
-      personWorks.value = works.filter((w) => w.id !== currentId)
+      personWorks.value = works
     })
     .finally(() => {
       if (selectedCredit.value?.person?.id === personId) {
@@ -379,9 +383,17 @@ function openCreditDetail(c: MediaCredit) {
     })
 }
 
-function goToPersonWork(mediaId: string) {
+function isPlayableWork(work: PersonWork) {
+  return !work.external && !!work.id && work.id !== '00000000-0000-0000-0000-000000000000'
+}
+
+function goToPersonWork(work: PersonWork) {
+  if (!isPlayableWork(work)) {
+    window.toast?.('库内暂无该作品', 'info', 2000)
+    return
+  }
   creditModalOpen.value = false
-  openSimilar(mediaId)
+  openSimilar(work.id)
 }
 
 function openSimilar(mediaId: string) {
@@ -737,6 +749,15 @@ onMounted(load)
 
   &:hover .credit-work-poster {
     border-color: var(--mh-primary, #6c63ff);
+  }
+
+  &--external {
+    cursor: default;
+    opacity: 0.72;
+
+    &:hover .credit-work-poster {
+      border-color: var(--mh-outline, rgba(255, 255, 255, 0.08));
+    }
   }
 }
 

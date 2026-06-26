@@ -104,6 +104,33 @@ func (c *TMDBClient) GetPerson(ctx context.Context, id int) (*TMDBPerson, error)
 }
 
 // GetPersonRich 拉取影人详情；主语言 biography 为空时回退 en-US（中文演员常见）
+// TMDBCombinedCredit 影人综合片单条目
+type TMDBCombinedCredit struct {
+	ID            int     `json:"id"`
+	Title         string  `json:"title"`
+	Name          string  `json:"name"`
+	MediaType     string  `json:"media_type"`
+	PosterPath    string  `json:"poster_path"`
+	ReleaseDate   string  `json:"release_date"`
+	FirstAirDate  string  `json:"first_air_date"`
+	VoteAverage   float64 `json:"vote_average"`
+	Character     string  `json:"character"`
+	Popularity    float64 `json:"popularity"`
+}
+
+// TMDBCombinedCredits 影人综合片单（电影 + 剧集）
+type TMDBCombinedCredits struct {
+	Cast []TMDBCombinedCredit `json:"cast"`
+}
+
+func (c *TMDBClient) GetPersonCombinedCredits(ctx context.Context, personID int) (*TMDBCombinedCredits, error) {
+	var cc TMDBCombinedCredits
+	if err := c.get(ctx, fmt.Sprintf("/person/%d/combined_credits", personID), c.langQuery(), &cc); err != nil {
+		return nil, err
+	}
+	return &cc, nil
+}
+
 func (c *TMDBClient) GetPersonRich(ctx context.Context, id int) (*TMDBPerson, error) {
 	p, err := c.GetPerson(ctx, id)
 	if err != nil {
