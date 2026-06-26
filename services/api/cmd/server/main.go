@@ -256,6 +256,15 @@ func main() {
 		PreferCopy:  cfg.Transcode.PreferCopy,
 	}, hlsTaskStore)
 
+	go handler.RecoverHLSTasks(context.Background(), hlsCache, handler.HLSTranscodeSettings{
+		HWAccel:     cfg.Transcode.HWAccel,
+		MaxBitrate:  cfg.Transcode.MaxBitrate,
+		MaxHeight:   cfg.Transcode.MaxHeight,
+		Preset:      cfg.Transcode.Preset,
+		SegmentTime: cfg.Transcode.SegmentTime,
+		PreferCopy:  cfg.Transcode.PreferCopy,
+	}, hlsTaskStore)
+
 	// ---------- 10. 路由 ----------
 	r := gin.New()
 	r.Use(middleware.Recovery())

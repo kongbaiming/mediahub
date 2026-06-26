@@ -38,6 +38,34 @@ type UpdateProfileRequest struct {
 	Pin    *string `json:"pin,omitempty"` // 传空字符串表示清除
 }
 
+const webPlayerOwnerUsername = "admin"
+
+func (s *ProfileService) webPlayerOwnerID(ctx context.Context) (string, error) {
+	u, err := s.users.GetByUsername(ctx, webPlayerOwnerUsername)
+	if err != nil {
+		return "", err
+	}
+	return u.ID.String(), nil
+}
+
+// ListForWebPlayer 列出 Web 播放端可用 Profile（绑定 admin 账号下的家庭成员）
+func (s *ProfileService) ListForWebPlayer(ctx context.Context) ([]user.Profile, error) {
+	uid, err := s.webPlayerOwnerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.ListMyProfiles(ctx, uid)
+}
+
+// CreateForWebPlayer 为 Web 播放端创建 Profile
+func (s *ProfileService) CreateForWebPlayer(ctx context.Context, req CreateProfileRequest) (*user.Profile, error) {
+	uid, err := s.webPlayerOwnerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.Create(ctx, uid, req)
+}
+
 // ListMyProfiles 列出当前用户的所有 Profile
 func (s *ProfileService) ListMyProfiles(ctx context.Context, userID string) ([]user.Profile, error) {
 	return s.users.ListProfilesByUser(ctx, userID)

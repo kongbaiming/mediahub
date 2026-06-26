@@ -117,18 +117,23 @@
       </div>
 
       <!-- 剧集选集 -->
-      <div v-if="isSeries && episodes.length" class="section">
+      <div v-if="isSeries && seasonsWithEpisodes.length" class="section">
         <h2 class="section-title">选集</h2>
-        <div class="episode-list">
-          <button
-            v-for="ep in episodes"
-            :key="ep.id"
-            class="episode-btn"
-            @click="$router.push(`/play/${media.id}?episode_id=${ep.id}`)"
-          >
-            <span class="ep-num">第 {{ ep.episode_number }} 集</span>
-            <span class="ep-title">{{ ep.title || `第 ${ep.episode_number} 集` }}</span>
-          </button>
+        <div v-for="season in seasonsWithEpisodes" :key="season.id" class="season-block">
+          <h3 class="season-title">
+            {{ season.title || `第 ${season.season_number} 季` }}
+          </h3>
+          <div class="episode-list">
+            <button
+              v-for="ep in season.episodes"
+              :key="ep.id"
+              class="episode-btn"
+              @click="$router.push(`/play/${media.id}?episode_id=${ep.id}`)"
+            >
+              <span class="ep-num">第 {{ ep.episode_number }} 集</span>
+              <span class="ep-title">{{ ep.title || `第 ${ep.episode_number} 集` }}</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -168,6 +173,7 @@ import {
   type MediaDetail,
   type MediaSummary,
   type EpisodeDetail,
+  type SeasonDetail,
   type MediaCredit,
   type MediaExtra,
 } from '@/api'
@@ -184,15 +190,25 @@ const trailers = ref<MediaExtra[]>([])
 
 const isSeries = computed(() => media.value?.type === 'tvshow' || media.value?.type === 'anime')
 
-const episodes = computed((): EpisodeDetail[] => {
+const seasonsWithEpisodes = computed((): Array<SeasonDetail & { episodes: EpisodeDetail[] }> => {
   if (!media.value?.seasons) return []
+  return media.value.seasons
+    .map((s) => ({
+      ...s,
+      episodes: (s.episodes || [])
+        .filter((ep) => ep.file_path)
+        .sort((a, b) => a.episode_number - b.episode_number),
+    }))
+    .filter((s) => s.episodes.length > 0)
+    .sort((a, b) => a.season_number - b.season_number)
+})
+
+const episodes = computed((): EpisodeDetail[] => {
   const out: EpisodeDetail[] = []
-  for (const s of media.value.seasons) {
-    for (const ep of s.episodes || []) {
-      if (ep.file_path) out.push(ep)
-    }
+  for (const s of seasonsWithEpisodes.value) {
+    out.push(...s.episodes)
   }
-  return out.sort((a, b) => a.episode_number - b.episode_number)
+  return out
 })
 
 const firstEpisodeId = computed(() => episodes.value[0]?.id)
@@ -688,6 +704,17 @@ onMounted(load)
 .card-meta {
   font-size: 11px;
   color: #94a3b8;
+}
+
+.season-block {
+  margin-bottom: 24px;
+}
+
+.season-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--mh-text-secondary, #cbd5e1);
+  margin: 0 0 12px;
 }
 
 .episode-list {

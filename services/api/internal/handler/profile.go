@@ -73,6 +73,31 @@ func (h *ProfileHandler) Delete(c *gin.Context) {
 	c.JSON(200, gin.H{"status": "deleted"})
 }
 
+// ListWebPlayer 列出 Web 播放端 Profile（无需登录）
+func (h *ProfileHandler) ListWebPlayer(c *gin.Context) {
+	items, err := h.svc.ListForWebPlayer(c.Request.Context())
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"data": items, "total": len(items)})
+}
+
+// CreateWebPlayer 创建 Web 播放端 Profile（无需登录）
+func (h *ProfileHandler) CreateWebPlayer(c *gin.Context) {
+	var req service.CreateProfileRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, apperr.Validation(err.Error()))
+		return
+	}
+	p, err := h.svc.CreateForWebPlayer(c.Request.Context(), req)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(201, gin.H{"data": p})
+}
+
 // VerifyPin 验证 PIN（儿童 Profile 切换）
 func (h *ProfileHandler) VerifyPin(c *gin.Context) {
 	id := c.Param("id")

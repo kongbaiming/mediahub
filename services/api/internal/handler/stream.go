@@ -555,6 +555,52 @@ func GetHLSTaskStatus(cacheRoot string, store *hlsstore.Store) gin.HandlerFunc {
 	}
 }
 
+// RecoverHLSTasks API 重启后恢复 Redis 中仍为 running 的 HLS 任务
+func RecoverHLSTasks(ctx context.Context, cacheRoot string, tc HLSTranscodeSettings, store *hlsstore.Store) {
+	if store == nil {
+		return
+	}
+	for _, rec := range store.ListAll(ctx) {
+		if rec.Status != "running" {
+			continue
+		}
+		outDir := rec.OutputDir
+		if outDir == "" {
+			outDir = filepath.Join(cacheRoot, rec.MediaID)
+		}
+		playlistPath := filepath.Join(outDir, "playlist.m3u8")
+		if isHLSPlaylistComplete(playlistPath) {
+			rec.Status = "done"
+			store.Set(ctx, rec)
+			continue
+		}
+		if rec.Input == "" {
+			rec.Status = "failed"
+			rec.Error = "missing input after restart"
+			store.Set(ctx, rec)
+			continue
+		}
+		if _, err := os.Stat(rec.Input); err != nil {
+			rec.Status = "failed"
+			rec.Error = "source file missing"
+			store.Set(ctx, rec)
+			_ = os.RemoveAll(outDir)
+			continue
+		}
+		task := hlsTaskFromRecord(rec)
+		if task.OutputDir == "" {
+			task.OutputDir = outDir
+		}
+		if task.Opts.OutputDir == "" {
+			task.Opts.OutputDir = outDir
+		}
+		task.Status = "running"
+		task.StartedAt = time.Now()
+		persistHLSTask(ctx, store, task)
+		go runHLSTranscode(task, tc, store)
+	}
+}
+
 // sniffVideoMime 根据扩展名嗅探 MIME
 func sniffVideoMime(path string) string {
 	ext := strings.ToLower(filepath.Ext(path))

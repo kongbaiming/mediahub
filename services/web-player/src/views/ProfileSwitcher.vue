@@ -26,7 +26,6 @@
     </template>
   </el-dialog>
 
-  <!-- 创建 Profile 对话框 -->
   <el-dialog v-model="createVisible" title="添加家庭成员" width="400" append-to-body>
     <el-form :model="newProfile" label-position="top">
       <el-form-item label="昵称">
@@ -49,24 +48,26 @@
 
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
-
-interface Profile {
-  id: string
-  name: string
-  is_kid: boolean
-}
+import { profileApi } from '@/api'
+import {
+  syncProfiles,
+  setActiveProfileId,
+  getActiveProfileId,
+  saveProfilesLocal,
+  type LocalProfile,
+} from '@/utils/profiles'
 
 const props = defineProps<{
   modelValue: boolean
 }>()
 const emit = defineEmits<{
   'update:modelValue': [v: boolean]
-  'switched': [profile: Profile]
+  switched: [profile: LocalProfile]
 }>()
 
 const visible = ref(false)
 const createVisible = ref(false)
-const profiles = ref<Profile[]>([])
+const profiles = ref<LocalProfile[]>([])
 const activeId = ref<string>('')
 const creating = ref(false)
 const newProfile = reactive({
@@ -75,49 +76,34 @@ const newProfile = reactive({
   pin: '',
 })
 
-watch(() => props.modelValue, (v) => {
-  visible.value = v
-  if (v) loadProfiles()
-})
+watch(
+  () => props.modelValue,
+  (v) => {
+    visible.value = v
+    if (v) loadProfiles()
+  },
+)
 
 watch(visible, (v) => emit('update:modelValue', v))
 
-function loadProfiles() {
-  // 从 localStorage 读（Web Player 用本地 profile_id）
-  const stored = localStorage.getItem('mediahub_profiles')
-  if (stored) {
-    try {
-      profiles.value = JSON.parse(stored)
-    } catch {
-      profiles.value = []
-    }
-  } else {
-    // 默认 profiles
-    profiles.value = [
-      { id: '00000000-0000-0000-0000-000000000001', name: '我', is_kid: false },
-    ]
-    saveProfiles()
-  }
-  activeId.value = localStorage.getItem('mediahub_profile_id') || ''
+async function loadProfiles() {
+  profiles.value = await syncProfiles()
+  activeId.value = getActiveProfileId()
 }
 
-function saveProfiles() {
-  localStorage.setItem('mediahub_profiles', JSON.stringify(profiles.value))
-}
-
-function onSelect(p: Profile) {
+async function onSelect(p: LocalProfile) {
   if (p.is_kid) {
     const pin = prompt(`切换到「${p.name}」需要输入家长 PIN：`)
     if (!pin) return
-    // 这里需要从后端验证 PIN（W2 已经实现）
-    // 简化：先信任前端 PIN 校验（生产环境必须走后端）
-    if (pin.length < 4) {
-      window.toast?.('PIN 长度至少 4 位', 'warning', 2000)
+    try {
+      await profileApi.verifyPin(p.id, pin)
+    } catch {
+      window.toast?.('PIN 错误', 'error', 2500)
       return
     }
   }
   activeId.value = p.id
-  localStorage.setItem('mediahub_profile_id', p.id)
+  setActiveProfileId(p.id)
   emit('switched', p)
   window.toast?.(`已切换到「${p.name}」`, 'success', 2000)
   visible.value = false
@@ -130,26 +116,32 @@ function onCreate() {
   createVisible.value = true
 }
 
-function onCreateConfirm() {
+async function onCreateConfirm() {
   if (!newProfile.name.trim()) {
     window.toast?.('请输入昵称', 'warning', 2000)
     return
   }
+  if (newProfile.is_kid && newProfile.pin.length < 4) {
+    window.toast?.('儿童 Profile 请设置 4-8 位 PIN', 'warning', 2500)
+    return
+  }
   creating.value = true
-  // 本地创建（生产环境应调后端 /api/v1/profiles）
-  setTimeout(() => {
-    const id = `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-    const p: Profile = {
-      id,
+  try {
+    const p = await profileApi.create({
       name: newProfile.name.trim(),
       is_kid: newProfile.is_kid,
-    }
-    profiles.value.push(p)
-    saveProfiles()
-    creating.value = false
+      pin: newProfile.is_kid ? newProfile.pin : undefined,
+    })
+    const local: LocalProfile = { id: p.id, name: p.name, is_kid: p.is_kid }
+    profiles.value.push(local)
+    saveProfilesLocal(profiles.value)
     createVisible.value = false
     window.toast?.(`已添加「${p.name}」`, 'success', 2000)
-  }, 300)
+  } catch (e: any) {
+    window.toast?.(e?.response?.data?.message || '创建失败', 'error', 3000)
+  } finally {
+    creating.value = false
+  }
 }
 </script>
 
@@ -172,8 +164,8 @@ function onCreateConfirm() {
   border-radius: var(--mh-radius-md);
   cursor: pointer;
   transition: background var(--mh-duration) var(--mh-ease),
-              transform var(--mh-duration) var(--mh-ease),
-              border-color var(--mh-duration) var(--mh-ease);
+    transform var(--mh-duration) var(--mh-ease),
+    border-color var(--mh-duration) var(--mh-ease);
 
   &:hover {
     background: rgba(255, 255, 255, 0.08);

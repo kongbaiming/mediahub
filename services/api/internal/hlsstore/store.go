@@ -4,6 +4,7 @@ package hlsstore
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"sync"
 	"time"
 
@@ -99,6 +100,57 @@ func (s *Store) Get(ctx context.Context, mediaID string) (*TaskRecord, bool) {
 	s.mem[mediaID] = &rec
 	s.mu.Unlock()
 	return &rec, true
+}
+
+// ListAll 列出所有任务（Redis + 内存合并）
+func (s *Store) ListAll(ctx context.Context) []*TaskRecord {
+	seen := map[string]struct{}{}
+	var out []*TaskRecord
+
+	s.mu.RLock()
+	for id, rec := range s.mem {
+		cp := *rec
+		out = append(out, &cp)
+		seen[id] = struct{}{}
+	}
+	s.mu.RUnlock()
+
+	if s.rdb == nil {
+		return out
+	}
+
+	var cursor uint64
+	for {
+		keys, next, err := s.rdb.Scan(ctx, cursor, s.prefix+"*", 100).Result()
+		if err != nil {
+			break
+		}
+		for _, key := range keys {
+			mediaID := strings.TrimPrefix(key, s.prefix)
+			if _, ok := seen[mediaID]; ok {
+				continue
+			}
+			data, err := s.rdb.Get(ctx, key).Bytes()
+			if err != nil {
+				continue
+			}
+			var rec TaskRecord
+			if err := json.Unmarshal(data, &rec); err != nil {
+				continue
+			}
+			cp := rec
+			out = append(out, &cp)
+			seen[mediaID] = struct{}{}
+			s.mu.Lock()
+			s.mem[mediaID] = &rec
+			s.mu.Unlock()
+		}
+		cursor = next
+		if cursor == 0 {
+			break
+		}
+	}
+	return out
 }
 
 // Delete 删除任务记录

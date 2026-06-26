@@ -248,10 +248,10 @@ export const historyApi = {
     }) as Promise<{ status: string }>
   },
 
-  async getContinueWatching(limit = 12): Promise<{ data: any[]; total: number }> {
-    return (await http.get<unknown>('/api/v1/continue-watching', {
+  async getContinueWatching(limit = 12): Promise<{ data: LibraryItem[]; total: number }> {
+    return (await http.get<unknown>('/api/v1/library/continue-watching', {
       params: { limit },
-    })) as unknown as { data: any[]; total: number }
+    })) as unknown as { data: LibraryItem[]; total: number }
   },
 }
 
@@ -278,8 +278,39 @@ export const recommendApi = {
   },
 }
 
-// Profile API（Web Player 暂不需要登录，但保留接口）
+export interface LibraryItem {
+  media_id: string
+  media?: MediaSummary
+  progress?: number
+  duration?: number
+  updated_at?: string
+  episode_id?: string
+}
+
+// Profile API（Web 播放端，无需登录）
 export const profileApi = {
+  async listWeb(): Promise<Profile[]> {
+    const body = (await http.get<unknown>('/api/v1/playback/profiles')) as {
+      data: Profile[]
+    }
+    return body.data || []
+  },
+
+  async create(data: {
+    name: string
+    is_kid?: boolean
+    pin?: string
+  }): Promise<Profile> {
+    const body = (await http.post<unknown>('/api/v1/playback/profiles', data)) as {
+      data: Profile
+    }
+    return body.data
+  },
+
+  async verifyPin(profileId: string, pin: string): Promise<void> {
+    await http.post(`/api/v1/playback/profiles/${profileId}/verify-pin`, { pin })
+  },
+
   async list(): Promise<Profile[]> {
     const body = (await http.get<unknown>('/api/v1/profiles')) as { data: Profile[] }
     return body.data || []
@@ -344,5 +375,12 @@ export const libraryApi = {
       added: boolean
     }
     return { added: !!body.added }
+  },
+
+  async continueWatching(limit = 24): Promise<LibraryItem[]> {
+    const body = (await http.get<unknown>('/api/v1/library/continue-watching', {
+      params: { limit },
+    })) as { data: LibraryItem[] }
+    return body.data || []
   },
 }

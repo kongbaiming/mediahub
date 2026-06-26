@@ -14,6 +14,7 @@
         />
       </div>
       <div class="user-area">
+        <button class="icon-btn" @click="$router.push('/library')" title="我的片库">📚</button>
         <button class="icon-btn" @click="showProfile = true" :title="currentProfile?.name">
           {{ currentProfile?.name?.slice(0, 1) || '?' }}
         </button>
@@ -101,10 +102,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { feedApi, historyApi, type FeedItem, type FeedRow } from '@/api'
+import { feedApi, type FeedItem, type FeedRow } from '@/api'
 import ProfileSwitcher from '@/views/ProfileSwitcher.vue'
 import SkeletonCard from '@/components/SkeletonCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import { syncProfiles, getActiveProfileId, type LocalProfile } from '@/utils/profiles'
 
 const router = useRouter()
 const loading = ref(false)
@@ -113,7 +115,7 @@ const searchQuery = ref('')
 const showProfile = ref(false)
 const currentProfileId = ref('')
 
-const profiles = ref<Array<{id: string; name: string; is_kid: boolean}>>([])
+const profiles = ref<LocalProfile[]>([])
 const currentProfile = computed(() =>
   profiles.value.find((p) => p.id === currentProfileId.value)
 )
@@ -194,33 +196,18 @@ function onSearch() {
   router.push({ path: '/search', query: { q: searchQuery.value } })
 }
 
-async function onProfileSwitched(p: any) {
+async function onProfileSwitched(p: LocalProfile) {
   currentProfileId.value = p.id
   await loadFeed()
 }
 
-function loadProfiles() {
-  const stored = localStorage.getItem('mediahub_profiles')
-  if (stored) {
-    try {
-      profiles.value = JSON.parse(stored)
-    } catch {
-      profiles.value = []
-    }
-  }
-  if (profiles.value.length === 0) {
-    profiles.value = [{ id: '00000000-0000-0000-0000-000000000001', name: '我', is_kid: false }]
-    localStorage.setItem('mediahub_profiles', JSON.stringify(profiles.value))
-  }
-  currentProfileId.value = localStorage.getItem('mediahub_profile_id') || profiles.value[0].id
+async function loadProfiles() {
+  profiles.value = await syncProfiles()
+  currentProfileId.value = getActiveProfileId() || profiles.value[0]?.id || ''
 }
 
 onMounted(async () => {
-  await historyApi.ensureProfileId()
-  loadProfiles()
-
-  currentProfileId.value = localStorage.getItem('mediahub_profile_id') || profiles.value[0]?.id || ''
-
+  await loadProfiles()
   await loadFeed()
 })
 </script>

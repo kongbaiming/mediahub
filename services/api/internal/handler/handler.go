@@ -214,6 +214,9 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 
 		// 播放进度 / 续播 / 收藏（播放端：仅需 X-Profile-ID，无需 JWT）
 		v1.GET("/playback/default-profile", h.History.DefaultProfile)
+		v1.GET("/playback/profiles", h.Profile.ListWebPlayer)
+		v1.POST("/playback/profiles", h.Profile.CreateWebPlayer)
+		v1.POST("/playback/profiles/:id/verify-pin", h.Profile.VerifyPin)
 		playback := v1.Group("/")
 		playback.Use(middleware.RequireProfile())
 		{
