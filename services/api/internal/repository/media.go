@@ -375,8 +375,6 @@ func (r *MediaRepo) ApplyScrapeResult(ctx context.Context, m *media.Media) error
 		"year":           m.Year,
 		"runtime":        m.Runtime,
 		"overview":       m.Overview,
-		"poster_url":     m.PosterURL,
-		"backdrop_url":   m.BackdropURL,
 		"rating":         m.Rating,
 		"vote_count":     m.VoteCount,
 		"tmdb_id":        m.TMDBID,
@@ -388,6 +386,12 @@ func (r *MediaRepo) ApplyScrapeResult(ctx context.Context, m *media.Media) error
 		"resolution":     m.Resolution,
 		"has_subtitle":   m.HasSubtitle,
 		"is_adult":       m.IsAdult,
+	}
+	if m.PosterURL != "" {
+		updates["poster_url"] = m.PosterURL
+	}
+	if m.BackdropURL != "" {
+		updates["backdrop_url"] = m.BackdropURL
 	}
 	if !manualTitle {
 		updates["title"] = m.Title

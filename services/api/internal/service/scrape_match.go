@@ -148,6 +148,12 @@ func (s *ScrapeMatchService) ApplyMatch(ctx context.Context, mediaID string, tmd
 		return err
 	}
 
+	probePath := probeMediaPath(ctx, s.media, m)
+	emb := scanner.EmbeddedMeta{}
+	if info, probeErr := scanner.Probe(ctx, "", probePath); probeErr == nil {
+		emb = scanner.ExtractEmbeddedMeta(info)
+	}
+
 	mediaType = strings.ToLower(strings.TrimSpace(mediaType))
 	switch mediaType {
 	case "movie":
@@ -213,7 +219,12 @@ func (s *ScrapeMatchService) ApplyMatch(ctx context.Context, mediaID string, tmd
 		return err
 	}
 	if m.PosterURL == "" || m.BackdropURL == "" {
-		s.fillMissingArtwork(ctx, m)
+		sn := emb.Season
+		if sn == nil && m.IsTV() {
+			parsed := scanner.ParseFilePath(probePath)
+			sn = parsed.Season
+		}
+		s.fillMissingArtwork(ctx, m, sn)
 		if m.PosterURL != "" || m.BackdropURL != "" {
 			_ = s.media.Update(ctx, m)
 		}
@@ -224,35 +235,19 @@ func (s *ScrapeMatchService) ApplyMatch(ctx context.Context, mediaID string, tmd
 	return nil
 }
 
-func (s *ScrapeMatchService) fillMissingArtwork(ctx context.Context, m *media.Media) {
+func (s *ScrapeMatchService) fillMissingArtwork(ctx context.Context, m *media.Media, season *int) {
 	if s.tmdb == nil || m.TMDBID == nil || *m.TMDBID <= 0 {
 		return
 	}
 	if m.PosterURL != "" && m.BackdropURL != "" {
 		return
 	}
-	if m.IsTV() {
-		tv, err := s.tmdb.GetTVShow(ctx, *m.TMDBID)
-		if err != nil {
-			return
-		}
-		if m.PosterURL == "" {
-			m.PosterURL = s.tmdb.PosterURL(tv.PosterPath, "w500")
-		}
-		if m.BackdropURL == "" {
-			m.BackdropURL = s.tmdb.BackdropURL(tv.BackdropPath, "w1280")
-		}
-		return
-	}
-	movie, err := s.tmdb.GetMovie(ctx, *m.TMDBID)
-	if err != nil {
-		return
-	}
+	poster, backdrop := s.tmdb.ResolveMissingArtwork(ctx, m.IsTV(), *m.TMDBID, m.Title, season, m.Year)
 	if m.PosterURL == "" {
-		m.PosterURL = s.tmdb.PosterURL(movie.PosterPath, "w500")
+		m.PosterURL = poster
 	}
 	if m.BackdropURL == "" {
-		m.BackdropURL = s.tmdb.BackdropURL(movie.BackdropPath, "w1280")
+		m.BackdropURL = backdrop
 	}
 }
 

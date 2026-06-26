@@ -184,7 +184,7 @@ func (h *Handlers) HandleScrape(ctx context.Context, t *asynq.Task) error {
 
 	// 4. 合并元数据
 	h.applyTMDB(m, tmdbInfo)
-	h.fillMissingArtwork(ctx, m)
+	h.fillMissingArtwork(ctx, m, emb.Season)
 
 	// 5. 写入 ffprobe 结果
 	if probeResult != nil {
@@ -456,36 +456,25 @@ func (h *Handlers) tvToResultNoSeason(t *scraper.TMDBTVShow) *scraperResult {
 	return h.tvToResult(t, nil)
 }
 
-// fillMissingArtwork 海报/背景为空时回退拉取 TMDB 主条目图（避免季海报为空覆盖主剧海报）
-func (h *Handlers) fillMissingArtwork(ctx context.Context, m *media.Media) {
+// fillMissingArtwork 海报/背景为空时回退季图或主剧条目（如 TMDB 分季条目无图）
+func (h *Handlers) fillMissingArtwork(ctx context.Context, m *media.Media, season *int) {
 	if m.TMDBID == nil || *m.TMDBID <= 0 {
 		return
 	}
 	if m.PosterURL != "" && m.BackdropURL != "" {
 		return
 	}
-	if m.IsTV() {
-		tv, err := h.tmdb.GetTVShow(ctx, *m.TMDBID)
-		if err != nil {
-			return
-		}
-		if m.PosterURL == "" {
-			m.PosterURL = h.tmdb.PosterURL(tv.PosterPath, "w500")
-		}
-		if m.BackdropURL == "" {
-			m.BackdropURL = h.tmdb.BackdropURL(tv.BackdropPath, "w1280")
-		}
-		return
+	sn := season
+	if sn == nil && m.IsTV() {
+		parsed := scanner.ParseFilePath(h.probePathForMedia(ctx, m.ID.String(), m))
+		sn = parsed.Season
 	}
-	movie, err := h.tmdb.GetMovie(ctx, *m.TMDBID)
-	if err != nil {
-		return
-	}
+	poster, backdrop := h.tmdb.ResolveMissingArtwork(ctx, m.IsTV(), *m.TMDBID, m.Title, sn, m.Year)
 	if m.PosterURL == "" {
-		m.PosterURL = h.tmdb.PosterURL(movie.PosterPath, "w500")
+		m.PosterURL = poster
 	}
 	if m.BackdropURL == "" {
-		m.BackdropURL = h.tmdb.BackdropURL(movie.BackdropPath, "w1280")
+		m.BackdropURL = backdrop
 	}
 }
 
