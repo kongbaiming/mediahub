@@ -66,7 +66,7 @@
             :key="c.id"
             type="button"
             class="credit-card"
-            @click="openCreditDetail(c)"
+            @click="openPerson(c)"
           >
             <div class="credit-avatar">
               <img
@@ -80,59 +80,6 @@
             <div class="credit-name">{{ c.person?.name }}</div>
             <div v-if="c.character_name" class="credit-role">饰 {{ c.character_name }}</div>
           </button>
-        </div>
-      </div>
-
-      <div v-if="creditModalOpen && selectedCredit?.person" class="credit-modal-backdrop" @click.self="creditModalOpen = false">
-        <div class="credit-modal" role="dialog" aria-modal="true">
-          <button type="button" class="credit-modal-close" aria-label="关闭" @click="creditModalOpen = false">×</button>
-          <div class="credit-modal-head">
-            <div class="credit-modal-avatar">
-              <img
-                v-if="creditAvatar(selectedCredit)"
-                :src="creditAvatar(selectedCredit)"
-                :alt="selectedCredit.person.name"
-              />
-              <span v-else>{{ selectedCredit.person.name?.slice(0, 1) || '?' }}</span>
-            </div>
-            <div class="credit-modal-meta">
-              <h3>{{ selectedCredit.person.name }}</h3>
-              <p v-if="selectedCredit.character_name" class="credit-modal-role">饰 {{ selectedCredit.character_name }}</p>
-              <p v-if="selectedCredit.person.known_for_department" class="credit-modal-dept">
-                {{ selectedCredit.person.known_for_department }}
-              </p>
-              <p v-if="personMeta(selectedCredit.person)" class="credit-modal-extra">
-                {{ personMeta(selectedCredit.person) }}
-              </p>
-            </div>
-          </div>
-          <p v-if="selectedCredit.person.biography" class="credit-modal-bio">{{ selectedCredit.person.biography }}</p>
-          <p v-else-if="!personDetailLoading" class="credit-modal-empty">暂无人物介绍</p>
-
-          <div v-if="personDetailLoading" class="credit-modal-loading">加载中…</div>
-
-          <div v-if="personWorks.length" class="credit-modal-works">
-            <h4 class="credit-modal-works-title">参演作品</h4>
-            <div class="credit-works-row">
-              <button
-                v-for="work in personWorks"
-                :key="work.id || `tmdb-${work.tmdb_id}`"
-                type="button"
-                class="credit-work-card"
-                :class="{ 'credit-work-card--external': work.external }"
-                @click="goToPersonWork(work)"
-              >
-                <div class="credit-work-poster">
-                  <img v-if="work.poster_url" :src="work.poster_url" :alt="work.title" loading="lazy" />
-                  <span v-else>{{ work.title.slice(0, 2) }}</span>
-                  <div v-if="work.rating > 0" class="credit-work-rating">⭐ {{ work.rating.toFixed(1) }}</div>
-                </div>
-                <div class="credit-work-title">{{ work.title }}</div>
-                <div class="credit-work-meta">{{ work.year || '—' }} · {{ typeLabel(work.type) }}</div>
-              </button>
-            </div>
-          </div>
-          <p v-else-if="!personDetailLoading && personWorksLoaded" class="credit-modal-empty">暂无参演作品</p>
         </div>
       </div>
 
@@ -236,8 +183,6 @@ import {
   type SeasonDetail,
   type MediaCredit,
   type MediaExtra,
-  type PersonBrief,
-  type PersonWork,
 } from '@/api'
 
 const route = useRoute()
@@ -250,11 +195,6 @@ const similar = ref<MediaSummary[]>([])
 const castCredits = ref<MediaCredit[]>([])
 const contentRating = ref('')
 const trailers = ref<MediaExtra[]>([])
-const creditModalOpen = ref(false)
-const selectedCredit = ref<MediaCredit | null>(null)
-const personWorks = ref<PersonWork[]>([])
-const personDetailLoading = ref(false)
-const personWorksLoaded = ref(false)
 
 const isSeries = computed(() => media.value?.type === 'tvshow' || media.value?.type === 'anime')
 
@@ -350,62 +290,21 @@ function creditAvatar(c: MediaCredit) {
   return ''
 }
 
-function openCreditDetail(c: MediaCredit) {
-  selectedCredit.value = c
-  creditModalOpen.value = true
-  personWorks.value = []
-  personWorksLoaded.value = false
+function openPerson(c: MediaCredit) {
   const personId = c.person?.id
-  if (!personId) {
-    personWorksLoaded.value = true
-    return
-  }
-  personDetailLoading.value = true
-  Promise.all([
-    catalogApi.person(personId).catch(() => null),
-    catalogApi.personWorks(personId, { excludeMediaId: media.value?.id }).catch(() => [] as PersonWork[]),
-  ])
-    .then(([person, works]) => {
-      if (selectedCredit.value?.person?.id !== personId) return
-      if (person) {
-        selectedCredit.value = {
-          ...selectedCredit.value,
-          person: { ...selectedCredit.value.person!, ...person },
-        }
-      }
-      personWorks.value = works
-    })
-    .finally(() => {
-      if (selectedCredit.value?.person?.id === personId) {
-        personDetailLoading.value = false
-        personWorksLoaded.value = true
-      }
-    })
-}
-
-function isPlayableWork(work: PersonWork) {
-  return !work.external && !!work.id && work.id !== '00000000-0000-0000-0000-000000000000'
-}
-
-function goToPersonWork(work: PersonWork) {
-  if (!isPlayableWork(work)) {
-    window.toast?.('库内暂无该作品', 'info', 2000)
-    return
-  }
-  creditModalOpen.value = false
-  openSimilar(work.id)
+  if (!personId) return
+  router.push({
+    path: `/person/${personId}`,
+    query: {
+      from: media.value?.id,
+      role: c.character_name || undefined,
+    },
+  })
 }
 
 function openSimilar(mediaId: string) {
   if (mediaId === route.params.id) return
   router.push(`/media/${mediaId}`)
-}
-
-function personMeta(p: PersonBrief) {
-  const parts: string[] = []
-  if (p.place_of_birth) parts.push(p.place_of_birth)
-  if (p.birthday) parts.push(p.birthday.slice(0, 10))
-  return parts.join(' · ')
 }
 
 function profileImage(path: string) {
@@ -430,7 +329,6 @@ watch(
   () => route.params.id,
   (id, prev) => {
     if (!id || id === prev) return
-    creditModalOpen.value = false
     window.scrollTo({ top: 0, behavior: 'instant' })
     load()
   },
@@ -602,209 +500,6 @@ onMounted(load)
 }
 
 .credit-role {
-  font-size: 11px;
-  color: var(--mh-text-muted, #6b6b80);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.credit-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  background: rgba(0, 0, 0, 0.72);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-}
-
-.credit-modal {
-  position: relative;
-  width: min(520px, 100%);
-  max-height: min(80vh, 640px);
-  overflow-y: auto;
-  background: var(--mh-surface, #14141f);
-  border: 1px solid var(--mh-outline, rgba(255, 255, 255, 0.08));
-  border-radius: 16px;
-  padding: 24px;
-}
-
-.credit-modal-close {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--mh-text, #f0f0f5);
-  font-size: 22px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.credit-modal-head {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.credit-modal-avatar {
-  flex-shrink: 0;
-  width: 96px;
-  height: 96px;
-  border-radius: 12px;
-  overflow: hidden;
-  background: var(--mh-surface-variant, #1e1e2e);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 32px;
-  font-weight: 600;
-  color: var(--mh-text-muted, #6b6b80);
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-}
-
-.credit-modal-meta {
-  min-width: 0;
-
-  h3 {
-    margin: 0 0 8px;
-    font-size: 20px;
-    color: var(--mh-text, #f0f0f5);
-  }
-}
-
-.credit-modal-role {
-  margin: 0 0 6px;
-  font-size: 14px;
-  color: var(--mh-primary, #6c63ff);
-}
-
-.credit-modal-dept,
-.credit-modal-extra {
-  margin: 0 0 4px;
-  font-size: 12px;
-  color: var(--mh-text-muted, #6b6b80);
-}
-
-.credit-modal-bio {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.7;
-  color: var(--mh-text, #d8d8e8);
-  white-space: pre-wrap;
-}
-
-.credit-modal-empty {
-  margin: 0;
-  font-size: 14px;
-  color: var(--mh-text-muted, #6b6b80);
-}
-
-.credit-modal-loading {
-  margin: 12px 0 0;
-  font-size: 13px;
-  color: var(--mh-text-muted, #6b6b80);
-}
-
-.credit-modal-works {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--mh-outline, rgba(255, 255, 255, 0.08));
-}
-
-.credit-modal-works-title {
-  margin: 0 0 12px;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--mh-text, #f0f0f5);
-}
-
-.credit-works-row {
-  display: flex;
-  gap: 12px;
-  overflow-x: auto;
-  padding-bottom: 4px;
-}
-
-.credit-work-card {
-  flex-shrink: 0;
-  width: 108px;
-  border: none;
-  background: transparent;
-  padding: 0;
-  cursor: pointer;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-
-  &:hover .credit-work-poster {
-    border-color: var(--mh-primary, #6c63ff);
-  }
-
-  &--external {
-    cursor: default;
-    opacity: 0.72;
-
-    &:hover .credit-work-poster {
-      border-color: var(--mh-outline, rgba(255, 255, 255, 0.08));
-    }
-  }
-}
-
-.credit-work-poster {
-  position: relative;
-  width: 108px;
-  height: 162px;
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--mh-surface-variant, #1e1e2e);
-  border: 1px solid var(--mh-outline, rgba(255, 255, 255, 0.08));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--mh-text-muted, #6b6b80);
-  margin-bottom: 8px;
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-}
-
-.credit-work-rating {
-  position: absolute;
-  top: 6px;
-  left: 6px;
-  padding: 2px 6px;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.65);
-  font-size: 10px;
-  color: #fff;
-}
-
-.credit-work-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--mh-text, #f0f0f5);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.credit-work-meta {
   font-size: 11px;
   color: var(--mh-text-muted, #6b6b80);
   white-space: nowrap;
