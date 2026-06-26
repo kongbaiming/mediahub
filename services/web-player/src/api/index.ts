@@ -126,6 +126,32 @@ export interface Profile {
   is_kid: boolean
 }
 
+export interface MediaCredit {
+  id: string
+  role: string
+  character_name?: string
+  billing_order?: number
+  person?: {
+    id: string
+    name: string
+    profile_path?: string
+  }
+}
+
+export interface ContentRating {
+  country: string
+  system: string
+  rating: string
+}
+
+export interface EpisodeNext {
+  id: string
+  episode_number: number
+  title?: string
+  file_path?: string
+  season_id?: string
+}
+
 // ─── API 方法 ───
 // 每个方法显式标注返回类型，调用方直接拿到业务类型，不需要 .data 包装
 
@@ -249,5 +275,59 @@ export const profileApi = {
   async list(): Promise<Profile[]> {
     const body = (await http.get<unknown>('/api/v1/profiles')) as { data: Profile[] }
     return body.data || []
+  },
+}
+
+export const catalogApi = {
+  async credits(mediaId: string, role = ''): Promise<MediaCredit[]> {
+    const body = (await http.get<unknown>(`/api/v1/works/${mediaId}/credits`, {
+      params: role ? { role } : {},
+    })) as { data: MediaCredit[] }
+    return body.data || []
+  },
+
+  async ratings(mediaId: string): Promise<ContentRating[]> {
+    const body = (await http.get<unknown>(`/api/v1/works/${mediaId}/ratings`)) as {
+      data: ContentRating[]
+    }
+    return body.data || []
+  },
+
+  async nextEpisode(mediaId: string, afterEpisodeId: string): Promise<EpisodeNext | null> {
+    const body = (await http.get<unknown>(`/api/v1/works/${mediaId}/next-episode`, {
+      params: { after_episode_id: afterEpisodeId },
+    })) as { data: EpisodeNext | null }
+    return body.data ?? null
+  },
+}
+
+export const libraryApi = {
+  async wantList(): Promise<{ media_id: string }[]> {
+    const body = (await http.get<unknown>('/api/v1/library/want-to-watch')) as {
+      data: Array<{ media_id: string }>
+    }
+    return body.data || []
+  },
+
+  async favoritesList(): Promise<{ media_id: string }[]> {
+    const body = (await http.get<unknown>('/api/v1/library/favorites')) as {
+      data: Array<{ media_id: string }>
+    }
+    return body.data || []
+  },
+
+  async addWant(mediaId: string): Promise<void> {
+    await http.post(`/api/v1/library/want-to-watch/${mediaId}`)
+  },
+
+  async removeWant(mediaId: string): Promise<void> {
+    await http.delete(`/api/v1/library/want-to-watch/${mediaId}`)
+  },
+
+  async toggleFavorite(mediaId: string): Promise<{ added: boolean }> {
+    const body = (await http.post<unknown>(`/api/v1/library/favorites/${mediaId}`)) as {
+      added: boolean
+    }
+    return { added: !!body.added }
   },
 }

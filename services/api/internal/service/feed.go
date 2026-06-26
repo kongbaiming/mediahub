@@ -22,6 +22,7 @@ type FeedService struct {
 	layout    *repository.LayoutRepo
 	history   *repository.HistoryRepo
 	users     *repository.UserRepo
+	catalog   *repository.CatalogRepo
 	recommend RecommendFetcher
 	cache     *cache.Cache // 可选（nil = 禁用）
 }
@@ -35,8 +36,8 @@ type RecommendFetcher interface {
 }
 
 // NewFeedService 构造
-func NewFeedService(m *repository.MediaRepo, l *repository.LayoutRepo, h *repository.HistoryRepo, u *repository.UserRepo, r RecommendFetcher) *FeedService {
-	return &FeedService{media: m, layout: l, history: h, users: u, recommend: r}
+func NewFeedService(m *repository.MediaRepo, l *repository.LayoutRepo, h *repository.HistoryRepo, u *repository.UserRepo, c *repository.CatalogRepo, r RecommendFetcher) *FeedService {
+	return &FeedService{media: m, layout: l, history: h, users: u, catalog: c, recommend: r}
 }
 
 // WithCache 注入缓存（可选）
@@ -211,6 +212,10 @@ func (s *FeedService) resolveDataSource(ctx context.Context, ds layout.DataSourc
 		return s.fromGuessYouLike(ctx, profileID, ds.Params, isKid)
 	case "tag":
 		return s.fromTag(ctx, ds.Params, isKid)
+	case "album":
+		return s.fromAlbum(ctx, ds.Params, isKid)
+	case "category":
+		return s.fromCategory(ctx, ds.Params, isKid)
 	case "union":
 		return s.fromUnion(ctx, ds.Params, profileID, isKid)
 	default:
@@ -503,6 +508,58 @@ func (s *FeedService) fromTag(ctx context.Context, params map[string]any, isKid 
 		}
 	}
 	return toFeedItems(filtered, nil), nil
+}
+
+func (s *FeedService) fromAlbum(ctx context.Context, params map[string]any, isKid bool) ([]layout.FeedItem, error) {
+	if s.catalog == nil {
+		return nil, nil
+	}
+	albumID, _ := params["album_id"].(string)
+	if albumID == "" {
+		return nil, nil
+	}
+	limit := 40
+	if v, ok := params["limit"].(float64); ok && v > 0 {
+		limit = int(v)
+	}
+	items, err := s.catalog.ListAlbumMedia(ctx, albumID, limit)
+	if err != nil {
+		return nil, err
+	}
+	if isKid {
+		var filtered []media.Media
+		for _, m := range items {
+			if !m.IsAdult {
+				filtered = append(filtered, m)
+			}
+		}
+		items = filtered
+	}
+	return toFeedItems(items, nil), nil
+}
+
+func (s *FeedService) fromCategory(ctx context.Context, params map[string]any, isKid bool) ([]layout.FeedItem, error) {
+	if s.catalog == nil {
+		return nil, nil
+	}
+	slug, _ := params["slug"].(string)
+	if slug == "" {
+		if name, ok := params["name"].(string); ok {
+			slug = repository.Slugify(name)
+		}
+	}
+	if slug == "" {
+		return nil, nil
+	}
+	limit := 20
+	if v, ok := params["limit"].(float64); ok && v > 0 {
+		limit = int(v)
+	}
+	items, _, err := s.catalog.ListMediaByCategorySlug(ctx, slug, limit, 0, isKid)
+	if err != nil {
+		return nil, err
+	}
+	return toFeedItems(items, nil), nil
 }
 
 func (s *FeedService) fromUnion(ctx context.Context, params map[string]any, profileID string, isKid bool) ([]layout.FeedItem, error) {

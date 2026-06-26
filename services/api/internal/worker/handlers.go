@@ -21,12 +21,18 @@ import (
 	"github.com/google/uuid"
 )
 
+// CatalogEnricher 刮削后扩展目录元数据
+type CatalogEnricher interface {
+	EnrichFromTMDB(ctx context.Context, m *media.Media) error
+}
+
 // Handlers 聚合所有任务处理器
 type Handlers struct {
 	tmdb       *scraper.TMDBClient
 	transcoder *transcoder.Transcoder
 	mediaRepo  *repository.MediaRepo
 	thumbDir   string
+	enricher   CatalogEnricher
 }
 
 // NewHandlers 构造
@@ -35,12 +41,14 @@ func NewHandlers(
 	t *transcoder.Transcoder,
 	repo *repository.MediaRepo,
 	thumbDir string,
+	enricher CatalogEnricher,
 ) *Handlers {
 	return &Handlers{
 		tmdb:       tmdb,
 		transcoder: t,
 		mediaRepo:  repo,
 		thumbDir:   thumbDir,
+		enricher:   enricher,
 	}
 }
 
@@ -160,6 +168,12 @@ func (h *Handlers) HandleScrape(ctx context.Context, t *asynq.Task) error {
 
 	if err := h.mediaRepo.ApplyScrapeResult(ctx, m); err != nil {
 		return fmt.Errorf("更新媒资: %w", err)
+	}
+
+	if h.enricher != nil {
+		if err := h.enricher.EnrichFromTMDB(ctx, m); err != nil {
+			logger.Warn("目录元数据扩展失败", "media_id", mid, "err", err)
+		}
 	}
 
 	logger.Info("刮削成功", "media_id", mid, "title", m.Title)

@@ -18,7 +18,7 @@ func (s *Service) RemigrateMisplacedMovies(ctx context.Context) (int, error) {
 		return 0, err
 	}
 
-	deps := IngestDeps{MediaRepo: s.mediaRepo, Queue: s.queue}
+	deps := IngestDeps{MediaRepo: s.mediaRepo, Catalog: s.catalogRepo, Queue: s.queue}
 	migrated := 0
 
 	for _, m := range movies {

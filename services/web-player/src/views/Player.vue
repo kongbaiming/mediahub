@@ -31,6 +31,12 @@
       </div>
     </div>
 
+    <div v-if="nextEpisodePrompt" class="next-episode-banner">
+      <span>下一集：{{ nextEpisodePrompt.title || `第 ${nextEpisodePrompt.episode_number} 集` }}</span>
+      <button class="next-btn" @click="playNextEpisode">立即播放</button>
+      <button class="dismiss-btn" @click="nextEpisodePrompt = null">关闭</button>
+    </div>
+
     <div v-if="media" class="player-info">
       <h2>{{ media.title }} <span v-if="media.year">({{ media.year }})</span></h2>
       <div class="meta">
@@ -47,7 +53,7 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import Hls from 'hls.js'
-import { mediaApi, historyApi, type MediaDetail, type ResumeInfo, type EpisodeDetail } from '@/api'
+import { mediaApi, historyApi, catalogApi, type MediaDetail, type ResumeInfo, type EpisodeDetail, type EpisodeNext } from '@/api'
 
 const route = useRoute()
 const videoRef = ref<HTMLVideoElement>()
@@ -58,6 +64,7 @@ const hls = ref<Hls | null>(null)
 const showShortcutTip = ref(true)
 const currentEpisodeId = ref<string | undefined>()
 const playablePath = ref('')
+const nextEpisodePrompt = ref<EpisodeNext | null>(null)
 
 const lastReportAt = ref(0)
 const REPORT_INTERVAL = 10
@@ -336,6 +343,33 @@ async function reportProgress() {
 
 function onEnded() {
   reportProgress().catch(console.error)
+  if (!media.value || !currentEpisodeId.value || !isSeriesType(media.value.type)) return
+  catalogApi
+    .nextEpisode(media.value.id, currentEpisodeId.value)
+    .then((next) => {
+      if (next?.id && next.file_path) {
+        nextEpisodePrompt.value = next
+      }
+    })
+    .catch(() => {})
+}
+
+async function playNextEpisode() {
+  const next = nextEpisodePrompt.value
+  if (!next?.file_path || !media.value) return
+  nextEpisodePrompt.value = null
+  currentEpisodeId.value = next.id
+  playablePath.value = next.file_path
+  resumeInfo.value = null
+  if (hls.value) {
+    hls.value.destroy()
+    hls.value = null
+  }
+  if (videoRef.value) {
+    videoRef.value.src = ''
+    videoRef.value.load()
+  }
+  await setupVideo()
 }
 
 // ---- 键盘快捷键 ----
@@ -538,6 +572,7 @@ onBeforeUnmount(() => {
   right: 40px;
   max-width: 600px;
   color: #fff;
+  z-index: 20;
 
   h2 {
     margin: 0 0 8px;
@@ -562,5 +597,45 @@ onBeforeUnmount(() => {
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+}
+
+.next-episode-banner {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: var(--mh-space-3, 12px);
+  padding: var(--mh-space-3, 12px) var(--mh-space-5, 20px);
+  background: rgba(10, 10, 18, 0.92);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(108, 99, 255, 0.35);
+  border-radius: var(--mh-radius-md, 12px);
+  box-shadow: var(--mh-shadow-lg, 0 12px 32px rgba(0, 0, 0, 0.45));
+  color: var(--mh-text, #f0f0f5);
+  font-size: 14px;
+}
+
+.next-btn {
+  height: 36px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 8px;
+  background: var(--mh-primary, #6c63ff);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dismiss-btn {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--mh-text-secondary, #a8a8bc);
+  cursor: pointer;
 }
 </style>

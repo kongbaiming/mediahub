@@ -18,6 +18,7 @@ import (
 // IngestDeps 入库依赖
 type IngestDeps struct {
 	MediaRepo *repository.MediaRepo
+	Catalog   *repository.CatalogRepo
 	Queue     *queue.Queue
 }
 
@@ -81,6 +82,9 @@ func ingestMovieFile(ctx context.Context, deps IngestDeps, filePath string, pars
 	_, _ = deps.MediaRepo.UpsertMediaFile(ctx, scanMediaFile(m.ID, nil, filePath))
 	res.Added = true
 	enqueueScrape(ctx, deps.Queue, m.ID.String(), true)
+	if deps.Catalog != nil {
+		_ = deps.Catalog.RefreshAvailability(ctx, m.ID)
+	}
 	logger.Info("媒资入库", "id", m.ID, "title", m.Title, "path", filePath)
 	return res, nil
 }
@@ -150,6 +154,9 @@ func ingestEpisodeFile(ctx context.Context, deps IngestDeps, filePath string, pa
 		res.Added = true
 		if isNewSeries {
 			logger.Info("剧集专辑入库", "id", series.ID, "title", series.Title, "path", seriesDir)
+		}
+		if deps.Catalog != nil {
+			_ = deps.Catalog.RefreshAvailability(ctx, series.ID)
 		}
 	} else {
 		res.Skipped = true

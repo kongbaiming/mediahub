@@ -8,6 +8,9 @@
         <span>{{ media?.title }}</span>
       </span>
       <div class="actions">
+        <button class="want-btn" :class="{ active: wantListed }" @click="toggleWant">
+          {{ wantListed ? '✓ 想看' : '+ 想看' }}
+        </button>
         <button class="fav-btn" :class="{ active: favorited }" @click="toggleFavorite">
           {{ favorited ? '★ 已收藏' : '☆ 收藏' }}
         </button>
@@ -20,6 +23,7 @@
         <div class="meta-top">
           <span class="type-badge">{{ typeLabel(media.type) }}</span>
           <span v-if="media.year">{{ media.year }}</span>
+          <span v-if="contentRating" class="rating-badge">{{ contentRating }}</span>
           <span v-if="media.rating">⭐ {{ media.rating.toFixed(1) }}</span>
           <span v-if="media.runtime">{{ media.runtime }} 分钟</span>
         </div>
@@ -37,14 +41,14 @@
         <div class="actions-row">
           <button
             v-if="!isSeries"
-            class="btn btn-primary"
+            class="btn mh-btn mh-btn--primary"
             @click="$router.push(`/play/${media.id}`)"
           >
             ▶ 播放
           </button>
           <button
             v-else-if="firstEpisodeId"
-            class="btn btn-primary"
+            class="btn mh-btn mh-btn--primary"
             @click="$router.push(`/play/${media.id}?episode_id=${firstEpisodeId}`)"
           >
             ▶ 播放第 1 集
@@ -54,6 +58,25 @@
     </div>
 
     <section v-if="media" class="info-section">
+      <div v-if="castCredits.length" class="section">
+        <h2 class="section-title">演职员</h2>
+        <div class="credits-row">
+          <div v-for="c in castCredits.slice(0, 12)" :key="c.id" class="credit-card">
+            <div class="credit-avatar">
+              <img
+                v-if="c.person?.profile_path"
+                :src="profileImage(c.person.profile_path)"
+                :alt="c.person?.name"
+                loading="lazy"
+              />
+              <span v-else>{{ c.person?.name?.slice(0, 1) || '?' }}</span>
+            </div>
+            <div class="credit-name">{{ c.person?.name }}</div>
+            <div v-if="c.character_name" class="credit-role">{{ c.character_name }}</div>
+          </div>
+        </div>
+      </div>
+
       <div class="section">
         <h2 class="section-title">详细信息</h2>
         <div class="info-grid">
@@ -119,13 +142,26 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { mediaApi, historyApi, recommendApi, type MediaDetail, type MediaSummary, type EpisodeDetail } from '@/api'
+import {
+  mediaApi,
+  catalogApi,
+  libraryApi,
+  recommendApi,
+  historyApi,
+  type MediaDetail,
+  type MediaSummary,
+  type EpisodeDetail,
+  type MediaCredit,
+} from '@/api'
 
 const route = useRoute()
 const loading = ref(false)
 const media = ref<MediaDetail | null>(null)
 const favorited = ref(false)
+const wantListed = ref(false)
 const similar = ref<MediaSummary[]>([])
+const castCredits = ref<MediaCredit[]>([])
+const contentRating = ref('')
 
 const isSeries = computed(() => media.value?.type === 'tvshow' || media.value?.type === 'anime')
 
@@ -151,33 +187,59 @@ async function load() {
   const id = route.params.id as string
   loading.value = true
   try {
+    await historyApi.ensureProfileId()
     const data = await mediaApi.get(id)
     media.value = data
 
-    // 加载相似推荐
-    try {
-      const simRes = await recommendApi.similar(id, 12)
-      similar.value = simRes.filter((m) => m.id !== id)
-    } catch (e) {
-      similar.value = []
-    }
+    const [simRes, credits, ratings, wants, favs] = await Promise.all([
+      recommendApi.similar(id, 12).catch(() => [] as MediaSummary[]),
+      catalogApi.credits(id, 'actor').catch(() => [] as MediaCredit[]),
+      catalogApi.ratings(id).catch(() => []),
+      libraryApi.wantList().catch(() => []),
+      libraryApi.favoritesList().catch(() => []),
+    ])
+
+    similar.value = simRes.filter((m) => m.id !== id)
+    castCredits.value = credits
+    contentRating.value = ratings[0]?.rating || ''
+    wantListed.value = wants.some((w) => w.media_id === id)
+    favorited.value = favs.some((f) => f.media_id === id)
   } finally {
     loading.value = false
+  }
+}
+
+async function toggleWant() {
+  if (!media.value) return
+  try {
+    if (wantListed.value) {
+      await libraryApi.removeWant(media.value.id)
+      wantListed.value = false
+      window.toast?.('已从想看移除', 'info', 2000)
+    } else {
+      await libraryApi.addWant(media.value.id)
+      wantListed.value = true
+      window.toast?.('已加入想看', 'success', 2000)
+    }
+  } catch {
+    // ignore
   }
 }
 
 async function toggleFavorite() {
   if (!media.value) return
   try {
-    await historyApi.toggleFavorite({
-      media_id: media.value.id,
-      type: 'want',
-    })
-    favorited.value = !favorited.value
-    window.toast?.(favorited.value ? '已加入收藏' : '已取消收藏', 'success', 2000)
+    const { added } = await libraryApi.toggleFavorite(media.value.id)
+    favorited.value = added
+    window.toast?.(added ? '已加入收藏' : '已取消收藏', 'success', 2000)
   } catch {
     // ignore
   }
+}
+
+function profileImage(path: string) {
+  if (path.startsWith('http')) return path
+  return `https://image.tmdb.org/t/p/w185${path}`
 }
 
 function typeLabel(t: string) {
@@ -190,8 +252,8 @@ onMounted(load)
 <style lang="scss" scoped>
 .detail-page {
   min-height: 100vh;
-  background: #0f172a;
-  color: #e2e8f0;
+  background: var(--mh-bg, #0a0a12);
+  color: var(--mh-text, #f0f0f5);
 }
 
 .topbar {
@@ -247,21 +309,104 @@ onMounted(load)
 }
 
 .fav-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: none;
-  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--mh-outline, rgba(255, 255, 255, 0.08));
+  color: var(--mh-text, #fff);
   padding: 8px 16px;
-  border-radius: 6px;
+  border-radius: 10px;
   cursor: pointer;
   font-size: 14px;
+  font-weight: 500;
+  transition: background var(--mh-duration, 200ms) ease;
 
   &.active {
-    background: rgba(251, 191, 36, 0.2);
-    color: #fbbf24;
-    border: 1px solid rgba(251, 191, 36, 0.4);
+    background: rgba(251, 191, 36, 0.15);
+    color: var(--mh-warning, #fbbf24);
+    border-color: rgba(251, 191, 36, 0.35);
   }
 
-  &:hover { background: rgba(255, 255, 255, 0.2); }
+  &:hover { background: rgba(255, 255, 255, 0.1); }
+}
+
+.want-btn {
+  background: rgba(108, 99, 255, 0.12);
+  border: 1px solid rgba(108, 99, 255, 0.25);
+  color: #c4bfff;
+  padding: 8px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+
+  &.active {
+    background: var(--mh-primary-muted, rgba(108, 99, 255, 0.2));
+    color: #fff;
+    border-color: var(--mh-primary, #6c63ff);
+  }
+
+  &:hover { background: rgba(108, 99, 255, 0.2); }
+}
+
+.rating-badge {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.credits-row {
+  display: flex;
+  gap: var(--mh-space-4, 16px);
+  overflow-x: auto;
+  padding-bottom: var(--mh-space-2, 8px);
+}
+
+.credit-card {
+  flex-shrink: 0;
+  width: 96px;
+  text-align: center;
+}
+
+.credit-avatar {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto var(--mh-space-2, 8px);
+  border-radius: var(--mh-radius-full, 9999px);
+  overflow: hidden;
+  background: var(--mh-surface-variant, #1e1e2e);
+  border: 1px solid var(--mh-outline, rgba(255, 255, 255, 0.08));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--mh-text-muted, #6b6b80);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.credit-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mh-text, #f0f0f5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.credit-role {
+  font-size: 11px;
+  color: var(--mh-text-muted, #6b6b80);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .hero {

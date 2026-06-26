@@ -13,18 +13,20 @@ import (
 
 // Service 库扫描业务
 type Service struct {
-	roots      []string
-	scanner    *Scanner
-	mediaRepo  *repository.MediaRepo
-	queue      *queue.Queue
+	roots       []string
+	scanner     *Scanner
+	mediaRepo   *repository.MediaRepo
+	catalogRepo *repository.CatalogRepo
+	queue       *queue.Queue
 }
 
 // NewService 构造
-func NewService(roots []string, mediaRepo *repository.MediaRepo, q *queue.Queue) *Service {
+func NewService(roots []string, mediaRepo *repository.MediaRepo, catalogRepo *repository.CatalogRepo, q *queue.Queue) *Service {
 	return &Service{
-		roots:     roots,
-		mediaRepo: mediaRepo,
-		queue:     q,
+		roots:       roots,
+		mediaRepo:   mediaRepo,
+		catalogRepo: catalogRepo,
+		queue:       q,
 	}
 }
 
@@ -98,7 +100,7 @@ func (s *Service) scanRoot(ctx context.Context, root string, result *ScanResult)
 	sc.FullScan(scanCtx)
 
 	// 处理扫描到的文件
-	deps := IngestDeps{MediaRepo: s.mediaRepo, Queue: s.queue}
+	deps := IngestDeps{MediaRepo: s.mediaRepo, Catalog: s.catalogRepo, Queue: s.queue}
 	for _, p := range paths {
 		count++
 		result.Total++

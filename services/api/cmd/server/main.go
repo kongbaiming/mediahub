@@ -101,6 +101,7 @@ func main() {
 	userRepo := repository.NewUserRepo(database.DB)
 	historyRepo := repository.NewHistoryRepo(database.DB)
 	recommendRepo := repository.NewRecommendRepo(database.DB)
+	catalogRepo := repository.NewCatalogRepo(database.DB)
 
 	// 启动 Asynq worker（注册具体的 handler）
 	tmdbClient := scraper.NewTMDBClient(
@@ -111,7 +112,8 @@ func main() {
 		cfg.TMDB.ImageBase,
 	)
 	trans := transcoder.NewTranscoder("ffmpeg", "qsv")
-	handlers := worker.NewHandlers(tmdbClient, trans, mediaRepo, "/data/thumbnails")
+	catalogSvc := service.NewCatalogService(catalogRepo, mediaRepo, tmdbClient)
+	handlers := worker.NewHandlers(tmdbClient, trans, mediaRepo, "/data/thumbnails", catalogSvc)
 	mux := asynq.NewServeMux()
 	handlers.Register(mux)
 	logger.Info("Asynq worker 已注册", "handlers", []string{"scrape", "thumb", "scan"})
@@ -138,6 +140,7 @@ func main() {
 	mediaSvc := service.NewMediaService(mediaRepo, q)
 	layoutSvc := service.NewLayoutService(layoutRepo)
 	historySvc := service.NewHistoryService(historyRepo, userRepo)
+	librarySvc := service.NewLibraryService(historySvc)
 	profileSvc := service.NewProfileService(userRepo)
 
 	// 推荐引擎
@@ -145,7 +148,7 @@ func main() {
 	recommendSvc := recommend.NewService(recommendEngine, recommendRepo)
 
 	// Feed Service 需要推荐接口（接口注入避免循环依赖）
-	feedSvc := service.NewFeedService(mediaRepo, layoutRepo, historyRepo, userRepo, recommendSvc)
+	feedSvc := service.NewFeedService(mediaRepo, layoutRepo, historyRepo, userRepo, catalogRepo, recommendSvc)
 
 	// 注入 Redis 缓存（Feed 5 分钟 TTL）
 	if rdb != nil {
@@ -211,7 +214,7 @@ func main() {
 	if cfg.Media.DownloadRoot != "" && cfg.Media.DownloadRoot != cfg.Media.Root {
 		roots = append(roots, cfg.Media.DownloadRoot)
 	}
-	scannerSvc := scanner.NewService(roots, mediaRepo, q)
+	scannerSvc := scanner.NewService(roots, mediaRepo, catalogRepo, q)
 
 	// 启动库扫描 watcher（30 分钟一次）
 	go scannerSvc.StartWatcher(context.Background(), 30*time.Minute)
@@ -242,7 +245,7 @@ func main() {
 	if hlsCache == "" {
 		hlsCache = "/data/hls-cache"
 	}
-	h := handler.NewHandlers(mediaSvc, layoutSvc, authSvc, feedSvc, historySvc, profileSvc, recommendSvc, downloaderSvc, scannerSvc, subtitleSvc, cfg.Media.Root, cfg.Media.DownloadRoot, hlsCache, handler.HLSTranscodeSettings{
+	h := handler.NewHandlers(mediaSvc, layoutSvc, authSvc, feedSvc, historySvc, librarySvc, catalogSvc, profileSvc, recommendSvc, downloaderSvc, scannerSvc, subtitleSvc, cfg.Media.Root, cfg.Media.DownloadRoot, hlsCache, handler.HLSTranscodeSettings{
 		HWAccel:     cfg.Transcode.HWAccel,
 		MaxBitrate:  cfg.Transcode.MaxBitrate,
 		MaxHeight:   cfg.Transcode.MaxHeight,
