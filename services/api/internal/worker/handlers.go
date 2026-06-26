@@ -184,6 +184,7 @@ func (h *Handlers) HandleScrape(ctx context.Context, t *asynq.Task) error {
 
 	// 4. 合并元数据
 	h.applyTMDB(m, tmdbInfo)
+	h.fillMissingArtwork(ctx, m)
 
 	// 5. 写入 ffprobe 结果
 	if probeResult != nil {
@@ -437,7 +438,9 @@ func (h *Handlers) tvToResult(t *scraper.TMDBTVShow, s *scraper.TMDBSeason) *scr
 		Genres:      genreNames(t.Genres),
 	}
 	if s != nil {
-		r.PosterURL = h.tmdb.PosterURL(s.PosterPath, "w500")
+		if sp := h.tmdb.PosterURL(s.PosterPath, "w500"); sp != "" {
+			r.PosterURL = sp
+		}
 	}
 	if y, err := strconvAtoi(t.FirstAirDate); err == nil && y > 0 {
 		r.Year = &y
@@ -451,6 +454,39 @@ func (h *Handlers) tvToResult(t *scraper.TMDBTVShow, s *scraper.TMDBSeason) *scr
 
 func (h *Handlers) tvToResultNoSeason(t *scraper.TMDBTVShow) *scraperResult {
 	return h.tvToResult(t, nil)
+}
+
+// fillMissingArtwork 海报/背景为空时回退拉取 TMDB 主条目图（避免季海报为空覆盖主剧海报）
+func (h *Handlers) fillMissingArtwork(ctx context.Context, m *media.Media) {
+	if m.TMDBID == nil || *m.TMDBID <= 0 {
+		return
+	}
+	if m.PosterURL != "" && m.BackdropURL != "" {
+		return
+	}
+	if m.IsTV() {
+		tv, err := h.tmdb.GetTVShow(ctx, *m.TMDBID)
+		if err != nil {
+			return
+		}
+		if m.PosterURL == "" {
+			m.PosterURL = h.tmdb.PosterURL(tv.PosterPath, "w500")
+		}
+		if m.BackdropURL == "" {
+			m.BackdropURL = h.tmdb.BackdropURL(tv.BackdropPath, "w1280")
+		}
+		return
+	}
+	movie, err := h.tmdb.GetMovie(ctx, *m.TMDBID)
+	if err != nil {
+		return
+	}
+	if m.PosterURL == "" {
+		m.PosterURL = h.tmdb.PosterURL(movie.PosterPath, "w500")
+	}
+	if m.BackdropURL == "" {
+		m.BackdropURL = h.tmdb.BackdropURL(movie.BackdropPath, "w1280")
+	}
 }
 
 func (h *Handlers) applyTMDB(m *media.Media, info *scraperResult) {

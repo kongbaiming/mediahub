@@ -212,10 +212,48 @@ func (s *ScrapeMatchService) ApplyMatch(ctx context.Context, mediaID string, tmd
 	if err := s.media.ApplyScrapeResult(ctx, m); err != nil {
 		return err
 	}
+	if m.PosterURL == "" || m.BackdropURL == "" {
+		s.fillMissingArtwork(ctx, m)
+		if m.PosterURL != "" || m.BackdropURL != "" {
+			_ = s.media.Update(ctx, m)
+		}
+	}
 	if s.catalog != nil {
 		_ = s.catalog.EnrichFromTMDB(ctx, m)
 	}
 	return nil
+}
+
+func (s *ScrapeMatchService) fillMissingArtwork(ctx context.Context, m *media.Media) {
+	if s.tmdb == nil || m.TMDBID == nil || *m.TMDBID <= 0 {
+		return
+	}
+	if m.PosterURL != "" && m.BackdropURL != "" {
+		return
+	}
+	if m.IsTV() {
+		tv, err := s.tmdb.GetTVShow(ctx, *m.TMDBID)
+		if err != nil {
+			return
+		}
+		if m.PosterURL == "" {
+			m.PosterURL = s.tmdb.PosterURL(tv.PosterPath, "w500")
+		}
+		if m.BackdropURL == "" {
+			m.BackdropURL = s.tmdb.BackdropURL(tv.BackdropPath, "w1280")
+		}
+		return
+	}
+	movie, err := s.tmdb.GetMovie(ctx, *m.TMDBID)
+	if err != nil {
+		return
+	}
+	if m.PosterURL == "" {
+		m.PosterURL = s.tmdb.PosterURL(movie.PosterPath, "w500")
+	}
+	if m.BackdropURL == "" {
+		m.BackdropURL = s.tmdb.BackdropURL(movie.BackdropPath, "w1280")
+	}
 }
 
 func probeMediaPath(ctx context.Context, repo *repository.MediaRepo, m *media.Media) string {
