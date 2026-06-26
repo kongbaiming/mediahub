@@ -24,23 +24,23 @@ CREATE TABLE IF NOT EXISTS media_files (
     deleted_at      TIMESTAMP,
     CONSTRAINT uq_media_files_path UNIQUE (path),
     CONSTRAINT chk_media_files_probe CHECK (probe_status IN ('pending', 'done', 'failed'))
-)
+);
 
-CREATE INDEX IF NOT EXISTS idx_media_files_media ON media_files(media_id)
+CREATE INDEX IF NOT EXISTS idx_media_files_media ON media_files(media_id);
 
-CREATE INDEX IF NOT EXISTS idx_media_files_episode ON media_files(episode_id) WHERE episode_id IS NOT NULL
+CREATE INDEX IF NOT EXISTS idx_media_files_episode ON media_files(episode_id) WHERE episode_id IS NOT NULL;
 
-CREATE INDEX IF NOT EXISTS idx_media_files_probe ON media_files(probe_status) WHERE probe_status != 'done'
+CREATE INDEX IF NOT EXISTS idx_media_files_probe ON media_files(probe_status) WHERE probe_status != 'done';
 
-ALTER TABLE media ADD COLUMN IF NOT EXISTS kind VARCHAR(20)
+ALTER TABLE media ADD COLUMN IF NOT EXISTS kind VARCHAR(20);
 
-UPDATE media SET kind = 'series' WHERE type IN ('tvshow', 'anime') AND (kind IS NULL OR kind = '')
+UPDATE media SET kind = 'series' WHERE type IN ('tvshow', 'anime') AND (kind IS NULL OR kind = '');
 
-UPDATE media SET kind = 'single' WHERE kind IS NULL OR kind = ''
+UPDATE media SET kind = 'single' WHERE kind IS NULL OR kind = '';
 
-ALTER TABLE media DROP CONSTRAINT IF EXISTS chk_media_kind
+ALTER TABLE media DROP CONSTRAINT IF EXISTS chk_media_kind;
 
-ALTER TABLE media ADD CONSTRAINT chk_media_kind CHECK (kind IN ('single', 'series'))
+ALTER TABLE media ADD CONSTRAINT chk_media_kind CHECK (kind IN ('single', 'series'));
 
 INSERT INTO media_files (
     media_id, episode_id, path, file_size, video_codec, audio_codec,
@@ -56,7 +56,7 @@ FROM media m
 WHERE m.kind = 'single'
   AND m.storage_path IS NOT NULL
   AND m.storage_path <> ''
-ON CONFLICT (path) DO NOTHING
+ON CONFLICT (path) DO NOTHING;
 
 INSERT INTO media_files (media_id, episode_id, path, file_size, is_primary, probe_status, source)
 SELECT
@@ -64,4 +64,4 @@ SELECT
 FROM episodes e
 WHERE e.file_path IS NOT NULL
   AND e.file_path <> ''
-ON CONFLICT (path) DO NOTHING
+ON CONFLICT (path) DO NOTHING;
