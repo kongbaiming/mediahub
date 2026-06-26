@@ -355,29 +355,43 @@ func (r *MediaRepo) ApplyScrapeResult(ctx context.Context, m *media.Media) error
 	if tags == nil {
 		tags = media.StringArray{}
 	}
-	if err := r.db.WithContext(ctx).Model(m).Where("id = ?", m.ID).Updates(map[string]any{
-		"scrape_status":   m.ScrapeStatus,
-		"scrape_error":    m.ScrapeError,
-		"last_scrape_at":  m.LastScrapeAt,
-		"title":           m.Title,
-		"original_title":  m.OriginalTitle,
-		"year":            m.Year,
-		"runtime":         m.Runtime,
-		"overview":        m.Overview,
-		"poster_url":      m.PosterURL,
-		"backdrop_url":    m.BackdropURL,
-		"rating":          m.Rating,
-		"vote_count":      m.VoteCount,
-		"tmdb_id":         m.TMDBID,
-		"genres":          genres,
-		"tags":            tags,
-		"file_size":       m.FileSize,
-		"video_codec":     m.VideoCodec,
-		"audio_codec":     m.AudioCodec,
-		"resolution":      m.Resolution,
-		"has_subtitle":    m.HasSubtitle,
-		"is_adult":        m.IsAdult,
-	}).Error; err != nil {
+
+	// 重新读 tags，避免刮削任务启动后用户已在 CMS 改标题
+	var current media.Media
+	if err := r.db.WithContext(ctx).
+		Select("tags").
+		Where("id = ?", m.ID).
+		First(&current).Error; err != nil {
+		return apperr.Wrap(err, apperr.CodeInternal, "读取媒资标签失败")
+	}
+	manualTitle := media.HasTag(current.Tags, media.TagManualTitle)
+
+	updates := map[string]any{
+		"scrape_status":  m.ScrapeStatus,
+		"scrape_error":   m.ScrapeError,
+		"last_scrape_at": m.LastScrapeAt,
+		"year":           m.Year,
+		"runtime":        m.Runtime,
+		"overview":       m.Overview,
+		"poster_url":     m.PosterURL,
+		"backdrop_url":   m.BackdropURL,
+		"rating":         m.Rating,
+		"vote_count":     m.VoteCount,
+		"tmdb_id":        m.TMDBID,
+		"genres":         genres,
+		"tags":           tags,
+		"file_size":      m.FileSize,
+		"video_codec":    m.VideoCodec,
+		"audio_codec":    m.AudioCodec,
+		"resolution":     m.Resolution,
+		"has_subtitle":   m.HasSubtitle,
+		"is_adult":       m.IsAdult,
+	}
+	if !manualTitle {
+		updates["title"] = m.Title
+		updates["original_title"] = m.OriginalTitle
+	}
+	if err := r.db.WithContext(ctx).Model(m).Where("id = ?", m.ID).Updates(updates).Error; err != nil {
 		return apperr.Wrap(err, apperr.CodeInternal, "写入刮削结果失败")
 	}
 	return nil
@@ -399,10 +413,25 @@ func (r *MediaRepo) ResetStuckScraping(ctx context.Context) (int64, error) {
 
 // Update 更新（按主键，不触碰 seasons/episodes 关联）
 func (r *MediaRepo) Update(ctx context.Context, m *media.Media) error {
-	if err := r.db.WithContext(ctx).
-		Session(&gorm.Session{FullSaveAssociations: false}).
-		Omit("Seasons").
-		Save(m).Error; err != nil {
+	genres := m.Genres
+	if genres == nil {
+		genres = media.StringArray{}
+	}
+	tags := m.Tags
+	if tags == nil {
+		tags = media.StringArray{}
+	}
+	if err := r.db.WithContext(ctx).Model(&media.Media{}).Where("id = ?", m.ID).Updates(map[string]any{
+		"title":          m.Title,
+		"original_title": m.OriginalTitle,
+		"year":           m.Year,
+		"overview":       m.Overview,
+		"poster_url":     m.PosterURL,
+		"backdrop_url":   m.BackdropURL,
+		"rating":         m.Rating,
+		"genres":         genres,
+		"tags":           tags,
+	}).Error; err != nil {
 		return apperr.Wrap(err, apperr.CodeInternal, "更新媒资失败")
 	}
 	return nil

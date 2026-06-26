@@ -73,6 +73,30 @@ func (m *Media) IsScraped() bool {
 	return m.ScrapeStatus == common.ScrapeStatusDone
 }
 
+// TagManualTitle CMS 手动改过标题后写入 tags，刮削时不再覆盖
+const TagManualTitle = "manual_title"
+
+// HasTag 是否含指定标签
+func HasTag(tags StringArray, tag string) bool {
+	for _, t := range tags {
+		if t == tag {
+			return true
+		}
+	}
+	return false
+}
+
+// EnsureTag 追加标签（去重）
+func EnsureTag(tags *StringArray, tag string) {
+	if tags == nil {
+		return
+	}
+	if HasTag(*tags, tag) {
+		return
+	}
+	*tags = append(*tags, tag)
+}
+
 // DisplayTitle 展示标题（带年份）
 func (m *Media) DisplayTitle() string {
 	if m.Year != nil {

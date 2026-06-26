@@ -300,6 +300,11 @@ func (h *Handlers) applyTMDB(m *media.Media, info *scraperResult) {
 		id := info.TMDBID
 		m.TMDBID = &id
 	}
+	if !media.HasTag(m.Tags, media.TagManualTitle) {
+		if info.Title != "" {
+			m.Title = info.Title
+		}
+	}
 	if info.Overview != "" {
 		m.Overview = info.Overview
 	}

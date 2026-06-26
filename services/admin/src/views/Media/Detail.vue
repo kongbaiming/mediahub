@@ -225,20 +225,26 @@ async function load() {
 }
 
 async function onSave() {
+  if (!editForm.title?.trim()) {
+    ElMessage.warning('标题不能为空')
+    return
+  }
   saving.value = true
   try {
     const id = media.value!.id
     await mediaApi.update(id, {
-      title: editForm.title,
+      title: editForm.title.trim(),
       original_title: editForm.original_title,
-      year: editForm.year,
+      year: editForm.year ?? null,
       rating: editForm.rating,
       genres: editForm.genresStr.split(',').map((s) => s.trim()).filter(Boolean),
       overview: editForm.overview,
     } as any)
-    ElMessage.success('保存成功')
+    ElMessage.success('保存成功，重新刮削不会覆盖已修改的标题')
     editing.value = false
     await load()
+  } catch {
+    // 错误由 axios 拦截器提示
   } finally {
     saving.value = false
   }

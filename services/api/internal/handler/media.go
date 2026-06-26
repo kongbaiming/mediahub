@@ -2,6 +2,7 @@ package handler
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/mediahub/api/internal/apperr"
 	"github.com/mediahub/api/internal/domain/common"
@@ -119,11 +120,15 @@ func (h *MediaHandler) Update(c *gin.Context) {
 		return
 	}
 
+	prevTitle := existing.Title
 	if v, ok := req["title"].(string); ok {
-		existing.Title = v
+		existing.Title = strings.TrimSpace(v)
+		if existing.Title != prevTitle {
+			media.EnsureTag(&existing.Tags, media.TagManualTitle)
+		}
 	}
 	if v, ok := req["original_title"].(string); ok {
-		existing.OriginalTitle = v
+		existing.OriginalTitle = strings.TrimSpace(v)
 	}
 	if v, ok := req["overview"].(string); ok {
 		existing.Overview = v
@@ -134,9 +139,14 @@ func (h *MediaHandler) Update(c *gin.Context) {
 	if v, ok := req["backdrop_url"].(string); ok {
 		existing.BackdropURL = v
 	}
-	if v, ok := req["year"].(float64); ok {
-		y := int(v)
-		existing.Year = &y
+	if v, ok := req["year"]; ok {
+		switch y := v.(type) {
+		case nil:
+			existing.Year = nil
+		case float64:
+			yr := int(y)
+			existing.Year = &yr
+		}
 	}
 	if v, ok := req["rating"].(float64); ok {
 		existing.Rating = v
