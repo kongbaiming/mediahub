@@ -1,0 +1,60 @@
+// MediaHub Admin — 专业 B 端设计 token（与 Web Player 品牌统一）
+:root {
+  --mh-primary: #6c63ff;
+  --mh-primary-hover: #5a52e8;
+  --mh-primary-muted: rgba(108, 99, 255, 0.1);
+  --mh-secondary: #3ecfcf;
+  --mh-accent: #ec4899;
+  --mh-success: #10b981;
+  --mh-warning: #f59e0b;
+  --mh-danger: #ef4444;
+
+  --mh-admin-bg: #f4f4f8;
+  --mh-admin-surface: #ffffff;
+  --mh-admin-surface-muted: #f8f8fc;
+  --mh-admin-sidebar-from: #12121f;
+  --mh-admin-sidebar-to: #0a0a12;
+
+  --mh-text: #1a1a28;
+  --mh-text-secondary: #5c5c72;
+  --mh-text-muted: #9494a8;
+  --mh-text-on-dark: #e8e8f0;
+
+  --mh-border: #e4e4ec;
+  --mh-border-light: #eeeef4;
+
+  --mh-space-2: 8px;
+  --mh-space-3: 12px;
+  --mh-space-4: 16px;
+  --mh-space-5: 20px;
+  --mh-space-6: 24px;
+  --mh-space-8: 32px;
+
+  --mh-radius-sm: 8px;
+  --mh-radius-md: 12px;
+  --mh-radius-lg: 16px;
+
+  --mh-shadow-sm: 0 1px 2px rgba(26, 26, 40, 0.04);
+  --mh-shadow-md: 0 4px 16px rgba(26, 26, 40, 0.06);
+  --mh-shadow-lg: 0 12px 32px rgba(26, 26, 40, 0.08);
+
+  --mh-ease: cubic-bezier(0.2, 0, 0, 1);
+  --mh-duration: 200ms;
+
+  --mh-topbar-height: 56px;
+  --mh-sidebar-width: 228px;
+  --mh-sidebar-collapsed: 64px;
+  --mh-font-display: 'Syne', 'Noto Sans SC', system-ui, sans-serif;
+  --mh-font-body: 'Manrope', 'Noto Sans SC', 'PingFang SC', sans-serif;
+
+  // 兼容旧变量
+  --primary-color: var(--mh-primary);
+  --bg-color: var(--mh-admin-sidebar-from);
+  --bg-elevated: var(--mh-admin-sidebar-from);
+  --text-color: var(--mh-text-on-dark);
+  --border-color: var(--mh-border);
+
+  --el-color-primary: var(--mh-primary);
+  --el-color-primary-light-3: #8b84ff;
+  --el-color-primary-dark-2: var(--mh-primary-hover);
+}

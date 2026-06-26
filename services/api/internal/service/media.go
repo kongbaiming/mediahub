@@ -183,6 +183,9 @@ type EpisodeDetail struct {
 }
 
 func toDetail(m *media.Media) *MediaDetail {
+	if !m.IsTV() && m.PlayablePath() != "" {
+		m.StoragePath = m.PlayablePath()
+	}
 	d := &MediaDetail{Media: m}
 	for _, s := range m.Seasons {
 		sd := SeasonDetail{
@@ -204,7 +207,7 @@ func toDetail(m *media.Media) *MediaDetail {
 				Overview:      e.Overview,
 				Duration:      e.Duration,
 				StillURL:      e.StillURL,
-				FilePath:      e.FilePath,
+				FilePath:      e.PlayablePath(),
 			})
 		}
 		d.Seasons = append(d.Seasons, sd)

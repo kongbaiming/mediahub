@@ -118,7 +118,9 @@ func (r *MediaRepo) List(ctx context.Context, f MediaFilter, limit, offset int) 
 func (r *MediaRepo) GetByID(ctx context.Context, id string) (*media.Media, error) {
 	var m media.Media
 	if err := r.db.WithContext(ctx).
+		Preload("Seasons.Episodes.Files").
 		Preload("Seasons.Episodes").
+		Preload("Files").
 		First(&m, "id = ?", id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, apperr.NotFound("媒资不存在")
@@ -286,6 +288,50 @@ func (r *MediaRepo) NextEpisodeNumber(ctx context.Context, mediaID uuid.UUID, se
 		return 0, apperr.Wrap(err, apperr.CodeInternal, "查询集数失败")
 	}
 	return maxEp + 1, nil
+}
+
+// NextEpisode 取下一集
+func (r *MediaRepo) NextEpisode(ctx context.Context, mediaID string, afterEpisodeID string) (*media.Episode, error) {
+	var current media.Episode
+	if err := r.db.WithContext(ctx).First(&current, "id = ? AND media_id = ?", afterEpisodeID, mediaID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, apperr.NotFound("当前集不存在")
+		}
+		return nil, apperr.Wrap(err, apperr.CodeInternal, "查询集失败")
+	}
+	var season media.Season
+	if err := r.db.WithContext(ctx).First(&season, "id = ?", current.SeasonID).Error; err != nil {
+		return nil, err
+	}
+	var next media.Episode
+	err := r.db.WithContext(ctx).
+		Where("season_id = ? AND episode_number > ?", season.ID, current.EpisodeNumber).
+		Order("episode_number ASC").First(&next).Error
+	if err == nil {
+		return &next, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	var nextSeason media.Season
+	err = r.db.WithContext(ctx).
+		Where("media_id = ? AND season_number > ?", mediaID, season.SeasonNumber).
+		Order("season_number ASC").First(&nextSeason).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	err = r.db.WithContext(ctx).Where("season_id = ?", nextSeason.ID).
+		Order("episode_number ASC").First(&next).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &next, nil
 }
 
 // UpdateScrapeStatus 仅更新刮削状态（不触碰 poster/overview 等元数据）

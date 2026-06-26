@@ -132,6 +132,24 @@ async function setupVideo() {
   if (!videoRef.value || !media.value || !playablePath.value) return
 
   const storagePath = playablePath.value
+
+  let recommended: string | undefined
+  try {
+    const probeResp = await fetch(
+      `/api/v1/stream/probe?path=${encodeURIComponent(storagePath)}`
+    )
+    if (probeResp.ok) {
+      const probe = await probeResp.json()
+      recommended = probe.recommended
+      if (probe.recommended === 'direct' || probe.direct_playable) {
+        const ok = await tryDirectPlay(storagePath)
+        if (ok) return
+      }
+    }
+  } catch {
+    // probe 失败时走下方 HLS / 直连兜底
+  }
+
   const ext = storagePath.split('.').pop()?.toLowerCase() || ''
   if (ext === 'mp4' || ext === 'm4v' || ext === 'webm') {
     switchToDirect(storagePath)
@@ -143,9 +161,46 @@ async function setupVideo() {
     await startHLSPlayback(streamId, storagePath)
   } catch (e: any) {
     console.error('HLS 启动失败', e)
-    window.toast?.(`HLS 转码失败：${e?.message || '未知错误'}`, 'error', 5000)
-    switchToDirect(storagePath)
+    if (recommended !== 'hls_copy' && recommended !== 'hls_transcode') {
+      window.toast?.(`HLS 转码失败：${e?.message || '未知错误'}`, 'error', 5000)
+    }
+    const ok = await tryDirectPlay(storagePath)
+    if (!ok) {
+      window.toast?.(`播放失败：${e?.message || '未知错误'}`, 'error', 5000)
+    }
   }
+}
+
+function tryDirectPlay(storagePath: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (!videoRef.value) {
+      resolve(false)
+      return
+    }
+    const video = videoRef.value
+    if (hls.value) {
+      hls.value.destroy()
+      hls.value = null
+    }
+
+    let settled = false
+    const finish = (ok: boolean) => {
+      if (settled) return
+      settled = true
+      video.removeEventListener('loadeddata', onOk)
+      video.removeEventListener('error', onFail)
+      clearTimeout(timer)
+      resolve(ok)
+    }
+    const onOk = () => finish(true)
+    const onFail = () => finish(false)
+    const timer = setTimeout(() => finish(false), 8000)
+
+    video.addEventListener('loadeddata', onOk)
+    video.addEventListener('error', onFail)
+    video.src = `/api/v1/stream/direct?path=${encodeURIComponent(storagePath)}`
+    video.load()
+  })
 }
 
 async function startHLSPlayback(streamId: string, storagePath: string) {

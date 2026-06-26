@@ -1,0 +1,33 @@
+---
+description: Vue 3 前端性能与代码风格，遵循 Vercel React Best Practices 原则
+globs: services/{admin,web-player}/**/*
+alwaysApply: false
+---
+
+# 前端性能与风格（Vercel Best Practices → Vue 3）
+
+编写、审查或重构 `services/admin`、`services/web-player` 时，**先阅读**个人 skill：
+
+`~/.cursor/skills/react-best-practices/SKILL.md`
+
+按需查阅 `rules/*.md` 或完整版 `AGENTS.md`。本仓库为 **Vue 3 + Vite + Pinia**，将 React/Next 规则映射为 Vue 等价实践：
+
+| Vercel 类别 | Vue 3 映射 |
+|-------------|------------|
+| async-*（消除瀑布流） | `Promise.all` 并行请求；路由/组件 `onMounted` 前合并独立 fetch |
+| bundle-* | `defineAsyncComponent` / 路由懒加载；避免 barrel 全量导入；按需引入 Element Plus |
+| rerender-* | `computed` 派生状态；`shallowRef`/`markRaw`；事件处理器内逻辑而非多余 `watch`；`v-memo` 长列表 |
+| rendering-* | `content-visibility`、虚拟滚动；静态模板外提；`v-show` vs `v-if` 按切换频率选择 |
+| client-* | axios 请求去重；passive 滚动监听；localStorage 版本化 |
+| js-* | 直接适用：Map/Set 查找、循环合并、early exit、缓存属性访问 |
+
+## 本项目约定
+
+- 组件：`<script setup lang="ts">`，组合式 API，类型明确
+- 状态：Pinia store 按域拆分；避免在组件内重复拉取已在 store 的数据
+- 样式：SCSS scoped；长列表与海报墙优先性能（懒加载、`loading="lazy"`）
+- 播放器：HLS 相关逻辑保持 probe → 直连 fallback 顺序，不阻塞首屏
+
+## 优先级
+
+重构时按 skill 优先级处理：**瀑布流与包体积 > 服务端（N/A，纯 SPA）> 客户端 fetch > 重渲染 > 渲染 > JS 微优化**。

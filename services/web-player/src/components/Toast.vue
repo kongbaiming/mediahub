@@ -35,26 +35,27 @@ const icon = computed(() => {
 <style scoped>
 .toast-container {
   position: fixed;
-  top: 24px;
+  top: var(--mh-space-6);
   left: 50%;
   transform: translateX(-50%);
   z-index: 9999;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 24px;
-  border-radius: 8px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+  gap: var(--mh-space-3);
+  padding: var(--mh-space-3) var(--mh-space-6);
+  border-radius: var(--mh-radius-md);
+  box-shadow: var(--mh-shadow-lg);
   font-size: 14px;
   font-weight: 500;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(16px) saturate(1.2);
+  border: 1px solid var(--mh-outline);
+  font-family: var(--mh-font-body);
 }
 
-.toast-info    { background: rgba(99, 102, 241, 0.95); color: white; }
-.toast-success { background: rgba(34, 197, 94, 0.95); color: white; }
-.toast-warning { background: rgba(251, 191, 36, 0.95); color: #1e293b; }
-.toast-error   { background: rgba(239, 68, 68, 0.95); color: white; }
+.toast-info    { background: rgba(108, 99, 255, 0.92); color: white; }
+.toast-success { background: rgba(52, 211, 153, 0.92); color: white; }
+.toast-warning { background: rgba(251, 191, 36, 0.95); color: var(--mh-bg); }
+.toast-error   { background: rgba(248, 113, 113, 0.92); color: white; }
 
 .toast-icon {
   display: inline-flex;

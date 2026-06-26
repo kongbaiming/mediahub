@@ -18,7 +18,7 @@
 - **可视化布局编辑器**：拖拽配置首页行（Hero、Shelf、猜你喜欢等），Web / TV 多端预览与发布
 - **猜你喜欢**：观影历史 + TMDB 推荐 + 库内兜底，可写入布局 Feed
 - **智能推荐**：Content-based + Hybrid；Feed Redis 缓存，布局变更自动失效
-- **多端播放**：Web（hls.js）/ Android TV（ExoPlayer）；MKV 自动 HLS 转码，支持边转边播
+- **多端播放**：Web（hls.js）/ Android TV（ExoPlayer）；内网 4K 优先 HLS 流复制，弱网可转码
 - **NAS 友好**：群晖 DS920+ 优化（Quick Sync 硬转、`/media` + `/downloads` 双路径）
 - **下载入库**：qBittorrent 集成，完成下载后自动扫描入库
 - **Apache 2.0**：可商用
@@ -106,14 +106,14 @@ mediahub/
 
 当前最新版本：**[v0.3.0](https://github.com/kongbaiming/mediahub/releases/tag/v0.3.0)** — 详见 [CHANGELOG.md](CHANGELOG.md)
 
+完整产品规划（版本目标、Sprint、优先级）：**[docs/PRD-ROADMAP.md](docs/PRD-ROADMAP.md)**
+
 | 阶段 | 状态 | 内容 |
 |---|---|---|
-| Phase 1 服务端 + CMS | ✅ | CRUD、布局编辑器、JWT、刮削 |
-| Phase 2 推荐 + Feed | ✅ | 猜你喜欢、Feed 缓存、模板继承 |
-| Phase 3 Web Player | ✅ | Hero、续播、HLS、Profile |
-| Phase 4 下载 / 扫描 | ✅ | qBit、自动入库、库扫描 |
-| Phase 5 Android TV | 🚧 | 骨架可用，持续完善 |
-| Phase 6 tvOS | 📋 | 计划中 |
+| v0.3 稳定基线 | ✅ | 猜你喜欢、Feed 缓存、HLS、布局编辑器、CI |
+| v0.4 体验闭环 | 🚧 | 刮削中心、4K 流复制、下载再入库、选集播放 |
+| v0.5 多端产品化 | 📋 | Web 字幕/选集、Android TV 1.0、CMS 仪表盘 |
+| v1.0 家庭生产可用 | 📋 | tvOS、字幕生态、性能专项 |
 
 ## 升级
 

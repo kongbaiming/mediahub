@@ -36,6 +36,16 @@ const (
 	ScrapeStatusFailed    ScrapeStatus = "failed"
 )
 
+// AvailabilityStatus 可播状态（OTT 运营）
+type AvailabilityStatus string
+
+const (
+	AvailAvailable   AvailabilityStatus = "available"
+	AvailProcessing  AvailabilityStatus = "processing"
+	AvailMissing     AvailabilityStatus = "missing"
+	AvailUnreleased  AvailabilityStatus = "unreleased"
+)
+
 // FavoriteType 收藏类型
 type FavoriteType string
 

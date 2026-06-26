@@ -10,8 +10,8 @@ import ToastHost from '@/components/ToastHost.vue'
 <style>
 #app {
   min-height: 100vh;
-  background: #0f172a;
-  color: #e2e8f0;
-  font-family: 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  background: var(--mh-bg);
+  color: var(--mh-text);
+  font-family: var(--mh-font-body);
 }
 </style>

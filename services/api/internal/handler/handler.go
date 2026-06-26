@@ -15,6 +15,8 @@ import (
 // Handlers 聚合所有 handler 依赖
 type Handlers struct {
 	Media          *MediaHandler
+	Catalog        *CatalogHandler
+	Library        *LibraryHandler
 	Layout         *LayoutHandler
 	Auth           *AuthHandler
 	Feed           *FeedHandler
@@ -25,6 +27,7 @@ type Handlers struct {
 	Scanner        *ScannerHandler
 	Subtitle       *SubtitleHandler
 	Stream         gin.HandlerFunc
+	StreamProbe    gin.HandlerFunc
 	HLSPlaylist    gin.HandlerFunc
 	HLSTaskStatus  gin.HandlerFunc
 	HLSCacheRoot   string
@@ -37,6 +40,8 @@ func NewHandlers(
 	auth *service.AuthService,
 	feed *service.FeedService,
 	history *service.HistoryService,
+	library *service.LibraryService,
+	catalog *service.CatalogService,
 	profile *service.ProfileService,
 	recommend *recommend.Service,
 	dl *downloader.Service,
@@ -53,6 +58,8 @@ func NewHandlers(
 	}
 	h := &Handlers{
 		Media:         NewMediaHandler(media),
+		Catalog:       NewCatalogHandler(catalog),
+		Library:       NewLibraryHandler(library),
 		Layout:        NewLayoutHandler(layout, feed),
 		Auth:          NewAuthHandler(auth),
 		Feed:          NewFeedHandler(feed),
@@ -60,6 +67,7 @@ func NewHandlers(
 		Profile:       NewProfileHandler(profile),
 		Recommend:     NewRecommendHandler(recommend),
 		Stream:        StreamHandler(streamRoots, hlsCacheRoot, transcode),
+		StreamProbe:   StreamProbeHandler(streamRoots),
 		HLSPlaylist:   ServeHLSPlaylist(hlsCacheRoot),
 		HLSTaskStatus: GetHLSTaskStatus(hlsCacheRoot),
 		HLSCacheRoot:  hlsCacheRoot,
@@ -100,7 +108,39 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 		v1.POST("/media", middleware.Auth(h.Auth.svc), h.Media.Create)
 		v1.PATCH("/media/:id", middleware.Auth(h.Auth.svc), h.Media.Update)
 		v1.DELETE("/media/:id", middleware.Auth(h.Auth.svc), middleware.RequireAdmin(), h.Media.Delete)
-		v1.POST("/media/:id/rescan", middleware.Auth(h.Auth.svc), h.Media.Rescan)
+		v1.GET("/media/:id/rescan", middleware.Auth(h.Auth.svc), h.Media.Rescan)
+
+		// 作品扩展（OTT 目录）
+		v1.GET("/works/:id/credits", h.Catalog.Credits)
+		v1.GET("/works/:id/extras", h.Catalog.Extras)
+		v1.GET("/works/:id/ratings", h.Catalog.Ratings)
+		v1.GET("/works/:id/subtitles", h.Catalog.Subtitles)
+		v1.GET("/works/:id/next-episode", h.Catalog.NextEpisode)
+		v1.GET("/works/:id/availability", h.Catalog.Availability)
+		v1.GET("/persons", h.Catalog.ListPersons)
+		v1.GET("/persons/:id", h.Catalog.GetPerson)
+		v1.GET("/persons/:id/works", h.Catalog.PersonWorks)
+		v1.GET("/categories", h.Catalog.ListCategories)
+		v1.GET("/categories/:slug/works", h.Catalog.CategoryWorks)
+		v1.GET("/tags/:slug/works", h.Catalog.TagWorks)
+		v1.GET("/albums", h.Catalog.ListAlbums)
+		v1.POST("/albums", middleware.Auth(h.Auth.svc), h.Catalog.CreateAlbum)
+		v1.GET("/albums/:id/works", h.Catalog.AlbumWorks)
+
+		// 个人片库
+		lib := v1.Group("/library")
+		lib.Use(middleware.RequireProfile())
+		{
+			lib.GET("/want-to-watch", h.Library.WantToWatch)
+			lib.POST("/want-to-watch/:media_id", h.Library.AddWant)
+			lib.DELETE("/want-to-watch/:media_id", h.Library.RemoveWant)
+			lib.GET("/favorites", h.Library.Favorites)
+			lib.POST("/favorites/:media_id", h.Library.ToggleFavorite)
+			lib.GET("/watching", h.Library.Watching)
+			lib.GET("/watched", h.Library.Watched)
+			lib.GET("/history", h.Library.History)
+			lib.GET("/continue-watching", h.Library.ContinueWatching)
+		}
 
 		// 布局（preview 与 get 一样只读，无需登录；CMS 编辑器依赖）
 		v1.GET("/layouts/:id/preview", h.Layout.Preview)
@@ -136,6 +176,7 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 		v1.GET("/stream/hls/:media_id/playlist.m3u8", h.HLSPlaylist)
 		v1.GET("/stream/hls/:media_id/:file", h.HLSPlaylist)
 		v1.GET("/stream/hls/:media_id/status", h.HLSTaskStatus)
+		v1.GET("/stream/probe", h.StreamProbe)
 		v1.GET("/stream/direct", h.Stream)
 		v1.GET("/stream/hls", h.Stream)
 

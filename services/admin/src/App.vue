@@ -11,6 +11,7 @@ import zhCn from 'element-plus/es/locale/lang/zh-cn'
 <style>
 #app {
   height: 100vh;
-  font-family: 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  font-family: var(--mh-font-body);
+  color: var(--mh-text);
 }
 </style>

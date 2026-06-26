@@ -99,6 +99,7 @@ type HLSOptions struct {
 	SegmentTime  int    // 切片秒数
 	Preset       string // libx264 preset
 	CopyAudio    bool   // 源音频已是 AAC 时直接 copy
+	CopyVideo    bool   // 视频流 copy（原分辨率/码率，适合内网 4K）
 }
 
 // TranscodeHLS 转码为 HLS
@@ -106,8 +107,20 @@ func (t *Transcoder) TranscodeHLS(ctx context.Context, opts HLSOptions) (string,
 	return t.transcodeHLS(ctx, opts, t.hwAccel)
 }
 
-// TranscodeHLSWithFallback 硬转失败时回退 libx264 软解
+// TranscodeHLSWithFallback 流复制失败时回退转码；硬转失败时回退 libx264
 func (t *Transcoder) TranscodeHLSWithFallback(ctx context.Context, opts HLSOptions) (string, error) {
+	if opts.CopyVideo {
+		copyOpts := opts
+		playlist, err := t.transcodeHLS(ctx, copyOpts, "none")
+		if err == nil {
+			return playlist, nil
+		}
+		opts.CopyVideo = false
+		if opts.Height <= 0 && opts.Width <= 0 {
+			opts.Height = 1080
+		}
+	}
+
 	playlist, err := t.transcodeHLS(ctx, opts, t.hwAccel)
 	if err == nil {
 		return playlist, nil
@@ -136,7 +149,7 @@ func (t *Transcoder) transcodeHLS(ctx context.Context, opts HLSOptions, hwAccel 
 	if opts.Preset == "" {
 		opts.Preset = "ultrafast"
 	}
-	if opts.Height <= 0 && opts.Width <= 0 {
+	if !opts.CopyVideo && opts.Height <= 0 && opts.Width <= 0 {
 		opts.Height = 480
 	}
 
@@ -172,24 +185,30 @@ func (t *Transcoder) buildHLSArgs(opts HLSOptions, playlist string) []string {
 		opts.Preset = "ultrafast"
 	}
 
-	args := []string{
-		"-i", opts.Input,
-	}
+	args := []string{"-i", opts.Input}
 
-	if t.hwAccel == "qsv" {
-		args = append(args, "-hwaccel", "qsv")
-	}
-
-	args = append(args, "-c:v", t.videoEncoder())
-	if t.hwAccel == "none" {
-		args = append(args, "-preset", opts.Preset)
-	}
-	args = append(args, "-b:v", opts.Bitrate)
-
-	if opts.CopyAudio {
-		args = append(args, "-c:a", "copy")
+	if opts.CopyVideo {
+		args = append(args, "-c:v", "copy")
+		if opts.CopyAudio {
+			args = append(args, "-c:a", "copy")
+		} else {
+			args = append(args, "-c:a", "aac", "-b:a", opts.AudioBitrate)
+		}
 	} else {
-		args = append(args, "-c:a", "aac", "-b:a", opts.AudioBitrate)
+		if t.hwAccel == "qsv" {
+			args = append(args, "-hwaccel", "qsv")
+		}
+		args = append(args, "-c:v", t.videoEncoder())
+		if t.hwAccel == "none" {
+			args = append(args, "-preset", opts.Preset)
+		}
+		args = append(args, "-b:v", opts.Bitrate)
+		if opts.CopyAudio {
+			args = append(args, "-c:a", "copy")
+		} else {
+			args = append(args, "-c:a", "aac", "-b:a", opts.AudioBitrate)
+		}
+		args = append(args, "-vf", t.scaleFilter(opts.Width, opts.Height))
 	}
 
 	args = append(args,
@@ -197,7 +216,6 @@ func (t *Transcoder) buildHLSArgs(opts HLSOptions, playlist string) []string {
 		"-hls_list_size", "0",
 		"-hls_flags", "independent_segments+temp_file",
 		"-hls_segment_filename", filepath.Join(opts.OutputDir, "seg_%03d.ts"),
-		"-vf", t.scaleFilter(opts.Width, opts.Height),
 		"-max_muxing_queue_size", "1024",
 		"-f", "hls",
 		"-y",

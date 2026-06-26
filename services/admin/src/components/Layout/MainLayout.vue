@@ -129,41 +129,43 @@ function handleCommand(cmd: string) {
 .main-layout {
   display: flex;
   height: 100vh;
-  background: #f8fafc;
+  background: var(--mh-admin-bg);
 }
 
 .sidebar {
-  width: 220px;
-  background: linear-gradient(180deg, #1e293b, #0f172a);
-  color: #cbd5e1;
-  transition: width 0.2s;
+  width: var(--mh-sidebar-width);
+  background: linear-gradient(180deg, var(--mh-admin-sidebar-from), var(--mh-admin-sidebar-to));
+  color: var(--mh-text-on-dark);
+  transition: width var(--mh-duration) var(--mh-ease);
   flex-shrink: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
 
   &.collapsed {
-    width: 64px;
+    width: var(--mh-sidebar-collapsed);
   }
 }
 
 .sidebar-header {
-  height: 56px;
+  height: var(--mh-topbar-height);
   display: flex;
   align-items: center;
-  padding: 0 20px;
+  padding: 0 var(--mh-space-5);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .logo {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--mh-space-2);
   color: #fff;
   font-weight: 600;
   font-size: 16px;
-  letter-spacing: 0.5px;
+  font-family: var(--mh-font-display);
+  letter-spacing: -0.01em;
 }
 
 .logo-text {
-  background: linear-gradient(135deg, #6366f1, #ec4899);
+  background: linear-gradient(135deg, var(--mh-primary), var(--mh-accent));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -172,14 +174,21 @@ function handleCommand(cmd: string) {
 .sidebar-menu {
   border-right: none !important;
   background: transparent !important;
+  padding: var(--mh-space-2) 0;
 
   :deep(.el-menu-item) {
+    margin: 2px var(--mh-space-2);
+    border-radius: var(--mh-radius-sm);
+    transition: background var(--mh-duration) var(--mh-ease);
+
     &.is-active {
-      background: rgba(99, 102, 241, 0.15) !important;
-      border-left: 3px solid #6366f1;
+      background: var(--mh-primary-muted) !important;
+      border-left: none;
+      box-shadow: inset 3px 0 0 var(--mh-primary);
     }
+
     &:hover {
-      background: rgba(255, 255, 255, 0.05) !important;
+      background: rgba(255, 255, 255, 0.06) !important;
     }
   }
 }
@@ -189,64 +198,70 @@ function handleCommand(cmd: string) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-width: 0;
 }
 
 .topbar {
-  height: 56px;
-  background: #fff;
-  border-bottom: 1px solid #e2e8f0;
+  height: var(--mh-topbar-height);
+  background: var(--mh-admin-surface);
+  border-bottom: 1px solid var(--mh-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
+  padding: 0 var(--mh-space-5);
+  box-shadow: var(--mh-shadow-sm);
 }
 
 .topbar-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--mh-space-3);
 }
 
 .page-title {
   font-size: 16px;
-  font-weight: 500;
-  color: #1e293b;
+  font-weight: 600;
+  font-family: var(--mh-font-display);
+  color: var(--mh-text);
+  letter-spacing: -0.02em;
 }
 
 .topbar-right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--mh-space-4);
 }
 
 .profile-switcher, .user-info {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--mh-space-2);
   cursor: pointer;
-  padding: 4px 12px;
-  border-radius: 6px;
-  transition: background 0.15s;
+  padding: 4px var(--mh-space-3);
+  border-radius: var(--mh-radius-sm);
+  transition: background var(--mh-duration) var(--mh-ease);
 
   &:hover {
-    background: #f1f5f9;
+    background: var(--mh-admin-surface-muted);
   }
 }
 
 .profile-name, .user-name {
   font-size: 13px;
-  color: #475569;
+  color: var(--mh-text-secondary);
+  font-weight: 500;
 }
 
 .main-content {
   flex: 1;
   overflow: auto;
-  padding: 24px;
+  padding: var(--mh-space-6);
 }
 
 .fade-enter-active, .fade-leave-active {
-  transition: opacity 0.2s ease;
+  transition: opacity var(--mh-duration) var(--mh-ease);
 }
+
 .fade-enter-from, .fade-leave-to {
   opacity: 0;
 }

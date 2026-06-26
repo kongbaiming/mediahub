@@ -1,6 +1,6 @@
 <template>
   <div class="search-page">
-    <header class="topbar">
+    <header class="topbar mh-topbar">
       <button class="back-btn" @click="$router.back()">← 返回</button>
       <div class="search-box">
         <input
@@ -91,32 +91,29 @@ onMounted(() => {
 <style lang="scss" scoped>
 .search-page {
   min-height: 100vh;
-  background: #0f172a;
-  color: #e2e8f0;
+  background: var(--mh-bg);
+  color: var(--mh-text);
 }
 
 .topbar {
   position: sticky;
   top: 0;
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(20px);
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  padding: 16px 40px;
-  gap: 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: var(--mh-space-4) clamp(var(--mh-space-4), 4vw, var(--mh-space-10));
 }
 
 .back-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: none;
-  color: #fff;
-  padding: 8px 16px;
-  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--mh-outline);
+  color: var(--mh-text);
+  padding: var(--mh-space-2) var(--mh-space-4);
+  border-radius: 10px;
   cursor: pointer;
+  font-weight: 500;
+  transition: background var(--mh-duration) var(--mh-ease);
 
-  &:hover { background: rgba(255, 255, 255, 0.2); }
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
 }
 
 .search-box {
@@ -126,52 +123,64 @@ onMounted(() => {
   input {
     width: 100%;
     height: 40px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    color: #fff;
-    padding: 0 16px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--mh-outline);
+    border-radius: 10px;
+    color: var(--mh-text);
+    padding: 0 var(--mh-space-4);
     font-size: 15px;
     outline: none;
+    transition: border-color var(--mh-duration) var(--mh-ease),
+                box-shadow var(--mh-duration) var(--mh-ease);
 
-    &::placeholder { color: #64748b; }
+    &::placeholder {
+      color: var(--mh-text-muted);
+    }
 
     &:focus {
-      background: rgba(255, 255, 255, 0.12);
-      border-color: #6366f1;
+      border-color: var(--mh-primary);
+      box-shadow: 0 0 0 3px var(--mh-primary-muted);
     }
   }
 }
 
 .results {
-  padding: 32px 40px;
+  padding: var(--mh-space-8) clamp(var(--mh-space-4), 4vw, var(--mh-space-10));
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 20px;
+  gap: var(--mh-space-5);
 }
 
 .card {
   cursor: pointer;
-  transition: transform 0.2s;
+  transition: transform var(--mh-duration) var(--mh-ease-spring);
 
-  &:hover { transform: translateY(-4px); }
+  &:hover {
+    transform: translateY(-4px);
+
+    .poster-card {
+      box-shadow: var(--mh-shadow-lg);
+    }
+  }
 }
 
 .poster-card {
   position: relative;
   aspect-ratio: 2/3;
-  background: linear-gradient(135deg, #1e293b, #0f172a);
-  border-radius: 8px;
+  background: linear-gradient(145deg, var(--mh-surface-variant), var(--mh-bg));
+  border-radius: var(--mh-radius-md);
+  border: 1px solid var(--mh-outline);
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.25);
   font-size: 28px;
   font-weight: 700;
+  transition: box-shadow var(--mh-duration) var(--mh-ease);
 
   img {
     width: 100%;
@@ -182,21 +191,22 @@ onMounted(() => {
 
 .rating {
   position: absolute;
-  top: 8px;
-  left: 8px;
-  background: rgba(0, 0, 0, 0.7);
-  color: #fbbf24;
+  top: var(--mh-space-2);
+  left: var(--mh-space-2);
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(8px);
+  color: var(--mh-warning);
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
 }
 
 .card-title {
-  margin-top: 8px;
+  margin-top: var(--mh-space-2);
   font-size: 14px;
   font-weight: 500;
-  color: #e2e8f0;
+  color: var(--mh-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -204,13 +214,13 @@ onMounted(() => {
 
 .card-meta {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--mh-text-muted);
 }
 
 .loading, .empty {
   text-align: center;
   padding: 80px 0;
   font-size: 16px;
-  color: #94a3b8;
+  color: var(--mh-text-muted);
 }
 </style>

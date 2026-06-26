@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-model="visible" title="切换 Profile" width="500" :show-close="false">
+  <el-dialog v-model="visible" title="切换 Profile" width="500" :show-close="false" class="profile-dialog">
     <div class="profile-list">
       <div
         v-for="p in profiles"
@@ -165,30 +165,33 @@ function onCreateConfirm() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 16px;
-  background: #f8fafc;
+  gap: var(--mh-space-2);
+  padding: var(--mh-space-4);
+  background: rgba(255, 255, 255, 0.04);
   border: 2px solid transparent;
-  border-radius: 12px;
+  border-radius: var(--mh-radius-md);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background var(--mh-duration) var(--mh-ease),
+              transform var(--mh-duration) var(--mh-ease),
+              border-color var(--mh-duration) var(--mh-ease);
 
   &:hover {
-    background: #f1f5f9;
+    background: rgba(255, 255, 255, 0.08);
     transform: translateY(-2px);
   }
 
   &.active {
-    border-color: #6366f1;
-    background: rgba(99, 102, 241, 0.08);
+    border-color: var(--mh-primary);
+    background: var(--mh-primary-muted);
+    box-shadow: var(--mh-shadow-glow);
   }
 }
 
 .avatar {
   width: 64px;
   height: 64px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #6366f1, #ec4899);
+  border-radius: var(--mh-radius-full);
+  background: linear-gradient(135deg, var(--mh-primary), var(--mh-accent));
   color: #fff;
   display: flex;
   align-items: center;
@@ -201,9 +204,10 @@ function onCreateConfirm() {
 .avatar-add {
   width: 64px;
   height: 64px;
-  border-radius: 50%;
-  background: #e2e8f0;
-  color: #94a3b8;
+  border-radius: var(--mh-radius-full);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px dashed var(--mh-outline-strong);
+  color: var(--mh-text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -220,22 +224,22 @@ function onCreateConfirm() {
 .profile-name {
   font-size: 14px;
   font-weight: 500;
-  color: #1e293b;
+  color: var(--mh-text-secondary);
 }
 
 .add-new {
   background: transparent;
-  border: 2px dashed #cbd5e1;
+  border: 2px dashed var(--mh-outline-strong);
 
   &:hover {
-    background: #f8fafc;
-    border-color: #6366f1;
+    background: rgba(255, 255, 255, 0.04);
+    border-color: var(--mh-primary);
   }
 }
 
 .hint {
   font-size: 12px;
-  color: #94a3b8;
-  margin-top: 4px;
+  color: var(--mh-text-muted);
+  margin-top: var(--mh-space-1);
 }
 </style>

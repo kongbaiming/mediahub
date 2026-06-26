@@ -3,7 +3,7 @@
     <div class="empty-icon" aria-hidden="true">{{ icon }}</div>
     <h3 class="empty-title">{{ title }}</h3>
     <p v-if="description" class="empty-desc">{{ description }}</p>
-    <button v-if="action" class="empty-action" @click="action.onClick">
+    <button v-if="action" class="empty-action mh-btn mh-btn--accent" @click="action.onClick">
       {{ action.label }}
     </button>
   </div>
@@ -26,49 +26,35 @@ withDefaults(defineProps<{
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 64px 24px;
+  padding: var(--mh-space-16, 64px) var(--mh-space-6);
   text-align: center;
 }
 
 .empty-icon {
-  font-size: 64px;
-  opacity: 0.4;
-  margin-bottom: 16px;
+  font-size: 56px;
+  opacity: 0.35;
+  margin-bottom: var(--mh-space-4);
+  filter: grayscale(0.2);
 }
 
 .empty-title {
-  margin: 0 0 8px;
-  color: #cbd5e1;
-  font-size: 18px;
+  margin: 0 0 var(--mh-space-2);
+  color: var(--mh-text);
+  font-size: 20px;
   font-weight: 600;
+  font-family: var(--mh-font-display);
+  letter-spacing: -0.02em;
 }
 
 .empty-desc {
-  margin: 0 0 24px;
-  color: #94a3b8;
+  margin: 0 0 var(--mh-space-6);
+  color: var(--mh-text-muted);
   font-size: 14px;
-  max-width: 400px;
-  line-height: 1.6;
+  max-width: 420px;
+  line-height: 1.65;
 }
 
 .empty-action {
-  padding: 10px 24px;
-  background: #6366f1;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s, transform 0.15s;
-}
-
-.empty-action:hover {
-  background: #4f46e5;
-  transform: translateY(-1px);
-}
-
-.empty-action:active {
-  transform: translateY(0);
+  min-width: 160px;
 }
 </style>

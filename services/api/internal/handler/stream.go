@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/mediahub/api/internal/apperr"
 	"github.com/mediahub/api/internal/mediafile"
+	"github.com/mediahub/api/internal/scanner"
 	"github.com/mediahub/api/internal/transcoder"
 
 	"github.com/gin-gonic/gin"
@@ -26,6 +28,7 @@ type HLSTranscodeSettings struct {
 	MaxHeight   int
 	Preset      string
 	SegmentTime int
+	PreferCopy  bool
 }
 
 // StreamHandler 流代理
@@ -127,6 +130,132 @@ type hlsTask struct {
 	Status    string // pending | running | done | failed
 	Error     string
 	StartedAt time.Time
+	Opts      transcoder.HLSOptions
+}
+
+type hlsCacheProfile struct {
+	CopyVideo bool   `json:"copy_video"`
+	Height    int    `json:"height"`
+	Bitrate   string `json:"bitrate"`
+}
+
+func hlsProfilePath(outDir string) string {
+	return filepath.Join(outDir, ".profile.json")
+}
+
+func readHLSProfile(outDir string) (*hlsCacheProfile, error) {
+	data, err := os.ReadFile(hlsProfilePath(outDir))
+	if err != nil {
+		return nil, err
+	}
+	var p hlsCacheProfile
+	if err := json.Unmarshal(data, &p); err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+func writeHLSProfile(outDir string, opts transcoder.HLSOptions) error {
+	p := hlsCacheProfile{
+		CopyVideo: opts.CopyVideo,
+		Height:    opts.Height,
+		Bitrate:   opts.Bitrate,
+	}
+	data, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(hlsProfilePath(outDir), data, 0644)
+}
+
+func hlsProfileMatches(outDir string, opts transcoder.HLSOptions) bool {
+	p, err := readHLSProfile(outDir)
+	if err != nil {
+		return false
+	}
+	return p.CopyVideo == opts.CopyVideo && p.Height == opts.Height && p.Bitrate == opts.Bitrate
+}
+
+func resolveHLSOptions(ctx context.Context, input string, tc HLSTranscodeSettings) transcoder.HLSOptions {
+	opts := transcoder.HLSOptions{
+		Input:        input,
+		SegmentTime:  tc.SegmentTime,
+		Preset:       tc.Preset,
+		AudioBitrate: "128k",
+	}
+
+	if tc.MaxBitrate == "" {
+		tc.MaxBitrate = "2500k"
+	}
+	if tc.Preset == "" {
+		tc.Preset = "ultrafast"
+	}
+	if tc.SegmentTime <= 0 {
+		tc.SegmentTime = 4
+	}
+	opts.Bitrate = tc.MaxBitrate
+	opts.Preset = tc.Preset
+	opts.SegmentTime = tc.SegmentTime
+
+	result, err := scanner.Probe(ctx, "", input)
+	if err != nil {
+		if tc.MaxHeight <= 0 {
+			opts.Height = 1080
+		} else {
+			opts.Height = tc.MaxHeight
+		}
+		return opts
+	}
+
+	hint := result.PlaybackHint(input)
+	sourceHeight := hint.Height
+
+	if tc.PreferCopy && hint.HLSCopyable {
+		opts.CopyVideo = true
+		return opts
+	}
+
+	height := tc.MaxHeight
+	if height <= 0 {
+		height = sourceHeight
+	}
+	if sourceHeight > 0 && (height <= 0 || sourceHeight < height) {
+		height = sourceHeight
+	}
+	if height <= 0 {
+		height = 1080
+	}
+	opts.Height = height
+	return opts
+}
+
+// StreamProbeHandler 探测文件编码与推荐播放方式
+func StreamProbeHandler(allowedRoots []string) gin.HandlerFunc {
+	roots := normalizeAllowedRoots(allowedRoots)
+	return func(c *gin.Context) {
+		path := c.Query("path")
+		if path == "" {
+			respondError(c, apperr.BadRequest("missing path"))
+			return
+		}
+		cleanPath := filepath.Clean(path)
+		if !isPathUnderRoots(cleanPath, roots) {
+			respondError(c, apperr.Forbidden("path outside media root"))
+			return
+		}
+		if info, err := os.Stat(cleanPath); err != nil || info.IsDir() {
+			respondError(c, apperr.NotFound("file not found"))
+			return
+		}
+
+		result, err := scanner.Probe(c.Request.Context(), "", cleanPath)
+		if err != nil {
+			respondError(c, apperr.Internal("probe failed: "+err.Error()))
+			return
+		}
+		hint := result.PlaybackHint(cleanPath)
+		c.JSON(200, hint)
+	}
 }
 
 func hlsPlaylistURL(mediaID string) string {
@@ -218,13 +347,17 @@ func handleHLS(c *gin.Context, allowedRoots []string, cacheRoot string, tc HLSTr
 
 	outDir := filepath.Join(cacheRoot, mediaID)
 	playlistPath := filepath.Join(outDir, "playlist.m3u8")
+	hlsOpts := resolveHLSOptions(c.Request.Context(), cleanPath, tc)
+	hlsOpts.OutputDir = outDir
 
 	if _, err := os.Stat(playlistPath); err == nil {
-		if isHLSPlaylistComplete(playlistPath) {
+		if isHLSPlaylistComplete(playlistPath) && hlsProfileMatches(outDir, hlsOpts) {
 			c.JSON(200, gin.H{
-				"status":   "ready",
-				"playlist": hlsPlaylistURL(mediaID),
-				"cached":   true,
+				"status":     "ready",
+				"playlist":   hlsPlaylistURL(mediaID),
+				"cached":     true,
+				"copy_video": hlsOpts.CopyVideo,
+				"height":     hlsOpts.Height,
 			})
 			return
 		}
@@ -256,25 +389,13 @@ func handleHLS(c *gin.Context, allowedRoots []string, cacheRoot string, tc HLSTr
 		return
 	}
 
-	if tc.MaxBitrate == "" {
-		tc.MaxBitrate = "2500k"
-	}
-	if tc.MaxHeight <= 0 {
-		tc.MaxHeight = 480
-	}
-	if tc.Preset == "" {
-		tc.Preset = "ultrafast"
-	}
-	if tc.SegmentTime <= 0 {
-		tc.SegmentTime = 4
-	}
-
 	task := &hlsTask{
 		MediaID:   mediaID,
 		Input:     cleanPath,
 		OutputDir: outDir,
 		Status:    "running",
 		StartedAt: time.Now(),
+		Opts:      hlsOpts,
 	}
 
 	hlsTasksMu.Lock()
@@ -284,23 +405,19 @@ func handleHLS(c *gin.Context, allowedRoots []string, cacheRoot string, tc HLSTr
 	go runHLSTranscode(task, tc)
 
 	c.JSON(202, gin.H{
-		"status":   "started",
-		"task":     mediaID,
-		"poll_url": fmt.Sprintf("/api/v1/stream/hls/%s/status", mediaID),
+		"status":     "started",
+		"task":       mediaID,
+		"poll_url":   fmt.Sprintf("/api/v1/stream/hls/%s/status", mediaID),
+		"copy_video": hlsOpts.CopyVideo,
+		"height":     hlsOpts.Height,
 	})
 }
 
 func runHLSTranscode(task *hlsTask, tc HLSTranscodeSettings) {
 	tr := transcoder.NewTranscoder("ffmpeg", tc.HWAccel)
-	opts := transcoder.HLSOptions{
-		Input:        task.Input,
-		OutputDir:    task.OutputDir,
-		Height:       tc.MaxHeight,
-		Bitrate:      tc.MaxBitrate,
-		AudioBitrate: "128k",
-		SegmentTime:  tc.SegmentTime,
-		Preset:       tc.Preset,
-	}
+	opts := task.Opts
+	opts.Input = task.Input
+	opts.OutputDir = task.OutputDir
 
 	_, err := tr.TranscodeHLSWithFallback(context.Background(), opts)
 
@@ -312,6 +429,7 @@ func runHLSTranscode(task *hlsTask, tc HLSTranscodeSettings) {
 		_ = os.RemoveAll(task.OutputDir)
 		return
 	}
+	_ = writeHLSProfile(task.OutputDir, opts)
 	task.Status = "done"
 }
 

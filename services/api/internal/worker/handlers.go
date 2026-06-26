@@ -119,6 +119,15 @@ func (h *Handlers) HandleScrape(ctx context.Context, t *asynq.Task) error {
 	}
 	if info, err := scanner.Probe(ctx, "", probePath); err == nil {
 		mi := info.Extract()
+		width, height := probeVideoSize(info)
+		_ = h.mediaRepo.ApplyProbeToFile(ctx, probePath, repository.FileProbeInfo{
+			Duration:    mi.Duration,
+			VideoCodec:  mi.VideoCodec,
+			AudioCodec:  mi.AudioCodec,
+			Resolution:  mi.Resolution,
+			HasSubtitle: mi.HasSubtitle,
+			BitRate:     mi.BitRate,
+		}, width, height)
 		if m.Runtime == nil && mi.Duration > 0 {
 			d := mi.Duration / 60
 			m.Runtime = &d
@@ -418,6 +427,18 @@ func strPtr(s string) *string {
 }
 
 func nowTime() time.Time { return time.Now() }
+
+func probeVideoSize(result *scanner.ProbeResult) (width, height int) {
+	if result == nil {
+		return 0, 0
+	}
+	for _, s := range result.Streams {
+		if s.CodecType == "video" {
+			return s.Width, s.Height
+		}
+	}
+	return 0, 0
+}
 
 // FileSize 自动估算（无 ffprobe 时）
 func estimateFileSize(bitrate int64, duration int) int64 {

@@ -28,27 +28,28 @@ const cardStyle = computed(() => ({
 .skeleton-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--mh-space-2);
 }
 
 .skeleton-poster {
   width: 100%;
   height: 270px;
-  background: rgba(51, 65, 85, 0.4);
-  border-radius: 8px;
+  background: var(--mh-surface-variant);
+  border-radius: var(--mh-radius-md);
+  border: 1px solid var(--mh-outline);
 }
 
 .skeleton-text {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 0 8px;
+  padding: 0 var(--mh-space-2);
 }
 
 .skeleton-line {
   height: 12px;
-  background: rgba(51, 65, 85, 0.4);
-  border-radius: 4px;
+  background: var(--mh-surface-variant);
+  border-radius: 6px;
 }
 
 .shimmer {
@@ -63,7 +64,7 @@ const cardStyle = computed(() => ({
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.06) 50%,
+    rgba(108, 99, 255, 0.08) 50%,
     transparent 100%
   );
   animation: shimmer 1.5s infinite;

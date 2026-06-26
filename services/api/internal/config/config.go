@@ -75,6 +75,7 @@ type TranscodeConfig struct {
 	MaxHeight    int
 	Preset       string
 	SegmentTime  int
+	PreferCopy   bool // 内网优先 HLS 流复制（4K 不重编码）
 }
 
 // Load 加载配置（先尝试读 .env，再读环境变量）
@@ -118,6 +119,7 @@ func Load() (*Config, error) {
 			MaxHeight:   getEnvInt("TRANSCODE_MAX_HEIGHT", 480),
 			Preset:      getEnv("TRANSCODE_PRESET", "ultrafast"),
 			SegmentTime: getEnvInt("TRANSCODE_SEGMENT_TIME", 4),
+			PreferCopy:  getEnv("TRANSCODE_PREFER_COPY", "true") == "true",
 		},
 		Downloader: DownloaderConfig{
 			Enabled:      getEnv("DOWNLOADER_ENABLED", "true") == "true",

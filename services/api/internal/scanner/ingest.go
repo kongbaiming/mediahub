@@ -11,6 +11,8 @@ import (
 	"github.com/mediahub/api/internal/queue"
 	"github.com/mediahub/api/internal/repository"
 	"github.com/mediahub/api/pkg/logger"
+
+	"github.com/google/uuid"
 )
 
 // IngestDeps 入库依赖
@@ -58,6 +60,7 @@ func ingestMovieFile(ctx context.Context, deps IngestDeps, filePath string, pars
 
 	m := &media.Media{
 		Type:         mtype,
+		Kind:         mediaKind(mtype),
 		Title:        parsed.Title,
 		Year:         parsed.Year,
 		StoragePath:  filePath,
@@ -75,6 +78,7 @@ func ingestMovieFile(ctx context.Context, deps IngestDeps, filePath string, pars
 	if err := deps.MediaRepo.Create(ctx, m); err != nil {
 		return res, err
 	}
+	_, _ = deps.MediaRepo.UpsertMediaFile(ctx, scanMediaFile(m.ID, nil, filePath))
 	res.Added = true
 	enqueueScrape(ctx, deps.Queue, m.ID.String(), true)
 	logger.Info("媒资入库", "id", m.ID, "title", m.Title, "path", filePath)
@@ -111,6 +115,7 @@ func ingestEpisodeFile(ctx context.Context, deps IngestDeps, filePath string, pa
 		}
 		series = &media.Media{
 			Type:         mtype,
+			Kind:         mediaKind(mtype),
 			Title:        parsed.Title,
 			StoragePath:  seriesDir,
 			ScrapeStatus: common.ScrapeStatusPending,
@@ -136,6 +141,10 @@ func ingestEpisodeFile(ctx context.Context, deps IngestDeps, filePath string, pa
 	if _, err := deps.MediaRepo.UpsertEpisode(ctx, series.ID, seasonNum, epNum, filePath, epTitle); err != nil {
 		return res, err
 	}
+	ep, err := deps.MediaRepo.GetEpisodeByFilePath(ctx, filePath)
+	if err == nil && ep != nil {
+		_, _ = deps.MediaRepo.UpsertMediaFile(ctx, scanMediaFile(series.ID, &ep.ID, filePath))
+	}
 
 	if isNewSeries || migrated {
 		res.Added = true
@@ -148,6 +157,24 @@ func ingestEpisodeFile(ctx context.Context, deps IngestDeps, filePath string, pa
 
 	enqueueScrape(ctx, deps.Queue, series.ID.String(), series.ScrapeStatus != common.ScrapeStatusDone)
 	return res, nil
+}
+
+func mediaKind(mtype common.MediaType) media.MediaKind {
+	if mtype == common.MediaTypeTVShow || mtype == common.MediaTypeAnime {
+		return media.MediaKindSeries
+	}
+	return media.MediaKindSingle
+}
+
+func scanMediaFile(mediaID uuid.UUID, episodeID *uuid.UUID, path string) *media.MediaFile {
+	return &media.MediaFile{
+		MediaID:     mediaID,
+		EpisodeID:   episodeID,
+		Path:        path,
+		IsPrimary:   true,
+		ProbeStatus: "pending",
+		Source:      "scan",
+	}
 }
 
 func enqueueScrape(ctx context.Context, q *queue.Queue, mediaID string, need bool) {

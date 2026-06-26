@@ -13,6 +13,7 @@ import (
 type Media struct {
 	common.BaseModel
 	Type           common.MediaType `gorm:"type:varchar(20);not null;index" json:"type"`
+	Kind           MediaKind        `gorm:"type:varchar(20);not null;default:'single';index" json:"kind"`
 	Title          string           `gorm:"type:varchar(500);not null;index" json:"title"`
 	OriginalTitle  string           `gorm:"type:varchar(500)" json:"original_title,omitempty"`
 	Year           *int             `gorm:"index" json:"year,omitempty"`
@@ -43,13 +44,18 @@ type Media struct {
 	// 内容分级（来自 TMDB 或手动标记）
 	IsAdult bool `gorm:"default:false;index" json:"is_adult"` // 成人内容（R18+）
 
+	// OTT 可播状态
+	AvailabilityStatus common.AvailabilityStatus `gorm:"type:varchar(20);default:'processing';index" json:"availability_status"`
+	AvailableAt        *time.Time                `json:"available_at,omitempty"`
+
 	// 刮削状态
 	ScrapeStatus  common.ScrapeStatus `gorm:"type:varchar(20);default:'pending';index" json:"scrape_status"`
 	ScrapeError   string              `gorm:"type:text" json:"scrape_error,omitempty"`
 	LastScrapeAt  *time.Time          `json:"last_scrape_at,omitempty"`
 
 	// 关联
-	Seasons []Season `gorm:"foreignKey:MediaID;constraint:OnDelete:CASCADE" json:"seasons,omitempty"`
+	Seasons []Season    `gorm:"foreignKey:MediaID;constraint:OnDelete:CASCADE" json:"seasons,omitempty"`
+	Files   []MediaFile `gorm:"foreignKey:MediaID;constraint:OnDelete:CASCADE" json:"files,omitempty"`
 }
 
 // TableName 表名
@@ -57,7 +63,7 @@ func (Media) TableName() string { return "media" }
 
 // IsTV 是否剧集类
 func (m *Media) IsTV() bool {
-	return m.Type == common.MediaTypeTVShow || m.Type == common.MediaTypeAnime
+	return m.Kind == MediaKindSeries || m.Type == common.MediaTypeTVShow || m.Type == common.MediaTypeAnime
 }
 
 // IsScraped 是否已刮削
@@ -109,6 +115,8 @@ type Episode struct {
 	FilePath      string    `gorm:"type:text" json:"file_path,omitempty"`
 	FileSize      int64     `gorm:"default:0" json:"file_size"`
 	StillURL      string    `gorm:"type:text" json:"still_url,omitempty"`
+
+	Files []MediaFile `gorm:"foreignKey:EpisodeID;constraint:OnDelete:CASCADE" json:"files,omitempty"`
 }
 
 func (Episode) TableName() string { return "episodes" }

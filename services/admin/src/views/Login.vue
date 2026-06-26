@@ -144,7 +144,7 @@ async function onSubmit() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0f172a;
+  background: var(--mh-admin-sidebar-to);
   overflow: hidden;
 }
 
@@ -163,21 +163,21 @@ async function onSubmit() {
   &.blob-1 {
     width: 400px;
     height: 400px;
-    background: #6366f1;
+    background: var(--mh-primary);
     top: -100px;
     left: -100px;
   }
   &.blob-2 {
     width: 500px;
     height: 500px;
-    background: #ec4899;
+    background: var(--mh-accent);
     bottom: -150px;
     right: -100px;
   }
   &.blob-3 {
     width: 300px;
     height: 300px;
-    background: #14b8a6;
+    background: var(--mh-secondary);
     top: 50%;
     left: 60%;
   }
@@ -205,7 +205,8 @@ async function onSubmit() {
   h1 {
     margin: 0;
     font-size: 28px;
-    background: linear-gradient(135deg, #818cf8, #f472b6);
+    font-family: var(--mh-font-display);
+    background: linear-gradient(135deg, #8b84ff, #f472b6);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -213,17 +214,18 @@ async function onSubmit() {
 }
 
 .subtitle {
-  margin-top: 8px;
-  color: #94a3b8;
+  margin-top: var(--mh-space-2);
+  color: var(--mh-text-muted);
   font-size: 14px;
 }
 
 .login-card {
-  background: rgba(30, 41, 59, 0.7);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  padding: 24px;
+  background: rgba(22, 22, 37, 0.75);
+  backdrop-filter: blur(24px) saturate(1.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--mh-radius-lg);
+  padding: var(--mh-space-6);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
 }
 
 :deep(.login-card) {
@@ -239,7 +241,7 @@ async function onSubmit() {
 }
 
 :deep(.el-tabs__active-bar) {
-  background-color: #818cf8 !important;
+  background-color: var(--mh-primary) !important;
 }
 
 :deep(.el-form-item__label) {
@@ -257,14 +259,17 @@ async function onSubmit() {
 
 .submit-btn {
   width: 100%;
-  margin-top: 8px;
-  background: linear-gradient(135deg, #6366f1, #ec4899);
+  margin-top: var(--mh-space-2);
+  background: linear-gradient(135deg, var(--mh-primary), var(--mh-accent));
   border: none;
-  font-weight: 500;
-  letter-spacing: 0.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  height: 44px;
+  border-radius: 10px;
 
   &:hover {
-    background: linear-gradient(135deg, #4f46e5, #db2777);
+    background: linear-gradient(135deg, var(--mh-primary-hover), #db2777);
+    transform: translateY(-1px);
   }
 }
 

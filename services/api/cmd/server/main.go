@@ -248,6 +248,7 @@ func main() {
 		MaxHeight:   cfg.Transcode.MaxHeight,
 		Preset:      cfg.Transcode.Preset,
 		SegmentTime: cfg.Transcode.SegmentTime,
+		PreferCopy:  cfg.Transcode.PreferCopy,
 	})
 
 	// ---------- 10. 路由 ----------

@@ -92,6 +92,7 @@ func (d *DB) Stats() PoolStats {
 func (d *DB) AutoMigrate() error {
 	return d.DB.AutoMigrate(
 		&media.Media{},
+		&media.MediaFile{},
 		&media.Season{},
 		&media.Episode{},
 		&layout.Layout{},
