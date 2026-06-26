@@ -37,6 +37,7 @@ type Handlers struct {
 // NewHandlers 构造
 func NewHandlers(
 	media *service.MediaService,
+	scrapeMatch *service.ScrapeMatchService,
 	layout *service.LayoutService,
 	auth *service.AuthService,
 	feed *service.FeedService,
@@ -62,7 +63,7 @@ func NewHandlers(
 		hlsStore = hlsstore.New(nil)
 	}
 	h := &Handlers{
-		Media:         NewMediaHandler(media),
+		Media:         NewMediaHandler(media, scrapeMatch),
 		Catalog:       NewCatalogHandler(catalog),
 		Library:       NewLibraryHandler(library),
 		Layout:        NewLayoutHandler(layout, feed),
@@ -116,6 +117,8 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 		v1.DELETE("/media/:id", middleware.Auth(h.Auth.svc), middleware.RequireAdmin(), h.Media.Delete)
 		v1.GET("/media/:id/rescan", middleware.Auth(h.Auth.svc), h.Media.Rescan)
 		v1.POST("/media/:id/rescan", middleware.Auth(h.Auth.svc), h.Media.Rescan)
+		v1.GET("/media/:id/scrape-candidates", middleware.Auth(h.Auth.svc), h.Media.ScrapeCandidates)
+		v1.POST("/media/:id/apply-scrape-match", middleware.Auth(h.Auth.svc), h.Media.ApplyScrapeMatch)
 
 		// 作品扩展（OTT 目录）
 		v1.GET("/works/:id/credits", h.Catalog.Credits)

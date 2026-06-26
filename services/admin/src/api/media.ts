@@ -39,4 +39,23 @@ export const mediaApi = {
     http.post<{ status: string; queued: number }>('/api/v1/media/batch-rescan', payload),
 
   stats: () => http.get<{ data: Stats }>('/api/v1/media/stats'),
+
+  scrapeCandidates: (id: string) =>
+    http.get<{ data: ScrapeCandidate[] }>(`/api/v1/media/${id}/scrape-candidates`),
+
+  applyScrapeMatch: (id: string, payload: { tmdb_id: number; type: 'movie' | 'tv' }) =>
+    http.post<{ status: string; media_id: string }>(`/api/v1/media/${id}/apply-scrape-match`, payload),
+}
+
+export interface ScrapeCandidate {
+  tmdb_id: number
+  type: 'movie' | 'tv'
+  title: string
+  original_title?: string
+  year?: number
+  overview?: string
+  poster_url?: string
+  runtime?: number
+  rating?: number
+  match_score?: number
 }

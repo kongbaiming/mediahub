@@ -139,6 +139,7 @@ func main() {
 	}
 
 	mediaSvc := service.NewMediaService(mediaRepo, q)
+	scrapeMatchSvc := service.NewScrapeMatchService(mediaRepo, tmdbClient, catalogSvc)
 	layoutSvc := service.NewLayoutService(layoutRepo)
 	historySvc := service.NewHistoryService(historyRepo, userRepo)
 	librarySvc := service.NewLibraryService(historySvc)
@@ -255,7 +256,7 @@ func main() {
 		hlsCache = "/data/hls-cache"
 	}
 	hlsTaskStore := hlsstore.New(rdb)
-	h := handler.NewHandlers(mediaSvc, layoutSvc, authSvc, feedSvc, historySvc, librarySvc, catalogSvc, profileSvc, recommendSvc, downloaderSvc, scannerSvc, subtitleSvc, cfg.Media.Root, cfg.Media.DownloadRoot, hlsCache, handler.HLSTranscodeSettings{
+	h := handler.NewHandlers(mediaSvc, scrapeMatchSvc, layoutSvc, authSvc, feedSvc, historySvc, librarySvc, catalogSvc, profileSvc, recommendSvc, downloaderSvc, scannerSvc, subtitleSvc, cfg.Media.Root, cfg.Media.DownloadRoot, hlsCache, handler.HLSTranscodeSettings{
 		HWAccel:     cfg.Transcode.HWAccel,
 		MaxBitrate:  cfg.Transcode.MaxBitrate,
 		MaxHeight:   cfg.Transcode.MaxHeight,

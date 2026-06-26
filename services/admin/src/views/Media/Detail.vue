@@ -132,6 +132,51 @@
         </div>
       </div>
 
+      <el-card v-if="showScrapeMatch" shadow="never" class="scrape-match-card">
+        <template #header>
+          <div class="match-header">
+            <span>TMDB 候选匹配</span>
+            <el-button size="small" :loading="candidatesLoading" @click="loadCandidates">
+              刷新候选
+            </el-button>
+          </div>
+        </template>
+        <p class="match-hint">刮削未成功时，从下列候选中选择正确条目，无需手动输入标题。</p>
+        <div v-loading="candidatesLoading" class="candidate-grid">
+          <div
+            v-for="c in scrapeCandidates"
+            :key="`${c.type}-${c.tmdb_id}`"
+            class="candidate-card"
+          >
+            <div class="candidate-poster">
+              <img v-if="c.poster_url" :src="c.poster_url" :alt="c.title" />
+              <span v-else>{{ c.title.slice(0, 2) }}</span>
+            </div>
+            <div class="candidate-body">
+              <div class="candidate-title">
+                {{ c.title }}
+                <span v-if="c.year" class="candidate-year">({{ c.year }})</span>
+              </div>
+              <div class="candidate-meta">
+                <el-tag size="small" type="info">{{ c.type === 'tv' ? '剧集' : '电影' }}</el-tag>
+                <span v-if="c.runtime"> {{ c.runtime }} 分钟</span>
+                <span v-if="c.rating"> · {{ c.rating.toFixed(1) }}</span>
+              </div>
+              <p v-if="c.overview" class="candidate-overview">{{ c.overview }}</p>
+              <el-button
+                type="primary"
+                size="small"
+                :loading="applyingKey === `${c.type}-${c.tmdb_id}`"
+                @click="onApplyCandidate(c)"
+              >
+                确认匹配
+              </el-button>
+            </div>
+          </div>
+          <el-empty v-if="!candidatesLoading && scrapeCandidates.length === 0" description="暂无候选，可尝试刷新或修改文件夹名后重新刮削" />
+        </div>
+      </el-card>
+
       <el-card v-if="castCredits.length" shadow="never" class="credits-card">
         <template #header><span>演职员</span></template>
         <div class="credits-row">
@@ -173,10 +218,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { mediaApi } from '@/api/media'
+import { mediaApi, type ScrapeCandidate } from '@/api/media'
 import { catalogApi, type MediaCredit, type ContentRating } from '@/api/catalog'
 import type { MediaDetail } from '@/api/types'
 
@@ -190,6 +235,14 @@ const editing = ref(false)
 const media = ref<MediaDetail | null>(null)
 const castCredits = ref<MediaCredit[]>([])
 const contentRatings = ref<ContentRating[]>([])
+const scrapeCandidates = ref<ScrapeCandidate[]>([])
+const candidatesLoading = ref(false)
+const applyingKey = ref('')
+
+const showScrapeMatch = computed(() => {
+  const s = media.value?.scrape_status
+  return s === 'failed' || s === 'pending'
+})
 const editForm = reactive({
   title: '',
   original_title: '',
@@ -219,6 +272,11 @@ async function load() {
       genresStr: (res.data.genres || []).join(', '),
       overview: res.data.overview || '',
     })
+    if (showScrapeMatch.value) {
+      loadCandidates()
+    } else {
+      scrapeCandidates.value = []
+    }
   } finally {
     loading.value = false
   }
@@ -255,8 +313,40 @@ async function onRescan() {
   try {
     await mediaApi.rescan(media.value!.id)
     ElMessage.success('已加入刮削队列')
+    await load()
   } finally {
     rescanning.value = false
+  }
+}
+
+async function loadCandidates() {
+  if (!media.value) return
+  candidatesLoading.value = true
+  try {
+    const res = await mediaApi.scrapeCandidates(media.value.id)
+    scrapeCandidates.value = res.data || []
+  } catch {
+    scrapeCandidates.value = []
+  } finally {
+    candidatesLoading.value = false
+  }
+}
+
+async function onApplyCandidate(c: ScrapeCandidate) {
+  if (!media.value) return
+  const key = `${c.type}-${c.tmdb_id}`
+  applyingKey.value = key
+  try {
+    await mediaApi.applyScrapeMatch(media.value.id, {
+      tmdb_id: c.tmdb_id,
+      type: c.type,
+    })
+    ElMessage.success('匹配成功')
+    await load()
+  } catch {
+    // 错误由 axios 拦截器提示
+  } finally {
+    applyingKey.value = ''
   }
 }
 
@@ -440,6 +530,82 @@ onMounted(load)
 .scrape-error {
   font-size: 12px;
   color: #ef4444;
+}
+
+.scrape-match-card {
+  margin-top: 16px;
+  border-radius: 12px;
+}
+
+.match-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.match-hint {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.candidate-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.candidate-card {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.candidate-poster {
+  width: 72px;
+  flex-shrink: 0;
+  aspect-ratio: 2/3;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #1e293b;
+  color: rgba(255, 255, 255, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.candidate-title {
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.3;
+}
+
+.candidate-year {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.candidate-meta {
+  margin: 6px 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.candidate-overview {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.5;
 }
 
 .seasons-card {

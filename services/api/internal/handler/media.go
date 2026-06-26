@@ -15,12 +15,13 @@ import (
 
 // MediaHandler 媒资 HTTP handler
 type MediaHandler struct {
-	svc *service.MediaService
+	svc   *service.MediaService
+	match *service.ScrapeMatchService
 }
 
 // NewMediaHandler 构造
-func NewMediaHandler(svc *service.MediaService) *MediaHandler {
-	return &MediaHandler{svc: svc}
+func NewMediaHandler(svc *service.MediaService, match *service.ScrapeMatchService) *MediaHandler {
+	return &MediaHandler{svc: svc, match: match}
 }
 
 // List 列表
@@ -210,6 +211,43 @@ func (h *MediaHandler) BatchRescan(c *gin.Context) {
 		return
 	}
 	c.JSON(202, gin.H{"status": "queued", "queued": result.Queued})
+}
+
+// ScrapeCandidates 列出 TMDB 刮削候选（失败时 CMS 点选）
+func (h *MediaHandler) ScrapeCandidates(c *gin.Context) {
+	if h.match == nil {
+		respondError(c, apperr.BadRequest("刮削匹配未启用"))
+		return
+	}
+	id := c.Param("id")
+	items, err := h.match.ListCandidates(c.Request.Context(), id)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"data": items})
+}
+
+// ApplyScrapeMatch 应用选中的 TMDB 条目
+func (h *MediaHandler) ApplyScrapeMatch(c *gin.Context) {
+	if h.match == nil {
+		respondError(c, apperr.BadRequest("刮削匹配未启用"))
+		return
+	}
+	id := c.Param("id")
+	var req struct {
+		TMDBID int    `json:"tmdb_id" binding:"required"`
+		Type   string `json:"type" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, apperr.Validation(err.Error()))
+		return
+	}
+	if err := h.match.ApplyMatch(c.Request.Context(), id, req.TMDBID, req.Type); err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"status": "applied", "media_id": id})
 }
 
 // Stats 统计
