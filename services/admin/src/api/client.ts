@@ -66,6 +66,47 @@ export interface Download {
   eta: number
 }
 
+export interface AdminWantItem {
+  id: string
+  profile_id: string
+  profile_name: string
+  media_id?: string
+  tmdb_id?: number
+  media_type?: string
+  title: string
+  year?: number
+  poster_url?: string
+  in_library: boolean
+  local_media_id?: string
+  external: boolean
+  created_at: string
+}
+
+export interface IndexerRelease {
+  title: string
+  link: string
+  size: number
+  seeders: number
+  peers: number
+  indexer: string
+  publish_date?: string
+}
+
+export const adminWantApi = {
+  list: (limit = 200) =>
+    http.get<{ data: AdminWantItem[]; total: number }>('/api/v1/admin/want-to-watch', {
+      params: { limit },
+    }),
+}
+
+export const indexerApi = {
+  search: (params: { q: string; type?: string; limit?: number }) =>
+    http.get<{ data: IndexerRelease[]; status: string; message?: string; query?: string }>(
+      '/api/v1/indexer/search',
+      { params, timeout: 60000 },
+    ),
+}
+
 export const downloaderApi = {
   list: (category?: string) =>
     http.get<{ data: Download[]; total: number }>('/api/v1/downloader/list', {

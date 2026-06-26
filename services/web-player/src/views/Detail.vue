@@ -7,11 +7,11 @@
         <span class="sep">/</span>
         <span>{{ media?.title }}</span>
       </span>
-      <div class="actions" v-if="!isExternal">
+      <div class="actions">
         <button class="want-btn" :class="{ active: wantListed }" @click="toggleWant">
           {{ wantListed ? '✓ 想看' : '+ 想看' }}
         </button>
-        <button class="fav-btn" :class="{ active: favorited }" @click="toggleFavorite">
+        <button v-if="!isExternal" class="fav-btn" :class="{ active: favorited }" @click="toggleFavorite">
           {{ favorited ? '★ 已收藏' : '☆ 收藏' }}
         </button>
       </div>
@@ -39,20 +39,28 @@
 
         <p v-if="media.overview" class="overview">{{ media.overview }}</p>
 
-        <div v-if="!isExternal" class="actions-row">
+        <div class="actions-row">
           <button
-            v-if="!isSeries"
+            v-if="!isExternal && !isSeries"
             class="btn mh-btn mh-btn--primary"
             @click="$router.push(`/play/${media.id}`)"
           >
             ▶ 播放
           </button>
           <button
-            v-else-if="firstEpisodeId"
+            v-else-if="!isExternal && isSeries && firstEpisodeId"
             class="btn mh-btn mh-btn--primary"
             @click="$router.push(`/play/${media.id}?episode_id=${firstEpisodeId}`)"
           >
             ▶ 播放第 1 集
+          </button>
+          <button
+            v-else-if="isExternal"
+            class="btn mh-btn mh-btn--primary"
+            :class="{ 'mh-btn--ghost': wantListed }"
+            @click="toggleWant"
+          >
+            {{ wantListed ? '✓ 已在想看' : '+ 加入想看' }}
           </button>
         </div>
       </div>
@@ -297,8 +305,8 @@ async function loadTmdb(type: string, tmdbId: number) {
   similar.value = simRes.filter((m) => m.tmdb_id !== tmdbId)
   contentRating.value = ''
   trailers.value = []
-  wantListed.value = false
   favorited.value = false
+  await refreshWantState()
 }
 
 async function load() {
@@ -315,9 +323,37 @@ async function load() {
   }
 }
 
+async function refreshWantState() {
+  if (!media.value) return
+  const wants = await libraryApi.wantList().catch(() => [])
+  if (isExternal.value && media.value.tmdb_id) {
+    wantListed.value = wants.some((w) => w.tmdb_id === media.value!.tmdb_id)
+  } else if (media.value.id) {
+    wantListed.value = wants.some((w) => w.media_id === media.value!.id)
+  }
+}
+
 async function toggleWant() {
   if (!media.value) return
   try {
+    if (isExternal.value && media.value.tmdb_id) {
+      if (wantListed.value) {
+        await libraryApi.removeWantTmdb(media.value.type, media.value.tmdb_id)
+        wantListed.value = false
+        window.toast?.('已从想看移除', 'info', 2000)
+      } else {
+        await libraryApi.addWantTmdb({
+          tmdb_id: media.value.tmdb_id,
+          type: media.value.type,
+          title: media.value.title,
+          year: media.value.year,
+          poster_url: media.value.poster_url,
+        })
+        wantListed.value = true
+        window.toast?.('已加入想看', 'success', 2000)
+      }
+      return
+    }
     if (wantListed.value) {
       await libraryApi.removeWant(media.value.id)
       wantListed.value = false
@@ -328,7 +364,7 @@ async function toggleWant() {
       window.toast?.('已加入想看', 'success', 2000)
     }
   } catch {
-    // ignore
+    window.toast?.('操作失败', 'error', 2000)
   }
 }
 

@@ -18,6 +18,7 @@ import (
 	"github.com/mediahub/api/internal/downloader"
 	"github.com/mediahub/api/internal/handler"
 	"github.com/mediahub/api/internal/hlsstore"
+	"github.com/mediahub/api/internal/indexer"
 	"github.com/mediahub/api/internal/middleware"
 	"github.com/mediahub/api/internal/queue"
 	"github.com/mediahub/api/internal/recommend"
@@ -142,7 +143,7 @@ func main() {
 	scrapeMatchSvc := service.NewScrapeMatchService(mediaRepo, tmdbClient, catalogSvc)
 	layoutSvc := service.NewLayoutService(layoutRepo)
 	historySvc := service.NewHistoryService(historyRepo, userRepo)
-	librarySvc := service.NewLibraryService(historySvc)
+	librarySvc := service.NewLibraryService(historySvc, mediaRepo)
 	profileSvc := service.NewProfileService(userRepo)
 
 	// 推荐引擎
@@ -178,6 +179,17 @@ func main() {
 	// 双保险：布局/迁移后清 Feed 缓存
 	_ = feedSvc.InvalidateFeed(context.Background(), "web")
 	_ = feedSvc.InvalidateFeed(context.Background(), "android-tv")
+
+	// 索引搜索（Prowlarr，CMS 入库用）
+	indexerSvc := indexer.NewService(indexer.Config{
+		URL:    cfg.Indexer.URL,
+		APIKey: cfg.Indexer.APIKey,
+	})
+	if indexerSvc.Enabled() {
+		logger.Info("索引搜索已启用", "url", cfg.Indexer.URL)
+	} else {
+		logger.Warn("索引搜索未配置（INDEXER_URL / INDEXER_API_KEY），CMS 将无法在线找资源")
+	}
 
 	// 下载管理
 	var downloaderSvc *downloader.Service
@@ -256,7 +268,7 @@ func main() {
 		hlsCache = "/data/hls-cache"
 	}
 	hlsTaskStore := hlsstore.New(rdb)
-	h := handler.NewHandlers(mediaSvc, scrapeMatchSvc, layoutSvc, authSvc, feedSvc, historySvc, librarySvc, catalogSvc, profileSvc, recommendSvc, downloaderSvc, scannerSvc, subtitleSvc, cfg.Media.Root, cfg.Media.DownloadRoot, hlsCache, handler.HLSTranscodeSettings{
+	h := handler.NewHandlers(mediaSvc, scrapeMatchSvc, layoutSvc, authSvc, feedSvc, historySvc, librarySvc, catalogSvc, profileSvc, recommendSvc, downloaderSvc, indexerSvc, scannerSvc, subtitleSvc, cfg.Media.Root, cfg.Media.DownloadRoot, hlsCache, handler.HLSTranscodeSettings{
 		HWAccel:     cfg.Transcode.HWAccel,
 		MaxBitrate:  cfg.Transcode.MaxBitrate,
 		MaxHeight:   cfg.Transcode.MaxHeight,

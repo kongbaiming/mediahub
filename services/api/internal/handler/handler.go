@@ -4,6 +4,7 @@ package handler
 import (
 	"github.com/mediahub/api/internal/downloader"
 	"github.com/mediahub/api/internal/hlsstore"
+	"github.com/mediahub/api/internal/indexer"
 	"github.com/mediahub/api/internal/middleware"
 	"github.com/mediahub/api/internal/recommend"
 	"github.com/mediahub/api/internal/scanner"
@@ -25,6 +26,7 @@ type Handlers struct {
 	Profile        *ProfileHandler
 	Recommend      *RecommendHandler
 	Downloader     *DownloaderHandler
+	Indexer        *IndexerHandler
 	Scanner        *ScannerHandler
 	Subtitle       *SubtitleHandler
 	Stream         gin.HandlerFunc
@@ -47,6 +49,7 @@ func NewHandlers(
 	profile *service.ProfileService,
 	recommend *recommend.Service,
 	dl *downloader.Service,
+	idx *indexer.Service,
 	scannerSvc *scanner.Service,
 	subSvc *subtitle.Service,
 	mediaRoot string,
@@ -80,6 +83,9 @@ func NewHandlers(
 	}
 	if dl != nil {
 		h.Downloader = NewDownloaderHandler(dl)
+	}
+	if idx != nil {
+		h.Indexer = NewIndexerHandler(idx)
 	}
 	if scannerSvc != nil {
 		h.Scanner = NewScannerHandler(scannerSvc)
@@ -145,6 +151,9 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 		lib.Use(middleware.RequireProfile())
 		{
 			lib.GET("/want-to-watch", h.Library.WantToWatch)
+			// 固定路径必须在 :media_id 之前，否则 /want-to-watch/tmdb 会被当成 media_id=tmdb
+			lib.POST("/want-to-watch/tmdb", h.Library.AddWantTmdb)
+			lib.DELETE("/want-to-watch/tmdb/:type/:tmdb_id", h.Library.RemoveWantTmdb)
 			lib.POST("/want-to-watch/:media_id", h.Library.AddWant)
 			lib.DELETE("/want-to-watch/:media_id", h.Library.RemoveWant)
 			lib.GET("/favorites", h.Library.Favorites)
@@ -204,6 +213,16 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 				dl.POST("/:hash/resume", h.Downloader.Resume)
 				dl.POST("/check-completed", h.Downloader.CheckCompleted)
 				dl.GET("/health", h.Downloader.Health)
+			}
+		}
+
+		// 索引搜索 + CMS 想看列表（需登录）
+		cms := v1.Group("/")
+		cms.Use(middleware.Auth(h.Auth.svc))
+		{
+			cms.GET("/admin/want-to-watch", h.Library.AdminWantToWatch)
+			if h.Indexer != nil {
+				cms.GET("/indexer/search", h.Indexer.Search)
 			}
 		}
 

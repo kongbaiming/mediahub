@@ -138,10 +138,13 @@ func (r *HistoryRepo) ToggleFavorite(ctx context.Context, profileID, mediaID str
 		First(&fav).Error
 
 	if err == gorm.ErrRecordNotFound {
-		// 创建
+		mid, err := uuid.Parse(mediaID)
+		if err != nil {
+			return false, apperr.Validation(map[string]string{"media_id": "格式错误"})
+		}
 		fav = history.Favorite{
 			ProfileID:    uuid.MustParse(profileID),
-			MediaID:      uuid.MustParse(mediaID),
+			MediaID:      &mid,
 			FavoriteType: favType,
 			Rating:       rating,
 		}
@@ -186,4 +189,104 @@ func (r *HistoryRepo) IsFavorited(ctx context.Context, profileID, mediaID string
 		return false, apperr.Wrap(err, apperr.CodeInternal, "查询收藏失败")
 	}
 	return count > 0, nil
+}
+
+// AddWantTMDB 加入 TMDB 想看（幂等，已存在则跳过）
+func (r *HistoryRepo) AddWantTMDB(ctx context.Context, profileID string, tmdbID int, mediaType, title, posterURL string, year *int) (bool, error) {
+	ok, err := r.IsWantTMDB(ctx, profileID, tmdbID)
+	if err != nil {
+		return false, err
+	}
+	if ok {
+		return false, nil
+	}
+	fav := history.Favorite{
+		ProfileID:    uuid.MustParse(profileID),
+		TMDBID:       &tmdbID,
+		MediaType:    mediaType,
+		Title:        title,
+		Year:         year,
+		PosterURL:    posterURL,
+		FavoriteType: common.FavWant,
+	}
+	if err := r.db.WithContext(ctx).Create(&fav).Error; err != nil {
+		return false, apperr.Wrap(err, apperr.CodeInternal, "加入想看失败")
+	}
+	return true, nil
+}
+
+// ToggleWantTMDB 切换 TMDB 库外想看
+func (r *HistoryRepo) ToggleWantTMDB(ctx context.Context, profileID string, tmdbID int, mediaType, title, posterURL string, year *int) (bool, error) {
+	var fav history.Favorite
+	err := r.db.WithContext(ctx).
+		Where("profile_id = ? AND tmdb_id = ? AND favorite_type = ? AND media_id IS NULL",
+			profileID, tmdbID, common.FavWant).
+		First(&fav).Error
+
+	if err == gorm.ErrRecordNotFound {
+		fav = history.Favorite{
+			ProfileID:    uuid.MustParse(profileID),
+			TMDBID:       &tmdbID,
+			MediaType:    mediaType,
+			Title:        title,
+			Year:         year,
+			PosterURL:    posterURL,
+			FavoriteType: common.FavWant,
+		}
+		if err := r.db.WithContext(ctx).Create(&fav).Error; err != nil {
+			return false, apperr.Wrap(err, apperr.CodeInternal, "加入想看失败")
+		}
+		return true, nil
+	}
+	if err != nil {
+		return false, apperr.Wrap(err, apperr.CodeInternal, "查询想看失败")
+	}
+
+	if err := r.db.WithContext(ctx).Delete(&fav).Error; err != nil {
+		return false, apperr.Wrap(err, apperr.CodeInternal, "取消想看失败")
+	}
+	return false, nil
+}
+
+// IsWantTMDB 是否已标记 TMDB 想看
+func (r *HistoryRepo) IsWantTMDB(ctx context.Context, profileID string, tmdbID int) (bool, error) {
+	var count int64
+	if err := r.db.WithContext(ctx).
+		Model(&history.Favorite{}).
+		Where("profile_id = ? AND tmdb_id = ? AND favorite_type = ? AND media_id IS NULL",
+			profileID, tmdbID, common.FavWant).
+		Count(&count).Error; err != nil {
+		return false, apperr.Wrap(err, apperr.CodeInternal, "查询想看失败")
+	}
+	return count > 0, nil
+}
+
+// RemoveWantTMDB 取消 TMDB 想看（仅删除，不创建）
+func (r *HistoryRepo) RemoveWantTMDB(ctx context.Context, profileID string, tmdbID int) error {
+	res := r.db.WithContext(ctx).
+		Where("profile_id = ? AND tmdb_id = ? AND favorite_type = ? AND media_id IS NULL",
+			profileID, tmdbID, common.FavWant).
+		Delete(&history.Favorite{})
+	if res.Error != nil {
+		return apperr.Wrap(res.Error, apperr.CodeInternal, "取消想看失败")
+	}
+	return nil
+}
+
+// ListAllWants 列出全部 Profile 的想看（CMS 用）
+func (r *HistoryRepo) ListAllWants(ctx context.Context, limit int) ([]history.Favorite, error) {
+	if limit <= 0 {
+		limit = 200
+	}
+	var fs []history.Favorite
+	if err := r.db.WithContext(ctx).
+		Preload("Media").
+		Preload("Profile").
+		Where("favorite_type = ?", common.FavWant).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&fs).Error; err != nil {
+		return nil, apperr.Wrap(err, apperr.CodeInternal, "查询想看列表失败")
+	}
+	return fs, nil
 }

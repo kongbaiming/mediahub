@@ -123,3 +123,36 @@ func (s *HistoryService) ToggleFavorite(ctx context.Context, profileID, mediaID 
 func (s *HistoryService) ListFavorites(ctx context.Context, profileID, favType string) ([]history.Favorite, error) {
 	return s.repo.ListFavorites(ctx, profileID, favType)
 }
+
+// AddWantTMDB 加入 TMDB 想看
+func (s *HistoryService) AddWantTMDB(ctx context.Context, profileID string, req AddWantTMDBRequest) (bool, error) {
+	return s.repo.AddWantTMDB(ctx, profileID, req.TMDBID, req.Type, req.Title, req.PosterURL, req.Year)
+}
+
+// ToggleWantTMDB 切换 TMDB 想看
+func (s *HistoryService) ToggleWantTMDB(ctx context.Context, profileID string, req AddWantTMDBRequest) (bool, error) {
+	return s.repo.ToggleWantTMDB(ctx, profileID, req.TMDBID, req.Type, req.Title, req.PosterURL, req.Year)
+}
+
+// IsWantTMDB 是否 TMDB 想看
+func (s *HistoryService) IsWantTMDB(ctx context.Context, profileID string, tmdbID int) (bool, error) {
+	return s.repo.IsWantTMDB(ctx, profileID, tmdbID)
+}
+
+func (s *HistoryService) RemoveWantTMDB(ctx context.Context, profileID string, tmdbID int) error {
+	return s.repo.RemoveWantTMDB(ctx, profileID, tmdbID)
+}
+
+// ListAllWants 全部想看
+func (s *HistoryService) ListAllWants(ctx context.Context, limit int) ([]history.Favorite, error) {
+	return s.repo.ListAllWants(ctx, limit)
+}
+
+// AddWantTMDBRequest 库外 TMDB 想看
+type AddWantTMDBRequest struct {
+	TMDBID    int    `json:"tmdb_id" binding:"required"`
+	Type      string `json:"type" binding:"required"`
+	Title     string `json:"title" binding:"required"`
+	Year      *int   `json:"year"`
+	PosterURL string `json:"poster_url"`
+}

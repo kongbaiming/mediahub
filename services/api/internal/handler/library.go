@@ -67,6 +67,55 @@ func (h *LibraryHandler) RemoveWant(c *gin.Context) {
 	c.JSON(200, gin.H{"status": "ok"})
 }
 
+// AddWantTmdb 库外 TMDB 条目加入想看
+func (h *LibraryHandler) AddWantTmdb(c *gin.Context) {
+	pid, err := profileID(c)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	var req service.AddWantTMDBRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, apperr.Validation(err.Error()))
+		return
+	}
+	added, err := h.svc.AddWantTMDB(c.Request.Context(), pid, req)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"status": "added", "already_exists": !added})
+}
+
+// RemoveWantTmdb 取消 TMDB 想看
+func (h *LibraryHandler) RemoveWantTmdb(c *gin.Context) {
+	pid, err := profileID(c)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	tmdbID := atoi(c.Param("tmdb_id"), 0)
+	if tmdbID <= 0 {
+		respondError(c, apperr.Validation("tmdb_id 无效"))
+		return
+	}
+	if err := h.svc.RemoveWantTMDB(c.Request.Context(), pid, tmdbID); err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"status": "ok"})
+}
+
+// AdminWantToWatch CMS：全部播放端 Profile 的想看列表
+func (h *LibraryHandler) AdminWantToWatch(c *gin.Context) {
+	items, err := h.svc.AdminWantToWatch(c.Request.Context(), atoi(c.Query("limit"), 200))
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"data": items, "total": len(items)})
+}
+
 func (h *LibraryHandler) Favorites(c *gin.Context) {
 	pid, err := profileID(c)
 	if err != nil {

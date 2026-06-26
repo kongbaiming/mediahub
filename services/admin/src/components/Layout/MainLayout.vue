@@ -36,6 +36,10 @@
           <el-icon><Download /></el-icon>
           <template #title>下载管理</template>
         </el-menu-item>
+        <el-menu-item index="/want-to-watch">
+          <el-icon><Star /></el-icon>
+          <template #title>播放端想看</template>
+        </el-menu-item>
         <el-menu-item index="/settings">
           <el-icon><Setting /></el-icon>
           <template #title>设置</template>

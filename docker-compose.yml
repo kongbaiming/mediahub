@@ -77,6 +77,8 @@ services:
       HTTP_PROXY: ${HTTP_PROXY:-}
       HTTPS_PROXY: ${HTTPS_PROXY:-}
       NO_PROXY: ${NO_PROXY:-postgres,redis,qbittorrent,localhost,127.0.0.1}
+      INDEXER_URL: ${INDEXER_URL:-}
+      INDEXER_API_KEY: ${INDEXER_API_KEY:-}
       MEDIA_ROOT: ${MEDIA_ROOT}
       TRANSCODE_ENABLED: ${TRANSCODE_ENABLED}
       TRANSCODE_HW_ACCEL: ${TRANSCODE_HW_ACCEL}

@@ -329,7 +329,13 @@ export const recommendApi = {
 }
 
 export interface LibraryItem {
-  media_id: string
+  media_id?: string
+  tmdb_id?: number
+  media_type?: string
+  title?: string
+  year?: number
+  poster_url?: string
+  external?: boolean
   media?: MediaSummary
   progress?: number
   duration?: number
@@ -418,11 +424,11 @@ export const catalogApi = {
 }
 
 export const libraryApi = {
-  async wantList(): Promise<{ media_id: string }[]> {
+  async wantList(): Promise<LibraryItem[]> {
     const body = (await http.get<unknown>('/api/v1/library/want-to-watch')) as {
-      data: Array<{ media_id: string }>
+      data: Array<Record<string, unknown>>
     }
-    return body.data || []
+    return (body.data || []).map(normalizeWantItem)
   },
 
   async favoritesList(): Promise<{ media_id: string }[]> {
@@ -434,6 +440,20 @@ export const libraryApi = {
 
   async addWant(mediaId: string): Promise<void> {
     await http.post(`/api/v1/library/want-to-watch/${mediaId}`)
+  },
+
+  async addWantTmdb(data: {
+    tmdb_id: number
+    type: string
+    title: string
+    year?: number
+    poster_url?: string
+  }): Promise<void> {
+    await http.post('/api/v1/library/want-to-watch/tmdb', data)
+  },
+
+  async removeWantTmdb(type: string, tmdbId: number): Promise<void> {
+    await http.delete(`/api/v1/library/want-to-watch/tmdb/${type}/${tmdbId}`)
   },
 
   async removeWant(mediaId: string): Promise<void> {
@@ -453,4 +473,21 @@ export const libraryApi = {
     })) as { data: LibraryItem[] }
     return body.data || []
   },
+}
+
+function normalizeWantItem(raw: Record<string, unknown>): LibraryItem {
+  const media = raw.media as MediaSummary | undefined
+  const mediaId = (raw.media_id as string) || media?.id
+  const tmdbId = raw.tmdb_id as number | undefined
+  const external = !mediaId && !!tmdbId
+  return {
+    media_id: mediaId,
+    tmdb_id: tmdbId,
+    media_type: (raw.media_type as string) || media?.type,
+    title: (raw.title as string) || media?.title,
+    year: (raw.year as number) || media?.year,
+    poster_url: (raw.poster_url as string) || media?.poster_url,
+    external,
+    media,
+  }
 }

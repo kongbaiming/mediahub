@@ -82,20 +82,21 @@
       <div v-else class="grid">
         <div
           v-for="item in wantItems"
-          :key="item.media_id"
+          :key="itemKey(item)"
           class="card"
-          @click="openMedia(item.media_id)"
+          @click="openWantItem(item)"
         >
           <div class="poster">
             <img
-              v-if="item.media?.poster_url"
-              :src="item.media.poster_url"
-              :alt="item.media?.title"
+              v-if="itemPoster(item)"
+              :src="itemPoster(item)"
+              :alt="itemTitle(item)"
               loading="lazy"
             />
-            <span v-else class="placeholder">{{ item.media?.title?.slice(0, 2) || '?' }}</span>
+            <span v-else class="placeholder">{{ itemTitle(item).slice(0, 2) || '?' }}</span>
+            <div v-if="item.external" class="external-tag">未入库</div>
           </div>
-          <div class="title">{{ item.media?.title || '未知' }}</div>
+          <div class="title">{{ itemTitle(item) }}</div>
         </div>
         <EmptyState
           v-if="!loading && wantItems.length === 0"
@@ -140,6 +141,28 @@ function openMedia(id: string) {
   router.push(`/media/${id}`)
 }
 
+function itemKey(item: LibraryItem) {
+  return item.media_id || `tmdb-${item.tmdb_id}`
+}
+
+function itemTitle(item: LibraryItem) {
+  return item.media?.title || item.title || '未知'
+}
+
+function itemPoster(item: LibraryItem) {
+  return item.media?.poster_url || item.poster_url
+}
+
+function openWantItem(item: LibraryItem) {
+  if (item.media_id) {
+    openMedia(item.media_id)
+    return
+  }
+  if (item.tmdb_id && item.media_type) {
+    router.push(`/media/tmdb/${item.media_type}/${item.tmdb_id}`)
+  }
+}
+
 function playContinue(item: LibraryItem) {
   const q = item.episode_id ? `?episode_id=${item.episode_id}` : ''
   router.push(`/play/${item.media_id}${q}`)
@@ -156,7 +179,7 @@ async function loadAll() {
     ])
     continueItems.value = dedupeByMedia(cw.map(normalizeHistory))
     favoriteItems.value = dedupeByMedia(fav.map(normalizeFavorite))
-    wantItems.value = dedupeByMedia(want.map(normalizeFavorite))
+    wantItems.value = dedupeWantItems(want)
   } catch {
     window.toast?.('加载片库失败', 'error', 2500)
   } finally {
@@ -180,6 +203,18 @@ function normalizeFavorite(f: any): LibraryItem {
     media_id: f.media_id || f.MediaID || f.media?.id,
     media: f.media,
   }
+}
+
+function dedupeWantItems(items: LibraryItem[]): LibraryItem[] {
+  const seen = new Set<string>()
+  const out: LibraryItem[] = []
+  for (const item of items) {
+    const id = item.media_id || (item.tmdb_id ? `tmdb-${item.tmdb_id}` : '')
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    out.push(item)
+  }
+  return out
 }
 
 function dedupeByMedia(items: LibraryItem[]): LibraryItem[] {
@@ -315,6 +350,18 @@ onMounted(loadAll)
 .progress-fill {
   height: 100%;
   background: var(--mh-primary);
+}
+
+.external-tag {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(251, 191, 36, 0.85);
+  color: #1a1a1a;
+  font-weight: 600;
 }
 
 .title {

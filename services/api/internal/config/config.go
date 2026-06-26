@@ -26,6 +26,7 @@ type Config struct {
 	Scraper  ScraperConfig
 	Transcode TranscodeConfig
 	Downloader DownloaderConfig
+	Indexer    IndexerConfig
 }
 
 type DownloaderConfig struct {
@@ -76,6 +77,11 @@ type TranscodeConfig struct {
 	Preset       string
 	SegmentTime  int
 	PreferCopy   bool // 内网优先 HLS 流复制（4K 不重编码）
+}
+
+type IndexerConfig struct {
+	URL    string
+	APIKey string
 }
 
 // Load 加载配置（先尝试读 .env，再读环境变量）
@@ -131,6 +137,10 @@ func Load() (*Config, error) {
 				Password: getEnv("QBIT_PASSWORD", "adminadmin"),
 				UseTLS:   getEnv("QBIT_TLS", "false") == "true",
 			},
+		},
+		Indexer: IndexerConfig{
+			URL:    getEnv("INDEXER_URL", ""),
+			APIKey: getEnv("INDEXER_API_KEY", ""),
 		},
 	}
 

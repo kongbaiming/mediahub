@@ -7,6 +7,7 @@ import (
 
 	"github.com/mediahub/api/internal/domain/common"
 	"github.com/mediahub/api/internal/domain/media"
+	"github.com/mediahub/api/internal/domain/user"
 
 	"github.com/google/uuid"
 )
@@ -34,15 +35,21 @@ func (h *History) ProgressPct() float64 {
 	return float64(h.Progress) / float64(h.Duration) * 100
 }
 
-// Favorite 收藏
+// Favorite 收藏（库内 media_id；库外 TMDB 条目用 tmdb_id + 快照字段）
 type Favorite struct {
 	common.BaseModel
-	ProfileID    uuid.UUID            `gorm:"type:uuid;not null;index" json:"profile_id"`
-	MediaID      uuid.UUID            `gorm:"type:uuid;not null;index" json:"media_id"`
-	FavoriteType common.FavoriteType  `gorm:"type:varchar(20);default:'want'" json:"favorite_type"`
-	Rating       *float64             `gorm:"type:decimal(3,1)" json:"rating,omitempty"`
+	ProfileID    uuid.UUID           `gorm:"type:uuid;not null;index" json:"profile_id"`
+	MediaID      *uuid.UUID          `gorm:"type:uuid;index" json:"media_id,omitempty"`
+	TMDBID       *int                `gorm:"index" json:"tmdb_id,omitempty"`
+	MediaType    string              `gorm:"type:varchar(20)" json:"media_type,omitempty"`
+	Title        string              `gorm:"type:varchar(500)" json:"title,omitempty"`
+	Year         *int                `json:"year,omitempty"`
+	PosterURL    string              `gorm:"type:text" json:"poster_url,omitempty"`
+	FavoriteType common.FavoriteType `gorm:"type:varchar(20);default:'want'" json:"favorite_type"`
+	Rating       *float64            `gorm:"type:decimal(3,1)" json:"rating,omitempty"`
 
-	Media *media.Media `gorm:"foreignKey:MediaID" json:"media,omitempty"`
+	Media   *media.Media   `gorm:"foreignKey:MediaID" json:"media,omitempty"`
+	Profile *user.Profile  `gorm:"foreignKey:ProfileID" json:"profile,omitempty"`
 }
 
 func (Favorite) TableName() string { return "favorites" }
