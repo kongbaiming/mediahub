@@ -199,11 +199,12 @@
       <div v-if="similar.length > 0" class="section">
         <h2 class="section-title">相似推荐</h2>
         <div class="similar-row">
-          <div
+          <button
             v-for="m in similar"
             :key="m.id"
+            type="button"
             class="similar-card"
-            @click="$router.push(`/media/${m.id}`)"
+            @click="openSimilar(m.id)"
           >
             <div class="poster-card">
               <img v-if="m.poster_url" :src="m.poster_url" :alt="m.title" loading="lazy" />
@@ -212,7 +213,7 @@
             </div>
             <div class="card-title">{{ m.title }}</div>
             <div class="card-meta">{{ m.year }} · {{ typeLabel(m.type) }}</div>
-          </div>
+          </button>
         </div>
       </div>
     </section>
@@ -220,7 +221,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   mediaApi,
@@ -380,6 +381,11 @@ function openCreditDetail(c: MediaCredit) {
 
 function goToPersonWork(mediaId: string) {
   creditModalOpen.value = false
+  openSimilar(mediaId)
+}
+
+function openSimilar(mediaId: string) {
+  if (mediaId === route.params.id) return
   router.push(`/media/${mediaId}`)
 }
 
@@ -407,6 +413,16 @@ function extraTypeLabel(t: string) {
 function typeLabel(t: string) {
   return ({ movie: '电影', tvshow: '剧集', anime: '动画', documentary: '纪录片' } as any)[t] || t
 }
+
+watch(
+  () => route.params.id,
+  (id, prev) => {
+    if (!id || id === prev) return
+    creditModalOpen.value = false
+    window.scrollTo({ top: 0, behavior: 'instant' })
+    load()
+  },
+)
 
 onMounted(load)
 </script>
@@ -971,6 +987,12 @@ onMounted(load)
 }
 
 .similar-card {
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  font: inherit;
   cursor: pointer;
   transition: transform 0.2s;
 
