@@ -46,6 +46,10 @@ func (s *Service) Add(ctx context.Context, req AddRequest) (string, error) {
 	if req.URL == "" {
 		return "", apperr.BadRequest("URL 不能为空")
 	}
+	sourceURL, err := NormalizeDownloadURL(req.URL)
+	if err != nil {
+		return "", err
+	}
 	ck := req.Category
 	if ck == "" {
 		ck = "movie"
@@ -56,12 +60,12 @@ func (s *Service) Add(ctx context.Context, req AddRequest) (string, error) {
 		savePath = fmt.Sprintf("%s/%s", strings.TrimRight(s.downloadRoot, "/"), ck)
 	}
 
-	hash, err := s.client.AddTorrentURL(ctx, req.URL, savePath, ck)
+	hash, err := s.client.AddTorrentURL(ctx, sourceURL, savePath, ck)
 	if err != nil {
 		return "", apperr.Wrap(err, apperr.CodeInternal, "qBit 添加任务失败")
 	}
 
-	logger.Info("下载任务已添加", "hash", hash, "category", ck, "save_path", savePath)
+	logger.Info("下载任务已添加", "hash", hash, "category", ck, "save_path", savePath, "source", maskURL(sourceURL))
 	return hash, nil
 }
 
@@ -188,4 +192,11 @@ func isActiveDownloadState(state string) bool {
 	default:
 		return false
 	}
+}
+
+func maskURL(u string) string {
+	if len(u) <= 80 {
+		return u
+	}
+	return u[:40] + "..." + u[len(u)-20:]
 }

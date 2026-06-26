@@ -90,7 +90,7 @@
             v-model="addForm.url"
             type="textarea"
             :rows="3"
-            placeholder="magnet:?xt=urn:btih:... 或 https://..."
+            placeholder="magnet:?xt=... / https://... / thunder://..."
           />
         </el-form-item>
         <el-form-item label="分类">
