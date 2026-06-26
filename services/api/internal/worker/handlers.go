@@ -104,6 +104,13 @@ func (h *Handlers) HandleScrape(ctx context.Context, t *asynq.Task) error {
 	if emb.Year != nil && m.Year == nil {
 		m.Year = emb.Year
 	}
+	savedPoster := m.PosterURL
+	savedBackdrop := m.BackdropURL
+	manualTitle := media.HasTag(m.Tags, media.TagManualTitle)
+	searchOpts := &scanner.SearchCandidateOpts{
+		PreferFolderOverEmbedded: manualTitle,
+		ReferenceTitle:           m.Title,
+	}
 
 	// 3. 搜索 TMDB
 	var tmdbInfo *scraperResult
@@ -112,8 +119,18 @@ func (h *Handlers) HandleScrape(ctx context.Context, t *asynq.Task) error {
 			tmdbInfo = info
 		}
 	}
+	if tmdbInfo == nil && manualTitle && m.TMDBID != nil && *m.TMDBID > 0 {
+		season := emb.Season
+		if season == nil {
+			parsed := scanner.ParseFilePath(probePath)
+			season = parsed.Season
+		}
+		if info, refreshErr := h.scrapeByTMDBID(ctx, *m.TMDBID, m.IsTV(), season); refreshErr == nil {
+			tmdbInfo = info
+		}
+	}
 	if tmdbInfo == nil && m.IsTV() {
-		folder := filepath.Base(m.StoragePath)
+		folder := scanner.AlbumFolderName(m.StoragePath)
 		searchYear := m.Year
 		if searchYear == nil {
 			searchYear = scanner.SeriesFolderYear(folder)
@@ -123,7 +140,7 @@ func (h *Handlers) HandleScrape(ctx context.Context, t *asynq.Task) error {
 		}
 		season, episode := emb.Season, emb.Episode
 		var lastErr error
-		for _, searchTitle := range scanner.TVSearchCandidates(m.StoragePath, m.Title, &emb) {
+		for _, searchTitle := range scanner.TVSearchCandidates(m.StoragePath, m.Title, &emb, searchOpts) {
 			tmdbInfo, err = h.searchTVShow(ctx, searchTitle, searchYear, season, episode)
 			if err == nil {
 				break
@@ -185,6 +202,12 @@ func (h *Handlers) HandleScrape(ctx context.Context, t *asynq.Task) error {
 	// 4. 合并元数据
 	h.applyTMDB(m, tmdbInfo)
 	h.fillMissingArtwork(ctx, m, emb.Season)
+	if m.PosterURL == "" && savedPoster != "" {
+		m.PosterURL = savedPoster
+	}
+	if m.BackdropURL == "" && savedBackdrop != "" {
+		m.BackdropURL = savedBackdrop
+	}
 
 	// 5. 写入 ffprobe 结果
 	if probeResult != nil {
@@ -293,6 +316,26 @@ func (h *Handlers) scrapeByIMDB(ctx context.Context, imdbID string, preferTV boo
 		return h.tvToResultNoSeason(t), nil
 	}
 	return nil, fmt.Errorf("TMDB 未找到 IMDB: %s", imdbID)
+}
+
+func (h *Handlers) scrapeByTMDBID(ctx context.Context, tmdbID int, preferTV bool, season *int) (*scraperResult, error) {
+	if preferTV {
+		t, err := h.tmdb.GetTVShow(ctx, tmdbID)
+		if err != nil {
+			return nil, err
+		}
+		if season != nil && *season > 0 {
+			if s, err := h.tmdb.GetSeason(ctx, tmdbID, *season); err == nil && s != nil {
+				return h.tvToResult(t, s), nil
+			}
+		}
+		return h.tvToResultNoSeason(t), nil
+	}
+	m, err := h.tmdb.GetMovie(ctx, tmdbID)
+	if err != nil {
+		return nil, err
+	}
+	return h.movieToResult(m), nil
 }
 
 func (h *Handlers) searchMovie(ctx context.Context, title string, year *int, durationSec int) (*scraperResult, error) {

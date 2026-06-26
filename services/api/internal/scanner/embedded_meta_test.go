@@ -58,3 +58,15 @@ func TestPrependEmbeddedCandidates(t *testing.T) {
 		t.Fatalf("first = %q, want Frozen II", out[0])
 	}
 }
+
+func TestIsUnreliableEmbeddedTitle(t *testing.T) {
+	if !isUnreliableEmbeddedTitle("DAAI Mandarin", "唐朝诡事录之西行") {
+		t.Fatal("mandarin english embedded should be unreliable")
+	}
+	if isUnreliableEmbeddedTitle("庆余年", "唐朝诡事录之西行") {
+		t.Fatal("chinese embedded should not be auto-rejected")
+	}
+	if !isUnreliableEmbeddedTitle("第5集", "庆余年") {
+		t.Fatal("episode title should be unreliable")
+	}
+}

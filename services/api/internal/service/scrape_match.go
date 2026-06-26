@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -56,13 +55,17 @@ func (s *ScrapeMatchService) ListCandidates(ctx context.Context, mediaID string)
 	if info, probeErr := scanner.Probe(ctx, "", probePath); probeErr == nil {
 		emb = scanner.ExtractEmbeddedMeta(info)
 	}
+	searchOpts := &scanner.SearchCandidateOpts{
+		PreferFolderOverEmbedded: media.HasTag(m.Tags, media.TagManualTitle),
+		ReferenceTitle:           m.Title,
+	}
 	durationSec := emb.DurationSec
 	searchYear := m.Year
 	if searchYear == nil && emb.Year != nil {
 		searchYear = emb.Year
 	}
 	if searchYear == nil {
-		searchYear = scanner.SeriesFolderYear(filepath.Base(m.StoragePath))
+		searchYear = scanner.SeriesFolderYear(scanner.AlbumFolderName(m.StoragePath))
 	}
 
 	seen := map[string]struct{}{}
@@ -107,7 +110,7 @@ func (s *ScrapeMatchService) ListCandidates(ctx context.Context, mediaID string)
 		}
 	}
 
-	for _, q := range scanner.TVSearchCandidates(m.StoragePath, m.Title, &emb) {
+	for _, q := range scanner.TVSearchCandidates(m.StoragePath, m.Title, &emb, searchOpts) {
 		res, err := s.tmdb.SearchTV(ctx, q, searchYear)
 		if err != nil || len(res.Results) == 0 {
 			if searchYear != nil {
@@ -153,6 +156,9 @@ func (s *ScrapeMatchService) ApplyMatch(ctx context.Context, mediaID string, tmd
 	if info, probeErr := scanner.Probe(ctx, "", probePath); probeErr == nil {
 		emb = scanner.ExtractEmbeddedMeta(info)
 	}
+
+	savedPoster := m.PosterURL
+	savedBackdrop := m.BackdropURL
 
 	mediaType = strings.ToLower(strings.TrimSpace(mediaType))
 	switch mediaType {
@@ -225,6 +231,12 @@ func (s *ScrapeMatchService) ApplyMatch(ctx context.Context, mediaID string, tmd
 			sn = parsed.Season
 		}
 		s.fillMissingArtwork(ctx, m, sn)
+		if m.PosterURL == "" && savedPoster != "" {
+			m.PosterURL = savedPoster
+		}
+		if m.BackdropURL == "" && savedBackdrop != "" {
+			m.BackdropURL = savedBackdrop
+		}
 		if m.PosterURL != "" || m.BackdropURL != "" {
 			_ = s.media.Update(ctx, m)
 		}

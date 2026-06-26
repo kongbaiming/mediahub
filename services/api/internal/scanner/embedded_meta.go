@@ -153,14 +153,32 @@ func isNoiseTagValue(v string) bool {
 	return false
 }
 
+// SearchCandidateOpts 控制 TMDB 搜索候选顺序与过滤
+type SearchCandidateOpts struct {
+	PreferFolderOverEmbedded bool   // true 时文件夹/标题优先，内嵌元数据靠后
+	ReferenceTitle           string // 用于判断内嵌标题是否可靠（如 CMS 手动标题）
+}
+
 // PrependEmbeddedCandidates 内嵌标题优先插入搜索候选（去重）
 func PrependEmbeddedCandidates(candidates []string, emb *EmbeddedMeta) []string {
+	return MergeEmbeddedCandidates(candidates, emb, nil)
+}
+
+// MergeEmbeddedCandidates 合并内嵌元数据搜索候选
+func MergeEmbeddedCandidates(candidates []string, emb *EmbeddedMeta, opts *SearchCandidateOpts) []string {
 	if emb == nil {
 		return candidates
 	}
+	ref := ""
+	preferFolder := false
+	if opts != nil {
+		ref = strings.TrimSpace(opts.ReferenceTitle)
+		preferFolder = opts.PreferFolderOverEmbedded
+	}
+
 	seen := map[string]struct{}{}
-	var out []string
-	add := func(s string) {
+	var embedded, base []string
+	addSeen := func(list *[]string, s string) {
 		s = strings.TrimSpace(s)
 		if s == "" {
 			return
@@ -169,19 +187,57 @@ func PrependEmbeddedCandidates(candidates []string, emb *EmbeddedMeta) []string 
 			return
 		}
 		seen[s] = struct{}{}
-		out = append(out, s)
+		*list = append(*list, s)
 	}
-	for _, s := range []string{emb.Title, emb.Show} {
-		add(s)
+	addEmbedded := func(s string) {
+		if isUnreliableEmbeddedTitle(s, ref) {
+			return
+		}
+		addSeen(&embedded, s)
 		for _, alias := range movieTitleAliases(s) {
-			add(alias)
+			addSeen(&embedded, alias)
 		}
-		if eng := extractEnglishTitle(s); eng != "" {
-			add(eng)
+		if eng := extractEnglishTitle(s); eng != "" && !isUnreliableEmbeddedTitle(eng, ref) {
+			addSeen(&embedded, eng)
 		}
+	}
+	for _, s := range []string{emb.Show, emb.Title} {
+		addEmbedded(s)
 	}
 	for _, c := range candidates {
-		add(c)
+		addSeen(&base, c)
 	}
-	return out
+	if preferFolder {
+		return append(base, embedded...)
+	}
+	return append(embedded, base...)
+}
+
+var episodeEmbeddedTitleRe = regexp.MustCompile(`^第\s*\d+\s*集$`)
+
+// isUnreliableEmbeddedTitle 内嵌标题与已知剧名/文件夹明显不符时跳过（如 Mandarin 误匹配）
+func isUnreliableEmbeddedTitle(embedded, reference string) bool {
+	embedded = strings.TrimSpace(embedded)
+	reference = strings.TrimSpace(reference)
+	if embedded == "" {
+		return true
+	}
+	if episodeEmbeddedTitleRe.MatchString(embedded) {
+		return true
+	}
+	refHan := countHanRunes(reference)
+	embHan := countHanRunes(embedded)
+	if refHan >= 2 && embHan == 0 {
+		return true
+	}
+	lower := strings.ToLower(embedded)
+	if refHan >= 2 && strings.Contains(lower, "mandarin") {
+		return true
+	}
+	if refHan >= 2 && latinWordCount(embedded) >= 1 && embHan == 0 {
+		if !strings.Contains(strings.ToLower(reference), lower) {
+			return true
+		}
+	}
+	return false
 }

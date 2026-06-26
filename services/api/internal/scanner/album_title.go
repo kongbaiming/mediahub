@@ -1,6 +1,7 @@
 package scanner
 
 import (
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -14,6 +15,25 @@ var (
 	seriesNoSuffixRe = regexp.MustCompile(`^\d+[\p{Han}]+`)
 	yearInParensRe   = regexp.MustCompile(`[\(（]\s*(19|20)\d{2}\s*[\)）]\.?$`)
 )
+
+// IsVideoFileName 是否为视频文件名（含扩展名）
+func IsVideoFileName(name string) bool {
+	switch strings.ToLower(filepath.Ext(name)) {
+	case ".mkv", ".mp4", ".m4v", ".avi", ".mov", ".webm", ".ts":
+		return true
+	default:
+		return false
+	}
+}
+
+// AlbumFolderName 从 storage_path 提取专辑文件夹名（剧集 album 为目录本身，电影为父目录）
+func AlbumFolderName(storagePath string) string {
+	base := filepath.Base(storagePath)
+	if IsVideoFileName(base) {
+		return filepath.Base(filepath.Dir(storagePath))
+	}
+	return base
+}
 
 // SeriesFolderTitle 从专辑文件夹名提取 TMDB 搜索用剧名（去掉 Emby 画质/发布组后缀）
 func SeriesFolderTitle(folderName string) string {

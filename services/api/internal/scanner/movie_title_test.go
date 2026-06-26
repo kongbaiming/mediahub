@@ -79,3 +79,40 @@ func TestIsWeakMovieTitle(t *testing.T) {
 		t.Fatal("Kung Fu Panda 4 should not be weak")
 	}
 }
+
+func TestTVSearchCandidates_SeriesAlbumPath(t *testing.T) {
+	path := "/media/唐丨朝诡事录之西行(2024)"
+	emb := &EmbeddedMeta{Title: "DAAI Mandarin", Show: "Mandarin News"}
+	out := TVSearchCandidates(path, "唐朝诡事录之西行", emb, &SearchCandidateOpts{
+		PreferFolderOverEmbedded: true,
+		ReferenceTitle:           "唐朝诡事录之西行",
+	})
+	if len(out) == 0 {
+		t.Fatal("expected candidates")
+	}
+	if out[0] != "唐朝诡事录之西行" {
+		t.Fatalf("first = %q, want folder title first", out[0])
+	}
+	for _, c := range out {
+		if c == "DAAI Mandarin" || c == "Mandarin News" {
+			t.Fatalf("unreliable embedded should be filtered, got %q in %v", c, out)
+		}
+	}
+}
+
+func TestTVSearchCandidates_EpisodeFilePath(t *testing.T) {
+	path := "/media/唐丨朝诡事录之西行(2024)/S02E01.4K.mkv"
+	out := TVSearchCandidates(path, "唐朝诡事录之西行", nil, nil)
+	if len(out) == 0 || out[0] != "唐朝诡事录之西行" {
+		t.Fatalf("candidates = %v", out)
+	}
+}
+
+func TestAlbumFolderName(t *testing.T) {
+	if got := AlbumFolderName("/media/唐丨朝诡事录之西行(2024)"); got != "唐丨朝诡事录之西行(2024)" {
+		t.Fatalf("album = %q", got)
+	}
+	if got := AlbumFolderName("/media/show/S02E01.mkv"); got != "show" {
+		t.Fatalf("episode parent = %q", got)
+	}
+}

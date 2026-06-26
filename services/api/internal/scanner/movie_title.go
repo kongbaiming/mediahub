@@ -128,7 +128,7 @@ func MovieSearchCandidates(storagePath, parsedTitle string, emb *EmbeddedMeta) [
 }
 
 // TVSearchCandidates 生成剧集 TMDB 搜索候选
-func TVSearchCandidates(storagePath, parsedTitle string, emb *EmbeddedMeta) []string {
+func TVSearchCandidates(storagePath, parsedTitle string, emb *EmbeddedMeta, opts *SearchCandidateOpts) []string {
 	seen := map[string]struct{}{}
 	var out []string
 	add := func(s string) {
@@ -142,15 +142,36 @@ func TVSearchCandidates(storagePath, parsedTitle string, emb *EmbeddedMeta) []st
 		seen[s] = struct{}{}
 		out = append(out, s)
 	}
-	folder := filepath.Base(filepath.Dir(storagePath))
-	if folder != "." {
+	folder := AlbumFolderName(storagePath)
+	if folder != "" && folder != "." {
 		add(SeriesFolderTitle(folder))
 	}
 	add(parsedTitle)
-	for _, folder := range movieFolderChain(storagePath, 3) {
-		add(SeriesFolderTitle(folder))
+	for _, name := range albumFolderChain(storagePath, 3) {
+		add(SeriesFolderTitle(name))
 	}
-	return PrependEmbeddedCandidates(out, emb)
+	return MergeEmbeddedCandidates(out, emb, opts)
+}
+
+func albumFolderChain(storagePath string, maxDepth int) []string {
+	dir := storagePath
+	if IsVideoFileName(filepath.Base(storagePath)) {
+		dir = filepath.Dir(storagePath)
+	}
+	return folderChainFromDir(dir, maxDepth)
+}
+
+func folderChainFromDir(dir string, maxDepth int) []string {
+	var names []string
+	for i := 0; i < maxDepth && dir != "" && dir != "."; i++ {
+		base := filepath.Base(dir)
+		if isMovieCategoryFolder(base) {
+			break
+		}
+		names = append(names, base)
+		dir = filepath.Dir(dir)
+	}
+	return names
 }
 
 // movieTitleAliases 常见两岸/别译片名互搜
@@ -173,17 +194,7 @@ func movieTitleAliases(title string) []string {
 }
 
 func movieFolderChain(storagePath string, maxDepth int) []string {
-	dir := filepath.Dir(storagePath)
-	var names []string
-	for i := 0; i < maxDepth && dir != "" && dir != "."; i++ {
-		base := filepath.Base(dir)
-		if isMovieCategoryFolder(base) {
-			break
-		}
-		names = append(names, base)
-		dir = filepath.Dir(dir)
-	}
-	return names
+	return folderChainFromDir(filepath.Dir(storagePath), maxDepth)
 }
 
 func isMovieCategoryFolder(name string) bool {
