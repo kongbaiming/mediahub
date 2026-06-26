@@ -7,6 +7,13 @@
           返回
         </el-button>
         <span class="title">{{ layout?.name || '加载中...' }}</span>
+        <el-input
+          v-if="layout"
+          v-model="layoutName"
+          class="layout-name-input"
+          size="small"
+          placeholder="布局名称"
+        />
         <el-tag v-if="layout" :type="statusType(layout.status)" size="small" class="ml-2">
           {{ statusLabel(layout.status) }}
         </el-tag>
@@ -158,6 +165,23 @@
       <aside class="config-panel">
         <div class="panel-title">属性</div>
         <div v-if="selectedRow" class="config-form">
+          <el-alert
+            v-if="selectedRow._inherited"
+            type="info"
+            :closable="false"
+            show-icon
+            class="inherit-hint"
+            title="此行继承自父布局，需先「覆盖继承」才能修改名称并保存"
+          />
+          <el-button
+            v-if="selectedRow._inherited"
+            type="primary"
+            size="small"
+            class="fork-btn"
+            @click="forkSelectedRow"
+          >
+            覆盖继承
+          </el-button>
           <el-form label-position="top" size="small">
             <el-form-item label="类型">
               <el-select v-model="selectedRow.type" @change="onRowTypeChange" :disabled="selectedRow._inherited">
@@ -165,10 +189,18 @@
               </el-select>
             </el-form-item>
             <el-form-item label="标题">
-              <el-input v-model="selectedRow.title" :disabled="selectedRow._inherited" />
+              <el-input
+                v-model="selectedRow.title"
+                :disabled="selectedRow._inherited"
+                @focus="ensureRowEditable(selectedRowIndex)"
+              />
             </el-form-item>
             <el-form-item label="副标题">
-              <el-input v-model="selectedRow.subtitle" :disabled="selectedRow._inherited" />
+              <el-input
+                v-model="selectedRow.subtitle"
+                :disabled="selectedRow._inherited"
+                @focus="ensureRowEditable(selectedRowIndex)"
+              />
             </el-form-item>
             <el-form-item label="卡片样式">
               <el-radio-group v-model="selectedRow.card_style" :disabled="selectedRow._inherited">
@@ -459,6 +491,7 @@ const dayOfWeek = ref<number[]>([])
 
 // 模板继承
 const parentLayoutId = ref<string>('')
+const layoutName = ref('')
 
 const hourMarks = {
   0: '0',
@@ -620,6 +653,28 @@ function rowsForSave(): LayoutRow[] {
     .map(({ _inherited, ...r }) => r)
 }
 
+function forkInheritedRow(index: number) {
+  const row = layoutRows.value[index]
+  if (!row?._inherited) return
+  const forked = JSON.parse(JSON.stringify(row)) as LayoutRow
+  forked._inherited = false
+  layoutRows.value[index] = forked
+  ElMessage.success('已覆盖继承，修改后请点击保存')
+}
+
+function forkSelectedRow() {
+  if (selectedRowIndex.value < 0) return
+  forkInheritedRow(selectedRowIndex.value)
+}
+
+function ensureRowEditable(index: number) {
+  if (index < 0) return
+  const row = layoutRows.value[index]
+  if (row?._inherited) {
+    forkInheritedRow(index)
+  }
+}
+
 function dataSourceLabel(type?: string) {
   return dataSourceTypes.find((d) => d.value === type)?.label || type || '数据源'
 }
@@ -693,6 +748,7 @@ async function load() {
     ])
     const layoutData = unwrapApiData<Layout>(l)
     layout.value = layoutData
+    layoutName.value = layoutData.name || ''
     parentLayoutId.value = layoutData.parent_id || ''
     layoutRows.value = (layoutData.config?.rows || []).map((r) => ({
       ...r,
@@ -712,11 +768,15 @@ async function onSave() {
   saving.value = true
   try {
     const updated = await layoutApi.update(layout.value.id, {
+      name: layoutName.value.trim() || layout.value.name,
       config: { ...layout.value.config, rows: rowsForSave() },
     } as any)
-    layout.value = (updated as any).data
+    layout.value = unwrapApiData<Layout>(updated)
+    layoutName.value = layout.value?.name || layoutName.value
     ElMessage.success('保存成功')
     await load()
+  } catch {
+    // 错误由 axios 拦截器提示
   } finally {
     saving.value = false
   }
@@ -855,6 +915,10 @@ onMounted(async () => {
     font-weight: 600;
     margin-left: 8px;
   }
+  .layout-name-input {
+    width: 200px;
+    margin-left: 8px;
+  }
   .version {
     margin-left: 12px;
     color: #94a3b8;
@@ -903,6 +967,15 @@ onMounted(async () => {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 12px;
+}
+
+.inherit-hint {
+  margin-bottom: 8px;
+}
+
+.fork-btn {
+  margin-bottom: 12px;
+  width: 100%;
 }
 
 .mt-8 { margin-top: 8px; }
