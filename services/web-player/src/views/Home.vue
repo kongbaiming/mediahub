@@ -176,11 +176,15 @@ function progressPct(item: FeedItem) {
 }
 
 function openDetail(item: FeedItem) {
-  if (item.external || !item.media_id) {
-    window.toast?.('该内容尚未加入媒体库，可在 CMS 中搜索入库', 'info', 3500)
+  if (item.media_id && !item.external) {
+    router.push(`/media/${item.media_id}`)
     return
   }
-  router.push(`/media/${item.media_id}`)
+  if (item.external && item.tmdb_id && item.type) {
+    router.push(`/media/tmdb/${item.type}/${item.tmdb_id}`)
+    return
+  }
+  window.toast?.('无法打开该内容', 'info', 2000)
 }
 
 function playItem(item: FeedItem) {
