@@ -2,6 +2,8 @@
 package media
 
 import (
+	"database/sql/driver"
+	"strings"
 	"time"
 
 	"github.com/mediahub/api/internal/domain/common"
@@ -137,16 +139,43 @@ func (s *StringArray) Scan(src any) error {
 		return s.scanBytes(v)
 	case string:
 		return s.scanBytes([]byte(v))
+	case []string:
+		*s = StringArray(v)
+		return nil
 	}
 	return nil
 }
 
 // Value 实现 driver.Valuer（写入数据库）
-func (s StringArray) Value() (any, error) {
-	if s == nil {
-		return []string{}, nil
+//
+// 必须返回 PostgreSQL text[] 字面量字符串。若返回 []string，pgx 会将其绑定为
+// record 类型，导致 column "tags" is of type text[] but expression is of type record。
+func (s StringArray) Value() (driver.Value, error) {
+	if len(s) == 0 {
+		return "{}", nil
 	}
-	return []string(s), nil
+	return pgTextArrayLiteral([]string(s)), nil
+}
+
+func pgTextArrayLiteral(items []string) string {
+	var b strings.Builder
+	b.WriteByte('{')
+	for i, item := range items {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteByte('"')
+		for j := 0; j < len(item); j++ {
+			c := item[j]
+			if c == '\\' || c == '"' {
+				b.WriteByte('\\')
+			}
+			b.WriteByte(c)
+		}
+		b.WriteByte('"')
+	}
+	b.WriteByte('}')
+	return b.String()
 }
 
 func (s *StringArray) scanBytes(b []byte) error {

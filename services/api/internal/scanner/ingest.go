@@ -69,7 +69,8 @@ func ingestMovieFile(ctx context.Context, deps IngestDeps, filePath string, pars
 		VideoCodec:   strPtr(parsed.VideoCodec),
 		AudioCodec:   strPtr(parsed.AudioCodec),
 		ScrapeStatus: common.ScrapeStatusPending,
-		Tags:         buildTags(parsed),
+		Genres:       media.StringArray{},
+		Tags:         media.StringArray(buildTags(parsed)),
 	}
 	if parsed.Resolution != "" {
 		r := parsed.Resolution

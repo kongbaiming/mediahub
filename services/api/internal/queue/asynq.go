@@ -4,6 +4,7 @@ package queue
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -98,7 +99,7 @@ func (q *Queue) EnqueueScrape(ctx context.Context, mediaID string) error {
 		asynq.Timeout(5*time.Minute),
 		asynq.TaskID("scrape:"+mediaID),
 	)
-	if err != nil && err != asynq.ErrTaskIDConflict {
+	if err != nil && !errors.Is(err, asynq.ErrTaskIDConflict) {
 		return err
 	}
 	return nil
