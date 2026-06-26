@@ -64,6 +64,7 @@ func ingestMovieFile(ctx context.Context, deps IngestDeps, filePath string, pars
 		if album, _ := deps.MediaRepo.FindMovieInFolder(ctx, albumDir); album != nil {
 			_, _ = deps.MediaRepo.UpsertMediaFile(ctx, scanMediaFile(album.ID, nil, filePath))
 			res.Skipped = true
+			enqueueScrape(ctx, deps.Queue, album.ID.String(), album.ScrapeStatus != common.ScrapeStatusDone)
 			return res, nil
 		}
 	}

@@ -85,6 +85,8 @@ func (q *Queue) Enqueue(ctx context.Context, task *asynq.Task, opts ...asynq.Opt
 	return info, nil
 }
 
+const scrapeQueue = "default"
+
 // EnqueueScrape 入队刮削任务（默认队列）
 // TaskID 固定为 scrape:{mediaID}，避免同一媒资并发刮削互相覆盖元数据。
 func (q *Queue) EnqueueScrape(ctx context.Context, mediaID string) error {
@@ -93,16 +95,33 @@ func (q *Queue) EnqueueScrape(ctx context.Context, mediaID string) error {
 		return fmt.Errorf("序列化刮削 payload: %w", err)
 	}
 	task := asynq.NewTask(TypeScrapeMedia, payload)
-	_, err = q.Enqueue(ctx, task,
-		asynq.Queue("default"),
+	taskID := "scrape:" + mediaID
+	opts := []asynq.Option{
+		asynq.Queue(scrapeQueue),
 		asynq.MaxRetry(3),
-		asynq.Timeout(5*time.Minute),
-		asynq.TaskID("scrape:"+mediaID),
-	)
-	if err != nil && !errors.Is(err, asynq.ErrTaskIDConflict) {
+		asynq.Timeout(5 * time.Minute),
+		asynq.TaskID(taskID),
+	}
+
+	q.purgeScrapeTask(taskID)
+	_, err = q.Enqueue(ctx, task, opts...)
+	if err != nil && errors.Is(err, asynq.ErrTaskIDConflict) {
+		q.purgeScrapeTask(taskID)
+		_, err = q.Enqueue(ctx, task, opts...)
+	}
+	if err != nil {
 		return err
 	}
 	return nil
+}
+
+// purgeScrapeTask 清除 Redis 中同 ID 的残留刮削任务（重启/重试后避免 TaskID 冲突导致永远 pending）
+func (q *Queue) purgeScrapeTask(taskID string) {
+	if q.inspector == nil {
+		return
+	}
+	_ = q.inspector.CancelProcessing(taskID)
+	_ = q.inspector.DeleteTask(scrapeQueue, taskID)
 }
 
 // EnqueueThumb 入队缩略图任务

@@ -114,7 +114,7 @@ func main() {
 	)
 	trans := transcoder.NewTranscoder("ffmpeg", "qsv")
 	catalogSvc := service.NewCatalogService(catalogRepo, mediaRepo, tmdbClient)
-	handlers := worker.NewHandlers(tmdbClient, trans, mediaRepo, "/data/thumbnails", catalogSvc)
+	handlers := worker.NewHandlers(tmdbClient, trans, mediaRepo, q, "/data/thumbnails", catalogSvc)
 	mux := asynq.NewServeMux()
 	handlers.Register(mux)
 	logger.Info("Asynq worker 已注册", "handlers", []string{"scrape", "thumb", "scan"})

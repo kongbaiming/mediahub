@@ -31,6 +31,7 @@ type Handlers struct {
 	tmdb       *scraper.TMDBClient
 	transcoder *transcoder.Transcoder
 	mediaRepo  *repository.MediaRepo
+	queue      *queue.Queue
 	thumbDir   string
 	enricher   CatalogEnricher
 }
@@ -40,6 +41,7 @@ func NewHandlers(
 	tmdb *scraper.TMDBClient,
 	t *transcoder.Transcoder,
 	repo *repository.MediaRepo,
+	q *queue.Queue,
 	thumbDir string,
 	enricher CatalogEnricher,
 ) *Handlers {
@@ -47,6 +49,7 @@ func NewHandlers(
 		tmdb:       tmdb,
 		transcoder: t,
 		mediaRepo:  repo,
+		queue:      q,
 		thumbDir:   thumbDir,
 		enricher:   enricher,
 	}
@@ -409,7 +412,7 @@ func (h *Handlers) HandleScan(ctx context.Context, t *asynq.Task) error {
 		if !scanner.IsMediaFile(ev.Path) {
 			return
 		}
-		deps := scanner.IngestDeps{MediaRepo: h.mediaRepo}
+		deps := scanner.IngestDeps{MediaRepo: h.mediaRepo, Queue: h.queue}
 		if _, err := scanner.IngestMediaFile(ctx, deps, ev.Path); err != nil {
 			logger.Warn("入库失败", "path", ev.Path, "err", err)
 			return
