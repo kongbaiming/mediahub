@@ -7,7 +7,7 @@
         <span class="sep">/</span>
         <span>{{ media?.title }}</span>
       </span>
-      <div class="actions">
+      <div class="actions" v-if="!isExternal">
         <button class="want-btn" :class="{ active: wantListed }" @click="toggleWant">
           {{ wantListed ? '✓ 想看' : '+ 想看' }}
         </button>
@@ -21,6 +21,7 @@
       <div class="hero-overlay"></div>
       <div class="hero-content">
         <div class="meta-top">
+          <span v-if="isExternal" class="external-badge">未入库</span>
           <span class="type-badge">{{ typeLabel(media.type) }}</span>
           <span v-if="media.year">{{ media.year }}</span>
           <span v-if="contentRating" class="rating-badge">{{ contentRating }}</span>
@@ -38,7 +39,7 @@
 
         <p v-if="media.overview" class="overview">{{ media.overview }}</p>
 
-        <div class="actions-row">
+        <div v-if="!isExternal" class="actions-row">
           <button
             v-if="!isSeries"
             class="btn mh-btn mh-btn--primary"
@@ -100,7 +101,7 @@
         </div>
       </div>
 
-      <div class="section">
+      <div v-if="!isExternal && (media.video_codec || media.audio_codec || media.resolution || media.has_subtitle != null)" class="section">
         <h2 class="section-title">详细信息</h2>
         <div class="info-grid">
           <div v-if="media.video_codec" class="info-item">
@@ -123,7 +124,7 @@
       </div>
 
       <!-- 剧集选集 -->
-      <div v-if="isSeries && seasonsWithEpisodes.length" class="section">
+      <div v-if="!isExternal && isSeries && seasonsWithEpisodes.length" class="section">
         <h2 class="section-title">选集</h2>
         <div v-for="season in seasonsWithEpisodes" :key="season.id" class="season-block">
           <h3 class="season-title">
@@ -144,7 +145,7 @@
       </div>
 
       <!-- 相似推荐 -->
-      <div v-if="similar.length > 0" class="section">
+      <div v-if="!isExternal && similar.length > 0" class="section">
         <h2 class="section-title">相似推荐</h2>
         <div class="similar-row">
           <button
@@ -196,6 +197,9 @@ const castCredits = ref<MediaCredit[]>([])
 const contentRating = ref('')
 const trailers = ref<MediaExtra[]>([])
 
+const isTmdbDetail = computed(() => route.name === 'tmdb-detail')
+const isExternal = computed(() => isTmdbDetail.value || !!media.value?.external)
+
 const isSeries = computed(() => media.value?.type === 'tvshow' || media.value?.type === 'anime')
 
 const seasonsWithEpisodes = computed((): Array<SeasonDetail & { episodes: EpisodeDetail[] }> => {
@@ -226,29 +230,65 @@ const heroBg = computed(() => {
   return url ? { backgroundImage: `url(${url})` } : {}
 })
 
+async function loadLocal(id: string) {
+  const data = await mediaApi.get(id)
+  media.value = data
+
+  const [simRes, credits, ratings, extras, wants, favs] = await Promise.all([
+    recommendApi.similar(id, 12).catch(() => [] as MediaSummary[]),
+    catalogApi.credits(id, 'actor').catch(() => [] as MediaCredit[]),
+    catalogApi.ratings(id).catch(() => []),
+    catalogApi.extras(id, 'trailer').catch(() => [] as MediaExtra[]),
+    libraryApi.wantList().catch(() => []),
+    libraryApi.favoritesList().catch(() => []),
+  ])
+
+  similar.value = simRes.filter((m) => m.id !== id)
+  castCredits.value = credits
+  contentRating.value = ratings[0]?.rating || ''
+  trailers.value = extras
+  wantListed.value = wants.some((w) => w.media_id === id)
+  favorited.value = favs.some((f) => f.media_id === id)
+}
+
+async function loadTmdb(type: string, tmdbId: number) {
+  const data = await mediaApi.getTmdb(type, tmdbId)
+  if (data.local_media_id) {
+    await router.replace(`/media/${data.local_media_id}`)
+    return
+  }
+  media.value = {
+    id: '',
+    title: data.title,
+    original_title: data.original_title,
+    year: data.year,
+    type: data.type,
+    rating: data.rating,
+    poster_url: data.poster_url,
+    backdrop_url: data.backdrop_url,
+    overview: data.overview,
+    runtime: data.runtime,
+    genres: data.genres || [],
+    external: true,
+    tmdb_id: data.tmdb_id,
+  }
+  castCredits.value = data.credits || []
+  similar.value = []
+  contentRating.value = ''
+  trailers.value = []
+  wantListed.value = false
+  favorited.value = false
+}
+
 async function load() {
-  const id = route.params.id as string
   loading.value = true
   try {
     await historyApi.ensureProfileId()
-    const data = await mediaApi.get(id)
-    media.value = data
-
-    const [simRes, credits, ratings, extras, wants, favs] = await Promise.all([
-      recommendApi.similar(id, 12).catch(() => [] as MediaSummary[]),
-      catalogApi.credits(id, 'actor').catch(() => [] as MediaCredit[]),
-      catalogApi.ratings(id).catch(() => []),
-      catalogApi.extras(id, 'trailer').catch(() => [] as MediaExtra[]),
-      libraryApi.wantList().catch(() => []),
-      libraryApi.favoritesList().catch(() => []),
-    ])
-
-    similar.value = simRes.filter((m) => m.id !== id)
-    castCredits.value = credits
-    contentRating.value = ratings[0]?.rating || ''
-    trailers.value = extras
-    wantListed.value = wants.some((w) => w.media_id === id)
-    favorited.value = favs.some((f) => f.media_id === id)
+    if (isTmdbDetail.value) {
+      await loadTmdb(route.params.type as string, Number(route.params.tmdbId))
+    } else {
+      await loadLocal(route.params.id as string)
+    }
   } finally {
     loading.value = false
   }
@@ -292,14 +332,23 @@ function creditAvatar(c: MediaCredit) {
 
 function openPerson(c: MediaCredit) {
   const personId = c.person?.id
-  if (!personId) return
-  router.push({
-    path: `/person/${personId}`,
-    query: {
-      from: media.value?.id,
-      role: c.character_name || undefined,
-    },
-  })
+  const tmdbPersonId = c.person?.tmdb_person_id
+  const query: Record<string, string | undefined> = {
+    role: c.character_name || undefined,
+  }
+  if (!isExternal.value && media.value?.id) {
+    query.from = media.value.id
+  } else if (isTmdbDetail.value && media.value?.tmdb_id) {
+    query.from_tmdb_type = route.params.type as string
+    query.from_tmdb_id = String(media.value.tmdb_id)
+  }
+  if (personId) {
+    router.push({ path: `/person/${personId}`, query })
+    return
+  }
+  if (tmdbPersonId) {
+    router.push({ path: `/person/tmdb/${tmdbPersonId}`, query })
+  }
 }
 
 function openSimilar(mediaId: string) {
@@ -326,9 +375,10 @@ function typeLabel(t: string) {
 }
 
 watch(
-  () => route.params.id,
-  (id, prev) => {
-    if (!id || id === prev) return
+  () => [route.name, route.params.id, route.params.type, route.params.tmdbId],
+  (cur, prev) => {
+    if (!cur[0]) return
+    if (prev && cur.every((v, i) => v === prev[i])) return
     window.scrollTo({ top: 0, behavior: 'instant' })
     load()
   },
@@ -586,6 +636,16 @@ onMounted(load)
   padding: 2px 10px;
   border-radius: 4px;
   font-size: 12px;
+}
+
+.external-badge {
+  background: rgba(251, 191, 36, 0.2);
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  color: #fcd34d;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .title {

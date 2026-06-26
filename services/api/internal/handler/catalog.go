@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"strconv"
+
 	"github.com/mediahub/api/internal/apperr"
 	"github.com/mediahub/api/internal/domain/common"
 	"github.com/mediahub/api/internal/middleware"
@@ -91,6 +93,34 @@ func (h *CatalogHandler) GetPerson(c *gin.Context) {
 		return
 	}
 	c.JSON(200, gin.H{"data": p})
+}
+
+func (h *CatalogHandler) GetPersonByTMDB(c *gin.Context) {
+	tmdbID, err := strconv.Atoi(c.Param("tmdb_id"))
+	if err != nil || tmdbID <= 0 {
+		respondError(c, apperr.Validation(map[string]string{"tmdb_id": "invalid"}))
+		return
+	}
+	p, err := h.svc.EnsurePersonByTMDB(c.Request.Context(), tmdbID)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"data": p})
+}
+
+func (h *CatalogHandler) TMDBMediaDetail(c *gin.Context) {
+	tmdbID, err := strconv.Atoi(c.Param("tmdb_id"))
+	if err != nil || tmdbID <= 0 {
+		respondError(c, apperr.Validation(map[string]string{"tmdb_id": "invalid"}))
+		return
+	}
+	detail, err := h.svc.TMDBMediaDetail(c.Request.Context(), c.Param("type"), tmdbID)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"data": detail})
 }
 
 func (h *CatalogHandler) PersonWorks(c *gin.Context) {

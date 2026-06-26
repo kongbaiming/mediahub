@@ -91,12 +91,14 @@ export interface MediaDetail {
   overview?: string
   runtime?: number
   genres: string[]
-  has_subtitle: boolean
+  has_subtitle?: boolean
   video_codec?: string
   audio_codec?: string
   resolution?: string
-  storage_path: string
+  storage_path?: string
   seasons?: SeasonDetail[]
+  external?: boolean
+  tmdb_id?: number
 }
 
 export interface MediaSummary {
@@ -143,6 +145,7 @@ export interface PersonBrief {
   place_of_birth?: string
   known_for_department?: string
   birthday?: string
+  tmdb_person_id?: number
 }
 
 export interface Person extends PersonBrief {
@@ -152,6 +155,23 @@ export interface Person extends PersonBrief {
 export interface PersonWork extends MediaSummary {
   external?: boolean
   tmdb_id?: number
+}
+
+export interface TMDBMediaDetail {
+  external: boolean
+  tmdb_id: number
+  local_media_id?: string
+  type: string
+  title: string
+  original_title?: string
+  year?: number
+  overview?: string
+  poster_url?: string
+  backdrop_url?: string
+  rating: number
+  runtime?: number
+  genres: string[]
+  credits?: MediaCredit[]
 }
 
 export interface ContentRating {
@@ -194,6 +214,13 @@ export const feedApi = {
 export const mediaApi = {
   async get(id: string): Promise<MediaDetail> {
     const body = (await http.get<unknown>(`/api/v1/media/${id}`)) as { data: MediaDetail }
+    return body.data
+  },
+
+  async getTmdb(type: string, tmdbId: number): Promise<TMDBMediaDetail> {
+    const body = (await http.get<unknown>(`/api/v1/media/tmdb/${type}/${tmdbId}`)) as {
+      data: TMDBMediaDetail
+    }
     return body.data
   },
 
@@ -364,6 +391,11 @@ export const catalogApi = {
 
   async person(personId: string): Promise<Person> {
     const body = (await http.get<unknown>(`/api/v1/persons/${personId}`)) as { data: Person }
+    return body.data
+  },
+
+  async personByTmdb(tmdbId: number): Promise<Person> {
+    const body = (await http.get<unknown>(`/api/v1/persons/by-tmdb/${tmdbId}`)) as { data: Person }
     return body.data
   },
 

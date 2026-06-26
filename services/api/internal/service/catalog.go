@@ -191,6 +191,151 @@ func parseCreditYear(releaseDate, firstAirDate string) *int {
 	return nil
 }
 
+// TMDBCastPersonDTO 演职员（含 TMDB ID，便于库外详情跳转影人页）
+type TMDBCastPersonDTO struct {
+	ID           string `json:"id,omitempty"`
+	TMDBPersonID int    `json:"tmdb_person_id,omitempty"`
+	Name         string `json:"name"`
+	ProfileURL   string `json:"profile_url,omitempty"`
+}
+
+// TMDBCastCreditDTO 库外详情演职员
+type TMDBCastCreditDTO struct {
+	ID            string            `json:"id"`
+	CharacterName string            `json:"character_name,omitempty"`
+	Person        TMDBCastPersonDTO `json:"person"`
+}
+
+// TMDBMediaDetailDTO TMDB 库外作品详情
+type TMDBMediaDetailDTO struct {
+	External     bool                `json:"external"`
+	TMDBID       int                 `json:"tmdb_id"`
+	LocalMediaID *uuid.UUID          `json:"local_media_id,omitempty"`
+	Type         common.MediaType    `json:"type"`
+	Title        string              `json:"title"`
+	OriginalTitle string             `json:"original_title,omitempty"`
+	Year         *int                `json:"year,omitempty"`
+	Overview     string              `json:"overview,omitempty"`
+	PosterURL    string              `json:"poster_url,omitempty"`
+	BackdropURL  string              `json:"backdrop_url,omitempty"`
+	Rating       float64             `json:"rating"`
+	Runtime      int                 `json:"runtime,omitempty"`
+	Genres       []string            `json:"genres"`
+	Credits      []TMDBCastCreditDTO `json:"credits,omitempty"`
+}
+
+func (s *CatalogService) EnsurePersonByTMDB(ctx context.Context, tmdbPersonID int) (*catalog.Person, error) {
+	if tmdbPersonID <= 0 {
+		return nil, apperr.Validation(map[string]string{"tmdb_person_id": "invalid"})
+	}
+	if p, err := s.catalog.GetPersonByTMDB(ctx, tmdbPersonID); err == nil {
+		s.enrichPerson(p)
+		s.refreshPersonBio(ctx, p)
+		return p, nil
+	}
+	p, err := s.upsertPersonFromTMDB(ctx, tmdbPersonID, "", "", "")
+	if err != nil {
+		return nil, err
+	}
+	s.enrichPerson(p)
+	return p, nil
+}
+
+func (s *CatalogService) TMDBMediaDetail(ctx context.Context, mediaType string, tmdbID int) (*TMDBMediaDetailDTO, error) {
+	if tmdbID <= 0 {
+		return nil, apperr.Validation(map[string]string{"tmdb_id": "invalid"})
+	}
+	if local, _ := s.media.GetByTMDBID(ctx, tmdbID); local != nil {
+		return &TMDBMediaDetailDTO{LocalMediaID: &local.ID}, nil
+	}
+	if s.tmdb == nil {
+		return nil, apperr.ExternalAPI(nil, "TMDB 未配置")
+	}
+
+	out := &TMDBMediaDetailDTO{
+		External: true,
+		TMDBID:   tmdbID,
+		Genres:   []string{},
+	}
+
+	switch mediaType {
+	case "movie":
+		out.Type = common.MediaTypeMovie
+		m, err := s.tmdb.GetMovie(ctx, tmdbID)
+		if err != nil {
+			return nil, apperr.ExternalAPI(err, "拉取 TMDB 电影详情失败")
+		}
+		out.Title = m.Title
+		out.OriginalTitle = m.OriginalTitle
+		out.Overview = m.Overview
+		out.Rating = m.VoteAverage
+		out.Runtime = m.Runtime
+		out.Year = parseCreditYear(m.ReleaseDate, "")
+		out.PosterURL = s.tmdb.PosterURL(m.PosterPath, "w500")
+		out.BackdropURL = s.tmdb.PosterURL(m.BackdropPath, "w1280")
+		for _, g := range m.Genres {
+			out.Genres = append(out.Genres, g.Name)
+		}
+		if cr, err := s.tmdb.GetMovieCredits(ctx, tmdbID); err == nil && cr != nil {
+			out.Credits = s.tmdbCastCredits(ctx, cr.Cast)
+		}
+	case "tvshow", "tv":
+		out.Type = common.MediaTypeTVShow
+		tv, err := s.tmdb.GetTVShow(ctx, tmdbID)
+		if err != nil {
+			return nil, apperr.ExternalAPI(err, "拉取 TMDB 剧集详情失败")
+		}
+		out.Title = tv.Name
+		out.OriginalTitle = tv.OriginalName
+		out.Overview = tv.Overview
+		out.Rating = tv.VoteAverage
+		if len(tv.EpisodeRunTime) > 0 {
+			out.Runtime = tv.EpisodeRunTime[0]
+		}
+		out.Year = parseCreditYear("", tv.FirstAirDate)
+		out.PosterURL = s.tmdb.PosterURL(tv.PosterPath, "w500")
+		out.BackdropURL = s.tmdb.PosterURL(tv.BackdropPath, "w1280")
+		for _, g := range tv.Genres {
+			out.Genres = append(out.Genres, g.Name)
+		}
+		if cr, err := s.tmdb.GetTVCredits(ctx, tmdbID); err == nil && cr != nil {
+			out.Credits = s.tmdbCastCredits(ctx, cr.Cast)
+		}
+	default:
+		return nil, apperr.Validation(map[string]string{"type": "unsupported media type"})
+	}
+
+	if out.Title == "" {
+		return nil, apperr.NotFound("TMDB 作品不存在")
+	}
+	return out, nil
+}
+
+func (s *CatalogService) tmdbCastCredits(ctx context.Context, cast []scraper.TMDBCastMember) []TMDBCastCreditDTO {
+	var out []TMDBCastCreditDTO
+	for i, c := range cast {
+		if i >= 20 {
+			break
+		}
+		person := TMDBCastPersonDTO{
+			TMDBPersonID: c.ID,
+			Name:         c.Name,
+			ProfileURL:   s.tmdb.PosterURL(c.ProfilePath, "w185"),
+		}
+		if c.ID > 0 {
+			if p, err := s.catalog.GetPersonByTMDB(ctx, c.ID); err == nil {
+				person.ID = p.ID.String()
+			}
+		}
+		out = append(out, TMDBCastCreditDTO{
+			ID:            "tmdb-cast-" + strconv.Itoa(c.ID),
+			CharacterName: c.Character,
+			Person:        person,
+		})
+	}
+	return out
+}
+
 func (s *CatalogService) ListCategories(ctx context.Context, kind string) ([]catalog.Category, error) {
 	return s.catalog.ListCategories(ctx, kind)
 }

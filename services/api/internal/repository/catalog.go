@@ -147,6 +147,18 @@ func (r *CatalogRepo) GetPerson(ctx context.Context, id string) (*catalog.Person
 	return &p, nil
 }
 
+func (r *CatalogRepo) GetPersonByTMDB(ctx context.Context, tmdbID int) (*catalog.Person, error) {
+	var p catalog.Person
+	err := r.db.WithContext(ctx).Where("tmdb_person_id = ?", tmdbID).First(&p).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, apperr.NotFound("影人不存在")
+	}
+	if err != nil {
+		return nil, apperr.Wrap(err, apperr.CodeInternal, "查询影人失败")
+	}
+	return &p, nil
+}
+
 func (r *CatalogRepo) ListWorksByPerson(ctx context.Context, personID string, limit int) ([]media.Media, error) {
 	if limit <= 0 {
 		limit = 40

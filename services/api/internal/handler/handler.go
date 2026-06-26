@@ -110,6 +110,7 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 		// 媒资（部分需要登录）
 		v1.GET("/media", h.Media.List)
 		v1.GET("/media/stats", h.Media.Stats)
+		v1.GET("/media/tmdb/:type/:tmdb_id", h.Catalog.TMDBMediaDetail)
 		v1.POST("/media/batch-rescan", middleware.Auth(h.Auth.svc), h.Media.BatchRescan)
 		v1.GET("/media/:id", h.Media.Get)
 		v1.POST("/media", middleware.Auth(h.Auth.svc), h.Media.Create)
@@ -128,6 +129,7 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 		v1.GET("/works/:id/next-episode", h.Catalog.NextEpisode)
 		v1.GET("/works/:id/availability", h.Catalog.Availability)
 		v1.GET("/persons", h.Catalog.ListPersons)
+		v1.GET("/persons/by-tmdb/:tmdb_id", h.Catalog.GetPersonByTMDB)
 		v1.GET("/persons/:id", h.Catalog.GetPerson)
 		v1.GET("/persons/:id/works", h.Catalog.PersonWorks)
 		v1.GET("/categories", h.Catalog.ListCategories)

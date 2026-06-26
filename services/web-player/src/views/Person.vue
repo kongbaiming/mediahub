@@ -4,9 +4,9 @@
       <button class="back-btn" @click="$router.back()">← 返回</button>
       <span class="breadcrumb">
         <span class="link" @click="$router.push('/')">首页</span>
-        <template v-if="fromMediaId && fromMediaTitle">
+        <template v-if="fromMediaTitle">
           <span class="sep">/</span>
-          <span class="link" @click="$router.push(`/media/${fromMediaId}`)">{{ fromMediaTitle }}</span>
+          <span class="link" @click="goFromMedia">{{ fromMediaTitle }}</span>
         </template>
         <span class="sep">/</span>
         <span>{{ person?.name || '影人' }}</span>
@@ -37,7 +37,6 @@
             :key="work.id || `tmdb-${work.tmdb_id}`"
             type="button"
             class="work-card"
-            :class="{ 'work-card--external': work.external }"
             @click="openWork(work)"
           >
             <div class="poster-card">
@@ -68,6 +67,8 @@ const works = ref<PersonWork[]>([])
 const fromMediaTitle = ref('')
 
 const fromMediaId = computed(() => (route.query.from as string) || '')
+const fromTmdbType = computed(() => (route.query.from_tmdb_type as string) || '')
+const fromTmdbId = computed(() => (route.query.from_tmdb_id as string) || '')
 const roleName = computed(() => (route.query.role as string) || '')
 
 const avatarUrl = computed(() => {
@@ -93,19 +94,34 @@ const extraMeta = computed(() => {
 })
 
 async function load() {
-  const id = route.params.id as string
   loading.value = true
   try {
     await historyApi.ensureProfileId()
-    const [p, list] = await Promise.all([
-      catalogApi.person(id),
-      catalogApi.personWorks(id, { excludeMediaId: fromMediaId.value || undefined }),
-    ])
-    person.value = p
-    works.value = list
+    let personId: string
+    if (route.name === 'person-tmdb') {
+      const p = await catalogApi.personByTmdb(Number(route.params.tmdbId))
+      person.value = p
+      personId = p.id
+    } else {
+      personId = route.params.id as string
+      person.value = await catalogApi.person(personId)
+    }
+    const list = await catalogApi.personWorks(personId, {
+      excludeMediaId: fromMediaId.value || undefined,
+    })
+    works.value = list.filter((w) => {
+      if (fromTmdbId.value && w.tmdb_id === Number(fromTmdbId.value)) return false
+      return true
+    })
 
     if (fromMediaId.value) {
       mediaApi.get(fromMediaId.value).then((m) => {
+        fromMediaTitle.value = m.title
+      }).catch(() => {
+        fromMediaTitle.value = ''
+      })
+    } else if (fromTmdbType.value && fromTmdbId.value) {
+      mediaApi.getTmdb(fromTmdbType.value, Number(fromTmdbId.value)).then((m) => {
         fromMediaTitle.value = m.title
       }).catch(() => {
         fromMediaTitle.value = ''
@@ -123,11 +139,21 @@ function isPlayableWork(work: PersonWork) {
 }
 
 function openWork(work: PersonWork) {
-  if (!isPlayableWork(work)) {
-    window.toast?.('库内暂无该作品', 'info', 2000)
+  if (isPlayableWork(work)) {
+    router.push(`/media/${work.id}`)
     return
   }
-  router.push(`/media/${work.id}`)
+  if (work.tmdb_id && work.type) {
+    router.push(`/media/tmdb/${work.type}/${work.tmdb_id}`)
+  }
+}
+
+function goFromMedia() {
+  if (fromMediaId.value) {
+    router.push(`/media/${fromMediaId.value}`)
+  } else if (fromTmdbType.value && fromTmdbId.value) {
+    router.push(`/media/tmdb/${fromTmdbType.value}/${fromTmdbId.value}`)
+  }
 }
 
 function typeLabel(t: string) {
@@ -135,11 +161,10 @@ function typeLabel(t: string) {
 }
 
 watch(
-  () => [route.params.id, route.query.from, route.query.role],
-  ([id, from, role], prev) => {
-    const prevArr = prev as [string, string, string] | undefined
-    if (!id) return
-    if (prevArr && id === prevArr[0] && from === prevArr[1] && role === prevArr[2]) return
+  () => [route.name, route.params.id, route.params.tmdbId, route.query.from, route.query.role],
+  (cur, prev) => {
+    if (!cur[0]) return
+    if (prev && cur.every((v, i) => v === prev[i])) return
     window.scrollTo({ top: 0, behavior: 'instant' })
     load()
   },
@@ -307,15 +332,6 @@ onMounted(load)
 
   &:hover {
     transform: translateY(-4px);
-  }
-
-  &--external {
-    cursor: default;
-    opacity: 0.72;
-
-    &:hover {
-      transform: none;
-    }
   }
 }
 

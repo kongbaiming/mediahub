@@ -14,9 +14,19 @@ const router = createRouter({
       component: () => import('@/views/Search.vue'),
     },
     {
+      path: '/media/tmdb/:type/:tmdbId',
+      name: 'tmdb-detail',
+      component: () => import('@/views/Detail.vue'),
+    },
+    {
       path: '/media/:id',
       name: 'media-detail',
       component: () => import('@/views/Detail.vue'),
+    },
+    {
+      path: '/person/tmdb/:tmdbId',
+      name: 'person-tmdb',
+      component: () => import('@/views/Person.vue'),
     },
     {
       path: '/person/:id',
