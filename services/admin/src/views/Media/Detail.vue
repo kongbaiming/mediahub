@@ -50,6 +50,12 @@
               <el-tag size="large" type="primary">{{ mediaTypeLabel(media.type) }}</el-tag>
               <el-tag v-for="g in media.genres" :key="g" size="large">{{ g }}</el-tag>
               <el-tag v-if="media.has_subtitle" size="large" type="success">含字幕</el-tag>
+              <el-tag v-if="media.availability_status" :type="availTagType(media.availability_status)" size="large">
+                {{ availLabel(media.availability_status) }}
+              </el-tag>
+              <el-tag v-for="r in contentRatings" :key="r.rating + r.country" size="large" type="warning">
+                {{ r.rating }}
+              </el-tag>
             </div>
 
             <div class="info-grid">
@@ -126,6 +132,17 @@
         </div>
       </div>
 
+      <el-card v-if="castCredits.length" shadow="never" class="credits-card">
+        <template #header><span>演职员</span></template>
+        <div class="credits-row">
+          <div v-for="c in castCredits.slice(0, 16)" :key="c.id" class="credit-item">
+            <div class="credit-avatar">{{ c.person?.name?.slice(0, 1) || '?' }}</div>
+            <div class="credit-name">{{ c.person?.name }}</div>
+            <div v-if="c.character_name" class="credit-role">{{ c.character_name }}</div>
+          </div>
+        </div>
+      </el-card>
+
       <el-card v-if="media.seasons?.length" shadow="never" class="seasons-card">
         <template #header><span>季 / 集</span></template>
         <el-collapse>
@@ -160,6 +177,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { mediaApi } from '@/api/media'
+import { catalogApi, type MediaCredit, type ContentRating } from '@/api/catalog'
 import type { MediaDetail } from '@/api/types'
 
 const route = useRoute()
@@ -170,6 +188,8 @@ const rescanning = ref(false)
 const saving = ref(false)
 const editing = ref(false)
 const media = ref<MediaDetail | null>(null)
+const castCredits = ref<MediaCredit[]>([])
+const contentRatings = ref<ContentRating[]>([])
 const editForm = reactive({
   title: '',
   original_title: '',
@@ -185,6 +205,12 @@ async function load() {
   try {
     const res = await mediaApi.get(id)
     media.value = res.data
+    const [credits, ratings] = await Promise.all([
+      catalogApi.credits(id, 'actor').catch(() => ({ data: [] as MediaCredit[] })),
+      catalogApi.ratings(id).catch(() => ({ data: [] as ContentRating[] })),
+    ])
+    castCredits.value = credits.data || []
+    contentRatings.value = ratings.data || []
     Object.assign(editForm, {
       title: res.data.title,
       original_title: res.data.original_title || '',
@@ -249,6 +275,24 @@ function scrapeStatusLabel(s: string) {
 }
 function scrapeStatusColor(s: string): any {
   return ({ done: 'success', scraping: 'warning', failed: 'danger' } as any)[s] || 'info'
+}
+
+function availLabel(s: string) {
+  return ({
+    available: '可播放',
+    processing: '处理中',
+    missing: '缺文件',
+    unreleased: '未发布',
+  } as Record<string, string>)[s] || s
+}
+
+function availTagType(s: string): 'success' | 'warning' | 'danger' | 'info' {
+  return ({
+    available: 'success',
+    processing: 'warning',
+    missing: 'danger',
+    unreleased: 'info',
+  } as Record<string, string>)[s] as any || 'info'
 }
 function formatSize(bytes: number) {
   if (!bytes) return '-'
@@ -395,6 +439,50 @@ onMounted(load)
 .seasons-card {
   margin-top: 16px;
   border-radius: 12px;
+}
+
+.credits-card {
+  margin-top: 16px;
+  border-radius: 12px;
+}
+
+.credits-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.credit-item {
+  width: 88px;
+  text-align: center;
+}
+
+.credit-avatar {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 6px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--mh-primary, #6c63ff), #ec4899);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 20px;
+}
+
+.credit-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mh-text, #1a1a28);
+}
+
+.credit-role {
+  font-size: 11px;
+  color: var(--mh-text-secondary, #64748b);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .edit-form {

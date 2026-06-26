@@ -26,6 +26,12 @@ const routes = [
         meta: { title: '媒资库' },
       },
       {
+        path: 'scrape',
+        name: 'scrape-center',
+        component: () => import('@/views/ScrapeCenter.vue'),
+        meta: { title: '刮削中心' },
+      },
+      {
         path: 'media/:id',
         name: 'media-detail',
         component: () => import('@/views/Media/Detail.vue'),

@@ -77,6 +77,23 @@
         </div>
       </div>
 
+      <div v-if="trailers.length" class="section">
+        <h2 class="section-title">预告 / 花絮</h2>
+        <div class="extras-row">
+          <a
+            v-for="ex in trailers"
+            :key="ex.id"
+            class="extra-card"
+            :href="extraUrl(ex)"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span class="extra-icon">▶</span>
+            <span class="extra-title">{{ ex.title || extraTypeLabel(ex.extra_type) }}</span>
+          </a>
+        </div>
+      </div>
+
       <div class="section">
         <h2 class="section-title">详细信息</h2>
         <div class="info-grid">
@@ -152,6 +169,7 @@ import {
   type MediaSummary,
   type EpisodeDetail,
   type MediaCredit,
+  type MediaExtra,
 } from '@/api'
 
 const route = useRoute()
@@ -162,6 +180,7 @@ const wantListed = ref(false)
 const similar = ref<MediaSummary[]>([])
 const castCredits = ref<MediaCredit[]>([])
 const contentRating = ref('')
+const trailers = ref<MediaExtra[]>([])
 
 const isSeries = computed(() => media.value?.type === 'tvshow' || media.value?.type === 'anime')
 
@@ -191,10 +210,11 @@ async function load() {
     const data = await mediaApi.get(id)
     media.value = data
 
-    const [simRes, credits, ratings, wants, favs] = await Promise.all([
+    const [simRes, credits, ratings, extras, wants, favs] = await Promise.all([
       recommendApi.similar(id, 12).catch(() => [] as MediaSummary[]),
       catalogApi.credits(id, 'actor').catch(() => [] as MediaCredit[]),
       catalogApi.ratings(id).catch(() => []),
+      catalogApi.extras(id, 'trailer').catch(() => [] as MediaExtra[]),
       libraryApi.wantList().catch(() => []),
       libraryApi.favoritesList().catch(() => []),
     ])
@@ -202,6 +222,7 @@ async function load() {
     similar.value = simRes.filter((m) => m.id !== id)
     castCredits.value = credits
     contentRating.value = ratings[0]?.rating || ''
+    trailers.value = extras
     wantListed.value = wants.some((w) => w.media_id === id)
     favorited.value = favs.some((f) => f.media_id === id)
   } finally {
@@ -240,6 +261,15 @@ async function toggleFavorite() {
 function profileImage(path: string) {
   if (path.startsWith('http')) return path
   return `https://image.tmdb.org/t/p/w185${path}`
+}
+
+function extraUrl(ex: MediaExtra) {
+  if (ex.external_url) return ex.external_url
+  return '#'
+}
+
+function extraTypeLabel(t: string) {
+  return ({ trailer: '预告片', teaser: '先导', clip: '片段' } as Record<string, string>)[t] || t
 }
 
 function typeLabel(t: string) {
@@ -407,6 +437,39 @@ onMounted(load)
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.extras-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mh-space-3, 12px);
+}
+
+.extra-card {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mh-space-2, 8px);
+  padding: var(--mh-space-3, 12px) var(--mh-space-4, 16px);
+  background: rgba(108, 99, 255, 0.12);
+  border: 1px solid rgba(108, 99, 255, 0.25);
+  border-radius: var(--mh-radius-md, 12px);
+  color: var(--mh-text, #f0f0f5);
+  text-decoration: none;
+  transition: background var(--mh-duration, 200ms) ease;
+
+  &:hover {
+    background: rgba(108, 99, 255, 0.2);
+  }
+}
+
+.extra-icon {
+  color: var(--mh-primary, #6c63ff);
+  font-size: 12px;
+}
+
+.extra-title {
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .hero {

@@ -51,6 +51,9 @@
           <template #header>
             <div class="panel-header">
               <span>刮削状态</span>
+              <el-button text type="primary" @click="$router.push('/scrape')">
+                刮削中心
+              </el-button>
               <el-button text type="primary" @click="refresh">刷新</el-button>
             </div>
           </template>

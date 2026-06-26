@@ -123,7 +123,7 @@ func Load() (*Config, error) {
 		},
 		Downloader: DownloaderConfig{
 			Enabled:      getEnv("DOWNLOADER_ENABLED", "true") == "true",
-			WatchInterval: getEnvInt("DOWNLOADER_WATCH_INTERVAL", 5),
+			WatchInterval: getEnvInt("DOWNLOADER_WATCH_INTERVAL", 1),
 			QBittorrent: QBitConfig{
 				Host:     getEnv("QBIT_HOST", "qbittorrent"),
 				Port:     atoiEnv(getEnv("QBIT_PORT", "8080"), 8080),

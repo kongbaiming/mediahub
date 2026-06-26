@@ -10,10 +10,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/mediahub/api/internal/apperr"
+	"github.com/mediahub/api/internal/hlsstore"
 	"github.com/mediahub/api/internal/mediafile"
 	"github.com/mediahub/api/internal/scanner"
 	"github.com/mediahub/api/internal/transcoder"
@@ -32,12 +32,7 @@ type HLSTranscodeSettings struct {
 }
 
 // StreamHandler 流代理
-// 路径（具体路由，不再用 catch-all，因为 Gin 不允许 wildcard 和 static 段共存）：
-//   - /api/v1/stream/direct?path=<absolute-path>       直接 ServeFile（适合内网 + 客户端硬解）
-//   - /api/v1/stream/hls?path=<absolute-path>&media_id=xxx  启动 HLS 转码流（弱网 / 客户端硬解失败时）
-//
-// allowedRoots 通常为 MEDIA_ROOT 与 DOWNLOAD_ROOT（下载目录中的媒资也需可播）。
-func StreamHandler(allowedRoots []string, hlsCacheRoot string, tc HLSTranscodeSettings) gin.HandlerFunc {
+func StreamHandler(allowedRoots []string, hlsCacheRoot string, tc HLSTranscodeSettings, store *hlsstore.Store) gin.HandlerFunc {
 	roots := normalizeAllowedRoots(allowedRoots)
 	return func(c *gin.Context) {
 		p := c.Request.URL.Path
@@ -46,7 +41,7 @@ func StreamHandler(allowedRoots []string, hlsCacheRoot string, tc HLSTranscodeSe
 			return
 		}
 		if strings.HasSuffix(p, "/hls") {
-			handleHLS(c, roots, hlsCacheRoot, tc)
+			handleHLS(c, roots, hlsCacheRoot, tc, store)
 			return
 		}
 		respondError(c, apperr.NotFound("unknown stream action: "+p))
@@ -118,11 +113,6 @@ func handleDirect(c *gin.Context, allowedRoots []string) {
 
 // ---- HLS 转码 ----
 
-var (
-	hlsTasks   = map[string]*hlsTask{}
-	hlsTasksMu sync.RWMutex
-)
-
 type hlsTask struct {
 	MediaID   string
 	Input     string
@@ -131,6 +121,58 @@ type hlsTask struct {
 	Error     string
 	StartedAt time.Time
 	Opts      transcoder.HLSOptions
+}
+
+func hlsTaskFromRecord(rec *hlsstore.TaskRecord) *hlsTask {
+	if rec == nil {
+		return nil
+	}
+	return &hlsTask{
+		MediaID:   rec.MediaID,
+		Input:     rec.Input,
+		OutputDir: rec.OutputDir,
+		Status:    rec.Status,
+		Error:     rec.Error,
+		StartedAt: rec.StartedAt,
+		Opts: transcoder.HLSOptions{
+			CopyVideo: rec.CopyVideo,
+			Height:    rec.Height,
+		},
+	}
+}
+
+func hlsTaskToRecord(t *hlsTask) *hlsstore.TaskRecord {
+	if t == nil {
+		return nil
+	}
+	return &hlsstore.TaskRecord{
+		MediaID:   t.MediaID,
+		Input:     t.Input,
+		OutputDir: t.OutputDir,
+		Status:    t.Status,
+		Error:     t.Error,
+		StartedAt: t.StartedAt,
+		CopyVideo: t.Opts.CopyVideo,
+		Height:    t.Opts.Height,
+	}
+}
+
+func persistHLSTask(ctx context.Context, store *hlsstore.Store, t *hlsTask) {
+	if store == nil || t == nil {
+		return
+	}
+	store.Set(ctx, hlsTaskToRecord(t))
+}
+
+func loadHLSTask(ctx context.Context, store *hlsstore.Store, mediaID string) (*hlsTask, bool) {
+	if store == nil {
+		return nil, false
+	}
+	rec, ok := store.Get(ctx, mediaID)
+	if !ok {
+		return nil, false
+	}
+	return hlsTaskFromRecord(rec), true
 }
 
 type hlsCacheProfile struct {
@@ -264,12 +306,14 @@ func hlsPlaylistURL(mediaID string) string {
 
 func hlsStatusResponse(c *gin.Context, t *hlsTask) {
 	resp := gin.H{
-		"status":    t.Status,
-		"task":      t.MediaID,
-		"poll_url":  fmt.Sprintf("/api/v1/stream/hls/%s/status", t.MediaID),
-		"media_id":  t.MediaID,
-		"started":   t.StartedAt,
-		"elapsed_s": int(time.Since(t.StartedAt).Seconds()),
+		"status":     t.Status,
+		"task":       t.MediaID,
+		"poll_url":   fmt.Sprintf("/api/v1/stream/hls/%s/status", t.MediaID),
+		"media_id":   t.MediaID,
+		"started":    t.StartedAt,
+		"elapsed_s":  int(time.Since(t.StartedAt).Seconds()),
+		"copy_video": t.Opts.CopyVideo,
+		"height":     t.Opts.Height,
 	}
 	if t.Error != "" {
 		resp["error"] = t.Error
@@ -314,7 +358,7 @@ func hlsPlaylistHasSegments(playlistPath string) bool {
 }
 
 // handleHLS 启动 HLS 转码（异步）
-func handleHLS(c *gin.Context, allowedRoots []string, cacheRoot string, tc HLSTranscodeSettings) {
+func handleHLS(c *gin.Context, allowedRoots []string, cacheRoot string, tc HLSTranscodeSettings, store *hlsstore.Store) {
 	mediaID := c.Query("media_id")
 	path := c.Query("path")
 	if path == "" || mediaID == "" {
@@ -361,27 +405,20 @@ func handleHLS(c *gin.Context, allowedRoots []string, cacheRoot string, tc HLSTr
 			})
 			return
 		}
-		hlsTasksMu.RLock()
-		runningTask, ok := hlsTasks[mediaID]
-		hlsTasksMu.RUnlock()
-		if ok && runningTask.Status == "running" {
+		if runningTask, ok := loadHLSTask(c.Request.Context(), store, mediaID); ok && runningTask.Status == "running" {
 			hlsStatusResponse(c, runningTask)
 			return
 		}
 		_ = os.RemoveAll(outDir)
 	}
 
-	hlsTasksMu.Lock()
-	t, exists := hlsTasks[mediaID]
-	if exists && t.Status == "failed" {
-		delete(hlsTasks, mediaID)
-		exists = false
-	}
-	hlsTasksMu.Unlock()
-
-	if exists {
-		hlsStatusResponse(c, t)
-		return
+	if t, exists := loadHLSTask(c.Request.Context(), store, mediaID); exists {
+		if t.Status == "failed" {
+			store.Delete(c.Request.Context(), mediaID)
+		} else {
+			hlsStatusResponse(c, t)
+			return
+		}
 	}
 
 	if err := os.MkdirAll(outDir, 0755); err != nil {
@@ -398,11 +435,8 @@ func handleHLS(c *gin.Context, allowedRoots []string, cacheRoot string, tc HLSTr
 		Opts:      hlsOpts,
 	}
 
-	hlsTasksMu.Lock()
-	hlsTasks[mediaID] = task
-	hlsTasksMu.Unlock()
-
-	go runHLSTranscode(task, tc)
+	persistHLSTask(c.Request.Context(), store, task)
+	go runHLSTranscode(task, tc, store)
 
 	c.JSON(202, gin.H{
 		"status":     "started",
@@ -413,7 +447,7 @@ func handleHLS(c *gin.Context, allowedRoots []string, cacheRoot string, tc HLSTr
 	})
 }
 
-func runHLSTranscode(task *hlsTask, tc HLSTranscodeSettings) {
+func runHLSTranscode(task *hlsTask, tc HLSTranscodeSettings, store *hlsstore.Store) {
 	tr := transcoder.NewTranscoder("ffmpeg", tc.HWAccel)
 	opts := task.Opts
 	opts.Input = task.Input
@@ -421,16 +455,15 @@ func runHLSTranscode(task *hlsTask, tc HLSTranscodeSettings) {
 
 	_, err := tr.TranscodeHLSWithFallback(context.Background(), opts)
 
-	hlsTasksMu.Lock()
-	defer hlsTasksMu.Unlock()
 	if err != nil {
 		task.Status = "failed"
 		task.Error = err.Error()
 		_ = os.RemoveAll(task.OutputDir)
-		return
+	} else {
+		_ = writeHLSProfile(task.OutputDir, opts)
+		task.Status = "done"
 	}
-	_ = writeHLSProfile(task.OutputDir, opts)
-	task.Status = "done"
+	persistHLSTask(context.Background(), store, task)
 }
 
 // ServeHLSPlaylist 提供 HLS playlist 和 ts 切片
@@ -470,21 +503,23 @@ func ServeHLSPlaylist(cacheRoot string) gin.HandlerFunc {
 }
 
 // GetHLSTaskStatus 查询转码状态
-func GetHLSTaskStatus(cacheRoot string) gin.HandlerFunc {
+func GetHLSTaskStatus(cacheRoot string, store *hlsstore.Store) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		mediaID := c.Param("media_id")
+		outDir := filepath.Join(cacheRoot, mediaID)
 
-		hlsTasksMu.RLock()
-		t, exists := hlsTasks[mediaID]
-		hlsTasksMu.RUnlock()
-
-		if exists {
+		if t, exists := loadHLSTask(c.Request.Context(), store, mediaID); exists {
 			resp := gin.H{
-				"media_id":  t.MediaID,
-				"status":    t.Status,
-				"error":     t.Error,
-				"started":   t.StartedAt,
-				"elapsed_s": int(time.Since(t.StartedAt).Seconds()),
+				"media_id":   t.MediaID,
+				"status":     t.Status,
+				"error":      t.Error,
+				"started":    t.StartedAt,
+				"elapsed_s":  int(time.Since(t.StartedAt).Seconds()),
+				"copy_video": t.Opts.CopyVideo,
+				"height":     t.Opts.Height,
+			}
+			if t.OutputDir == "" {
+				t.OutputDir = outDir
 			}
 			enrichHLSPlayable(resp, t.OutputDir, t.MediaID)
 			if resp["status"] == "done" || t.Status == "done" {
@@ -494,13 +529,21 @@ func GetHLSTaskStatus(cacheRoot string) gin.HandlerFunc {
 			return
 		}
 
-		outDir := filepath.Join(cacheRoot, mediaID)
 		playlistPath := filepath.Join(outDir, "playlist.m3u8")
 		if _, err := os.Stat(playlistPath); err == nil {
 			if isHLSPlaylistComplete(playlistPath) {
 				c.JSON(200, gin.H{
 					"media_id": mediaID,
 					"status":   "done",
+					"playlist": hlsPlaylistURL(mediaID),
+				})
+				return
+			}
+			if hlsPlaylistHasSegments(playlistPath) {
+				c.JSON(200, gin.H{
+					"media_id": mediaID,
+					"status":   "running",
+					"playable": true,
 					"playlist": hlsPlaylistURL(mediaID),
 				})
 				return

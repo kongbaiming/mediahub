@@ -32,6 +32,8 @@ export interface MediaSummary {
   backdrop_url?: string
   genres: string[]
   has_subtitle: boolean
+  scrape_status?: 'pending' | 'scraping' | 'done' | 'failed'
+  scrape_error?: string
 }
 
 export interface MediaDetail extends MediaSummary {
@@ -47,6 +49,8 @@ export interface MediaDetail extends MediaSummary {
   container?: string
   scrape_status: 'pending' | 'scraping' | 'done' | 'failed'
   scrape_error?: string
+  availability_status?: 'available' | 'processing' | 'missing' | 'unreleased'
+  available_at?: string
   seasons?: SeasonDetail[]
 }
 

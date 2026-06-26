@@ -184,6 +184,24 @@ func (h *MediaHandler) Rescan(c *gin.Context) {
 	c.JSON(202, gin.H{"status": "queued", "media_id": id})
 }
 
+// BatchRescan 批量重新刮削
+func (h *MediaHandler) BatchRescan(c *gin.Context) {
+	var req struct {
+		IDs          []string `json:"ids"`
+		ScrapeStatus string   `json:"scrape_status"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, apperr.Validation(err.Error()))
+		return
+	}
+	result, err := h.svc.BatchRescan(c.Request.Context(), req.IDs, req.ScrapeStatus)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(202, gin.H{"status": "queued", "queued": result.Queued})
+}
+
 // Stats 统计
 func (h *MediaHandler) Stats(c *gin.Context) {
 	stats, err := h.svc.Stats(c.Request.Context())

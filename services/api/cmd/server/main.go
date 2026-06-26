@@ -17,6 +17,7 @@ import (
 	"github.com/mediahub/api/internal/db"
 	"github.com/mediahub/api/internal/downloader"
 	"github.com/mediahub/api/internal/handler"
+	"github.com/mediahub/api/internal/hlsstore"
 	"github.com/mediahub/api/internal/middleware"
 	"github.com/mediahub/api/internal/queue"
 	"github.com/mediahub/api/internal/recommend"
@@ -190,7 +191,7 @@ func main() {
 			cfg.Downloader.QBittorrent.Username,
 			cfg.Downloader.QBittorrent.Password,
 		)
-		downloaderSvc = downloader.NewService(qbitClient, mediaRepo, q, cfg.Media.DownloadRoot)
+		downloaderSvc = downloader.NewService(qbitClient, mediaRepo, catalogRepo, q, cfg.Media.DownloadRoot)
 		logger.Info("下载管理已启动", "qbit_url", qbitURL)
 
 		// 启动后台 watcher（自动入库）
@@ -245,6 +246,7 @@ func main() {
 	if hlsCache == "" {
 		hlsCache = "/data/hls-cache"
 	}
+	hlsTaskStore := hlsstore.New(rdb)
 	h := handler.NewHandlers(mediaSvc, layoutSvc, authSvc, feedSvc, historySvc, librarySvc, catalogSvc, profileSvc, recommendSvc, downloaderSvc, scannerSvc, subtitleSvc, cfg.Media.Root, cfg.Media.DownloadRoot, hlsCache, handler.HLSTranscodeSettings{
 		HWAccel:     cfg.Transcode.HWAccel,
 		MaxBitrate:  cfg.Transcode.MaxBitrate,
@@ -252,7 +254,7 @@ func main() {
 		Preset:      cfg.Transcode.Preset,
 		SegmentTime: cfg.Transcode.SegmentTime,
 		PreferCopy:  cfg.Transcode.PreferCopy,
-	})
+	}, hlsTaskStore)
 
 	// ---------- 10. 路由 ----------
 	r := gin.New()

@@ -486,6 +486,16 @@ func (s *FeedService) fromTag(ctx context.Context, params map[string]any, isKid 
 	if v, ok := params["limit"].(float64); ok && v > 0 {
 		limit = int(v)
 	}
+
+	if s.catalog != nil {
+		slug := repository.Slugify(tag)
+		items, err := s.catalog.ListMediaByTagSlug(ctx, slug, limit, isKid)
+		if err == nil {
+			return toFeedItems(items, nil), nil
+		}
+	}
+
+	// 回退：按 media.tags 数组内存筛选（兼容未迁移标签）
 	f := repository.MediaFilter{
 		Sort:         "rating",
 		SortDesc:     true,

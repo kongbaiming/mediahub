@@ -179,10 +179,104 @@
               </el-radio-group>
             </el-form-item>
             <el-form-item label="数据源类型">
-              <el-select v-model="selectedRow.source.type" :disabled="selectedRow._inherited">
+              <el-select
+                v-model="selectedRow.source.type"
+                :disabled="selectedRow._inherited"
+                @change="onSourceTypeChange"
+              >
                 <el-option v-for="d in dataSourceTypes" :key="d.value" :label="d.label" :value="d.value" />
               </el-select>
             </el-form-item>
+
+            <template v-if="selectedRow.source.type === 'album'">
+              <el-form-item label="专题专辑">
+                <el-select
+                  v-model="selectedRow.source.params!.album_id"
+                  filterable
+                  placeholder="选择专辑"
+                  :disabled="selectedRow._inherited"
+                  @change="syncParamsJson"
+                >
+                  <el-option v-for="a in albums" :key="a.id" :label="a.title" :value="a.id" />
+                </el-select>
+              </el-form-item>
+            </template>
+
+            <template v-else-if="selectedRow.source.type === 'category'">
+              <el-form-item label="分类">
+                <el-select
+                  v-model="selectedRow.source.params!.slug"
+                  filterable
+                  placeholder="选择分类"
+                  :disabled="selectedRow._inherited"
+                  @change="syncParamsJson"
+                >
+                  <el-option
+                    v-for="c in categories"
+                    :key="c.id"
+                    :label="c.name"
+                    :value="c.slug"
+                  />
+                </el-select>
+              </el-form-item>
+            </template>
+
+            <template v-else-if="selectedRow.source.type === 'tag'">
+              <el-form-item label="标签名">
+                <el-input
+                  v-model="selectedRow.source.params!.tag"
+                  placeholder="如：4K"
+                  :disabled="selectedRow._inherited"
+                  @change="syncParamsJson"
+                />
+              </el-form-item>
+            </template>
+
+            <template v-else-if="selectedRow.source.type === 'similar-to'">
+              <el-form-item label="参考媒资 ID">
+                <el-input
+                  v-model="selectedRow.source.params!.media_id"
+                  :disabled="selectedRow._inherited"
+                  @change="syncParamsJson"
+                />
+              </el-form-item>
+            </template>
+
+            <template v-else-if="selectedRow.source.type === 'library'">
+              <el-form-item label="媒资类型">
+                <el-select
+                  v-model="selectedRow.source.params!.type"
+                  clearable
+                  :disabled="selectedRow._inherited"
+                  @change="syncParamsJson"
+                >
+                  <el-option label="电影" value="movie" />
+                  <el-option label="剧集" value="tvshow" />
+                  <el-option label="动画" value="anime" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="流派">
+                <el-input
+                  v-model="selectedRow.source.params!.genre"
+                  :disabled="selectedRow._inherited"
+                  @change="syncParamsJson"
+                />
+              </el-form-item>
+            </template>
+
+            <el-form-item
+              v-if="showLimitField(selectedRow.source.type)"
+              label="数量上限"
+            >
+              <el-input-number
+                v-model="selectedRow.source.params!.limit"
+                :min="1"
+                :max="100"
+                :disabled="selectedRow._inherited"
+                @change="syncParamsJson"
+              />
+            </el-form-item>
+
             <el-form-item label="数据源参数 (JSON)">
               <el-input
                 v-model="dataSourceParamsStr"
@@ -330,6 +424,7 @@ import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { VueDraggable } from 'vue-draggable-plus'
 import { layoutApi, type Layout, type LayoutRow, type Publication, type DynamicRules, type FeedRow } from '@/api/layout'
+import { catalogApi, type Album, type Category } from '@/api/catalog'
 import type { Layout as LayoutType } from '@/api/types'
 
 const route = useRoute()
@@ -347,6 +442,8 @@ const layoutRows = ref<LayoutRow[]>([])
 const previewMap = ref<Record<string, FeedRow>>({})
 const templateLayouts = ref<LayoutType[]>([])
 const publications = ref<Publication[]>([])
+const albums = ref<Album[]>([])
+const categories = ref<Category[]>([])
 
 const selectedRowIndex = ref(-1)
 const selectedDataSource = ref('trending')
@@ -400,9 +497,68 @@ const dataSourceTypes = [
   { value: 'similar-to', label: '同类推荐' },
   { value: 'recommend-algorithm', label: '推荐算法' },
   { value: 'guess-you-like', label: '猜你喜欢' },
+  { value: 'album', label: '专题专辑' },
+  { value: 'category', label: '按分类' },
   { value: 'tag', label: '按标签' },
   { value: 'union', label: '并集' },
 ]
+
+function defaultSourceParams(type: string): Record<string, any> {
+  switch (type) {
+    case 'album':
+      return { album_id: '', limit: 20 }
+    case 'category':
+      return { slug: '', limit: 20 }
+    case 'tag':
+      return { tag: '', limit: 20 }
+    case 'library':
+      return { type: '', genre: '', limit: 20 }
+    case 'similar-to':
+      return { media_id: '', limit: 20 }
+    case 'manual':
+      return { ids: [] }
+    case 'recommend-algorithm':
+      return { algo: 'hybrid', limit: 20 }
+    default:
+      return { limit: 20 }
+  }
+}
+
+function ensureRowParams(row: LayoutRow) {
+  if (!row.source.params) {
+    row.source.params = defaultSourceParams(row.source.type)
+  }
+}
+
+function showLimitField(type: string) {
+  return !['manual', 'union', 'continue-watching'].includes(type)
+}
+
+function onSourceTypeChange() {
+  if (!selectedRow.value) return
+  selectedRow.value.source.params = defaultSourceParams(selectedRow.value.source.type)
+  syncParamsJson()
+}
+
+function syncParamsJson() {
+  if (!selectedRow.value) return
+  dataSourceParamsStr.value = JSON.stringify(selectedRow.value.source.params || {}, null, 2)
+  loadPreview()
+}
+
+async function loadCatalogOptions() {
+  try {
+    const [a, c] = await Promise.all([
+      catalogApi.albums(),
+      catalogApi.categories('genre'),
+    ])
+    albums.value = a.data || []
+    categories.value = c.data || []
+  } catch {
+    albums.value = []
+    categories.value = []
+  }
+}
 
 function clonePaletteItem(item: any) {
   return {
@@ -448,6 +604,7 @@ function onDataSourceParamsChange() {
   try {
     const parsed = JSON.parse(dataSourceParamsStr.value || '{}')
     selectedRow.value.source.params = parsed
+    loadPreview()
   } catch {
     ElMessage.warning('JSON 格式错误')
   }
@@ -664,11 +821,15 @@ watch(showPublications, (val) => {
 
 watch(selectedRow, (val) => {
   if (val) {
+    ensureRowParams(val)
     dataSourceParamsStr.value = JSON.stringify(val.source.params || {}, null, 2)
   }
 }, { immediate: false })
 
-onMounted(load)
+onMounted(async () => {
+  await loadCatalogOptions()
+  await load()
+})
 </script>
 
 <style lang="scss" scoped>

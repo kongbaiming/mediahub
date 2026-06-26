@@ -3,32 +3,32 @@ package downloader
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/mediahub/api/internal/apperr"
-	"github.com/mediahub/api/internal/domain/common"
-	"github.com/mediahub/api/internal/domain/media"
 	"github.com/mediahub/api/internal/queue"
 	"github.com/mediahub/api/internal/repository"
+	"github.com/mediahub/api/internal/scanner"
 	"github.com/mediahub/api/pkg/logger"
-
-	"github.com/google/uuid"
 )
 
 // Service 下载业务
 type Service struct {
 	client       *Client
 	mediaRepo    *repository.MediaRepo
+	catalogRepo  *repository.CatalogRepo
 	queue        *queue.Queue
 	downloadRoot string
 }
 
 // NewService 构造
-func NewService(c *Client, m *repository.MediaRepo, q *queue.Queue, downloadRoot string) *Service {
+func NewService(c *Client, m *repository.MediaRepo, catalog *repository.CatalogRepo, q *queue.Queue, downloadRoot string) *Service {
 	return &Service{
 		client:       c,
 		mediaRepo:    m,
+		catalogRepo:  catalog,
 		queue:        q,
 		downloadRoot: downloadRoot,
 	}
@@ -98,7 +98,7 @@ func (s *Service) Health(ctx context.Context) error {
 	return s.client.Health(ctx)
 }
 
-// CheckCompleted 扫描 qBit 中已完成的任务，自动入库
+// CheckCompleted 扫描 qBit 中已完成的任务（progress=100%），走 scanner 入库
 func (s *Service) CheckCompleted(ctx context.Context) (int, error) {
 	imported := 0
 
@@ -107,46 +107,51 @@ func (s *Service) CheckCompleted(ctx context.Context) (int, error) {
 		return 0, err
 	}
 
+	deps := scanner.IngestDeps{
+		MediaRepo: s.mediaRepo,
+		Catalog:   s.catalogRepo,
+		Queue:     s.queue,
+	}
+
 	for _, t := range all {
 		if !isTorrentCompleted(t) {
 			continue
 		}
 
-		existing, _ := s.mediaRepo.GetByStoragePath(ctx, t.SavePath+"/"+t.Name)
-		if existing != nil {
+		torrentRoot := filepath.Join(t.SavePath, t.Name)
+		if !torrentHasPlayableMedia(torrentRoot) {
 			continue
 		}
 
-		m := &media.Media{
-			Type:         inferTypeFromCategory(t.Category),
-			Title:        cleanTitle(t.Name),
-			StoragePath:  t.SavePath + "/" + t.Name,
-			FileSize:     t.Size,
-			ScrapeStatus: common.ScrapeStatusPending,
-		}
-
-		if err := s.mediaRepo.Create(ctx, m); err != nil {
-			logger.Warn("入库失败", "name", t.Name, "err", err)
+		paths, err := collectTorrentMediaPaths(torrentRoot)
+		if err != nil {
+			logger.Warn("收集种子媒体文件失败", "name", t.Name, "err", err)
 			continue
 		}
 
-		if s.queue != nil {
-			_ = s.queue.EnqueueScrape(ctx, m.ID.String())
+		added, _ := ingestTorrentPaths(ctx, deps, paths)
+		if added > 0 {
+			imported += added
+			logger.Info("下载完成自动入库", "torrent", t.Name, "added", added, "hash", t.Hash)
 		}
-
-		imported++
-		logger.Info("媒资自动入库", "id", m.ID, "title", m.Title)
 	}
 
 	return imported, nil
 }
 
-// StartWatcher 启动定期检查
+// StartWatcher 启动定期检查（下载 100% 后入库）
 func (s *Service) StartWatcher(ctx context.Context, interval time.Duration) {
 	if interval <= 0 {
-		interval = 5 * time.Minute
+		interval = time.Minute
 	}
 	logger.Info("下载监听器启动", "interval", interval)
+
+	// 启动后立即检查一次
+	if n, err := s.CheckCompleted(ctx); err != nil {
+		logger.Warn("初始下载入库检查失败", "err", err)
+	} else if n > 0 {
+		logger.Info("初始下载入库完成", "imported", n)
+	}
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -168,40 +173,19 @@ func (s *Service) StartWatcher(ctx context.Context, interval time.Duration) {
 	}
 }
 
-// isTorrentCompleted qBit 完成态用 progress>=1 判断（state 为 uploading/stalledUP 等，没有 "completed"）
+// isTorrentCompleted qBit 完成态：progress=100% 且不在下载中
 func isTorrentCompleted(t Torrent) bool {
-	return t.Progress >= 1.0
+	if t.Progress < 1.0 {
+		return false
+	}
+	return !isActiveDownloadState(t.State)
 }
 
-// inferTypeFromCategory 根据 category 推断类型
-func inferTypeFromCategory(cat string) common.MediaType {
-	switch strings.ToLower(cat) {
-	case "tvshow", "tv":
-		return common.MediaTypeTVShow
-	case "anime":
-		return common.MediaTypeAnime
-	case "doc", "documentary":
-		return common.MediaTypeDocumentary
+func isActiveDownloadState(state string) bool {
+	switch strings.ToLower(state) {
+	case "downloading", "stalleddl", "metadl", "forceddl", "checkingdl", "queueddl", "allocating":
+		return true
 	default:
-		return common.MediaTypeMovie
+		return false
 	}
-}
-
-// cleanTitle 清理文件名
-func cleanTitle(name string) string {
-	for _, ext := range []string{".mkv", ".mp4", ".avi", ".ts"} {
-		name = strings.TrimSuffix(name, ext)
-	}
-	for _, tag := range []string{"-GROUP", "-RARBG", "-YIFY"} {
-		if idx := strings.Index(name, tag); idx > 0 {
-			name = name[:idx]
-		}
-	}
-	name = strings.ReplaceAll(name, ".", " ")
-	name = strings.ReplaceAll(name, "_", " ")
-	return strings.TrimSpace(name)
-}
-
-func parseUUID(s string) (uuid.UUID, error) {
-	return uuid.Parse(s)
 }

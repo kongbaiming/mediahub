@@ -21,6 +21,10 @@
         @ended="onEnded"
       ></video>
 
+      <div v-if="transcodeLoading" class="transcode-overlay">
+        <LoadingState :message="transcodeMessage" background />
+      </div>
+
       <!-- 顶部快捷键提示 -->
       <div v-if="showShortcutTip" class="shortcut-tip">
         <div>空格：播放/暂停</div>
@@ -53,6 +57,7 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import Hls from 'hls.js'
+import LoadingState from '@/components/LoadingState.vue'
 import { mediaApi, historyApi, catalogApi, type MediaDetail, type ResumeInfo, type EpisodeDetail, type EpisodeNext } from '@/api'
 
 const route = useRoute()
@@ -65,6 +70,8 @@ const showShortcutTip = ref(true)
 const currentEpisodeId = ref<string | undefined>()
 const playablePath = ref('')
 const nextEpisodePrompt = ref<EpisodeNext | null>(null)
+const transcodeLoading = ref(false)
+const transcodeMessage = ref('正在准备播放流…')
 
 const lastReportAt = ref(0)
 const REPORT_INTERVAL = 10
@@ -211,32 +218,41 @@ function tryDirectPlay(storagePath: string): Promise<boolean> {
 }
 
 async function startHLSPlayback(streamId: string, storagePath: string) {
-  const startUrl = `/api/v1/stream/hls?path=${encodeURIComponent(storagePath)}&media_id=${streamId}`
-  const resp = await fetch(startUrl)
-  const data = await resp.json()
-  if (!resp.ok) {
-    throw new Error(data.message || data.error || `转码启动失败 (${resp.status})`)
-  }
+  transcodeLoading.value = true
+  try {
+    const startUrl = `/api/v1/stream/hls?path=${encodeURIComponent(storagePath)}&media_id=${streamId}`
+    const resp = await fetch(startUrl)
+    const data = await resp.json()
+    if (!resp.ok) {
+      throw new Error(data.message || data.error || `转码启动失败 (${resp.status})`)
+    }
 
-  const playlistUrl = `/api/v1/stream/hls/${streamId}/playlist.m3u8`
+    transcodeMessage.value = data.copy_video
+      ? '正在准备 4K 流…'
+      : `正在转码${data.height ? `（${data.height}p）` : ''}，请稍候…`
 
-  if (data.status === 'ready' || data.cached) {
-    attachHlsPlaylist(playlistUrl, false)
-    return
-  }
-  if (data.status === 'failed') {
-    throw new Error(data.error || '转码失败')
-  }
-  if (data.status === 'done') {
-    attachHlsPlaylist(data.playlist || playlistUrl, false)
-    return
-  }
-  if (data.playable) {
-    await pollAndPlayHLS(streamId, playlistUrl, true)
-    return
-  }
+    const playlistUrl = `/api/v1/stream/hls/${streamId}/playlist.m3u8`
 
-  await pollAndPlayHLS(streamId, playlistUrl, false)
+    if (data.status === 'ready' || data.cached) {
+      attachHlsPlaylist(playlistUrl, false)
+      return
+    }
+    if (data.status === 'failed') {
+      throw new Error(data.error || '转码失败')
+    }
+    if (data.status === 'done') {
+      attachHlsPlaylist(data.playlist || playlistUrl, false)
+      return
+    }
+    if (data.playable) {
+      await pollAndPlayHLS(streamId, playlistUrl, true)
+      return
+    }
+
+    await pollAndPlayHLS(streamId, playlistUrl, false)
+  } finally {
+    transcodeLoading.value = false
+  }
 }
 
 async function pollAndPlayHLS(streamId: string, playlistUrl: string, alreadyAttached: boolean) {
@@ -252,6 +268,11 @@ async function pollAndPlayHLS(streamId: string, playlistUrl: string, alreadyAtta
     if (!resp.ok) {
       throw new Error(st.message || st.error || 'HLS 状态查询失败')
     }
+    if (st.copy_video !== undefined) {
+      transcodeMessage.value = st.copy_video
+        ? '正在准备 4K 流…'
+        : `正在转码${st.height ? `（${st.height}p）` : ''}，请稍候…`
+    }
     if (st.status === 'failed') {
       throw new Error(st.error || 'HLS 转码失败')
     }
@@ -259,6 +280,7 @@ async function pollAndPlayHLS(streamId: string, playlistUrl: string, alreadyAtta
     if (!attached && (st.playable || st.status === 'done')) {
       attachHlsPlaylist(playlistUrl, progressive)
       attached = true
+      transcodeLoading.value = false
     }
     if (st.status === 'done' || st.status === 'ready') {
       return
@@ -538,6 +560,16 @@ onBeforeUnmount(() => {
   height: 100%;
   object-fit: contain;
   max-height: 100vh;
+}
+
+.transcode-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.72);
+  z-index: 40;
 }
 
 .shortcut-tip {

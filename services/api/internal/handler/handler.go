@@ -3,6 +3,7 @@ package handler
 
 import (
 	"github.com/mediahub/api/internal/downloader"
+	"github.com/mediahub/api/internal/hlsstore"
 	"github.com/mediahub/api/internal/middleware"
 	"github.com/mediahub/api/internal/recommend"
 	"github.com/mediahub/api/internal/scanner"
@@ -51,10 +52,14 @@ func NewHandlers(
 	downloadRoot string,
 	hlsCacheRoot string,
 	transcode HLSTranscodeSettings,
+	hlsStore *hlsstore.Store,
 ) *Handlers {
 	streamRoots := []string{mediaRoot}
 	if downloadRoot != "" && downloadRoot != mediaRoot {
 		streamRoots = append(streamRoots, downloadRoot)
+	}
+	if hlsStore == nil {
+		hlsStore = hlsstore.New(nil)
 	}
 	h := &Handlers{
 		Media:         NewMediaHandler(media),
@@ -66,10 +71,10 @@ func NewHandlers(
 		History:       NewHistoryHandler(history),
 		Profile:       NewProfileHandler(profile),
 		Recommend:     NewRecommendHandler(recommend),
-		Stream:        StreamHandler(streamRoots, hlsCacheRoot, transcode),
+		Stream:        StreamHandler(streamRoots, hlsCacheRoot, transcode, hlsStore),
 		StreamProbe:   StreamProbeHandler(streamRoots),
 		HLSPlaylist:   ServeHLSPlaylist(hlsCacheRoot),
-		HLSTaskStatus: GetHLSTaskStatus(hlsCacheRoot),
+		HLSTaskStatus: GetHLSTaskStatus(hlsCacheRoot, hlsStore),
 		HLSCacheRoot:  hlsCacheRoot,
 	}
 	if dl != nil {
@@ -104,11 +109,13 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 		// 媒资（部分需要登录）
 		v1.GET("/media", h.Media.List)
 		v1.GET("/media/stats", h.Media.Stats)
+		v1.POST("/media/batch-rescan", middleware.Auth(h.Auth.svc), h.Media.BatchRescan)
 		v1.GET("/media/:id", h.Media.Get)
 		v1.POST("/media", middleware.Auth(h.Auth.svc), h.Media.Create)
 		v1.PATCH("/media/:id", middleware.Auth(h.Auth.svc), h.Media.Update)
 		v1.DELETE("/media/:id", middleware.Auth(h.Auth.svc), middleware.RequireAdmin(), h.Media.Delete)
 		v1.GET("/media/:id/rescan", middleware.Auth(h.Auth.svc), h.Media.Rescan)
+		v1.POST("/media/:id/rescan", middleware.Auth(h.Auth.svc), h.Media.Rescan)
 
 		// 作品扩展（OTT 目录）
 		v1.GET("/works/:id/credits", h.Catalog.Credits)

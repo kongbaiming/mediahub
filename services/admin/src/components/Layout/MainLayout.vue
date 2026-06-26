@@ -24,6 +24,10 @@
           <el-icon><Files /></el-icon>
           <template #title>媒资库</template>
         </el-menu-item>
+        <el-menu-item index="/scrape">
+          <el-icon><Connection /></el-icon>
+          <template #title>刮削中心</template>
+        </el-menu-item>
         <el-menu-item index="/layouts">
           <el-icon><Grid /></el-icon>
           <template #title>布局</template>

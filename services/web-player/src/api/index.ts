@@ -152,6 +152,14 @@ export interface EpisodeNext {
   season_id?: string
 }
 
+export interface MediaExtra {
+  id: string
+  extra_type: string
+  title?: string
+  external_url?: string
+  source?: string
+}
+
 // ─── API 方法 ───
 // 每个方法显式标注返回类型，调用方直接拿到业务类型，不需要 .data 包装
 
@@ -298,6 +306,13 @@ export const catalogApi = {
       params: { after_episode_id: afterEpisodeId },
     })) as { data: EpisodeNext | null }
     return body.data ?? null
+  },
+
+  async extras(mediaId: string, type = 'trailer'): Promise<MediaExtra[]> {
+    const body = (await http.get<unknown>(`/api/v1/works/${mediaId}/extras`, {
+      params: { type },
+    })) as { data: MediaExtra[] }
+    return body.data || []
   },
 }
 

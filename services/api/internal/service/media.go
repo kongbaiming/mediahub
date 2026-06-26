@@ -39,16 +39,18 @@ type ListDTO struct {
 
 // MediaSummary 媒资摘要（列表用）
 type MediaSummary struct {
-	ID          uuid.UUID        `json:"id"`
-	Title       string           `json:"title"`
-	OriginalTitle string         `json:"original_title,omitempty"`
-	Year        *int             `json:"year,omitempty"`
-	Type        common.MediaType `json:"type"`
-	Rating      float64          `json:"rating"`
-	PosterURL   string           `json:"poster_url,omitempty"`
-	BackdropURL string           `json:"backdrop_url,omitempty"`
-	Genres      []string         `json:"genres"`
-	HasSubtitle bool             `json:"has_subtitle"`
+	ID            uuid.UUID        `json:"id"`
+	Title         string           `json:"title"`
+	OriginalTitle string           `json:"original_title,omitempty"`
+	Year          *int             `json:"year,omitempty"`
+	Type          common.MediaType `json:"type"`
+	Rating        float64          `json:"rating"`
+	PosterURL     string           `json:"poster_url,omitempty"`
+	BackdropURL   string           `json:"backdrop_url,omitempty"`
+	Genres        []string         `json:"genres"`
+	HasSubtitle   bool             `json:"has_subtitle"`
+	ScrapeStatus  common.ScrapeStatus `json:"scrape_status,omitempty"`
+	ScrapeError   string           `json:"scrape_error,omitempty"`
 }
 
 // List 列表
@@ -114,6 +116,38 @@ func (s *MediaService) Rescan(ctx context.Context, id string) error {
 	return nil
 }
 
+// BatchRescanResult 批量重试结果
+type BatchRescanResult struct {
+	Queued int `json:"queued"`
+}
+
+// BatchRescan 批量重新刮削（按 ID 列表或 scrape_status 筛选）
+func (s *MediaService) BatchRescan(ctx context.Context, ids []string, scrapeStatus string) (*BatchRescanResult, error) {
+	targets := ids
+	if len(targets) == 0 {
+		if scrapeStatus == "" {
+			return nil, apperr.Validation(map[string]string{"ids": "ids 或 scrape_status 至少指定一项"})
+		}
+		items, _, err := s.repo.List(ctx, repository.MediaFilter{ScrapeStatus: scrapeStatus}, 5000, 0)
+		if err != nil {
+			return nil, err
+		}
+		targets = make([]string, len(items))
+		for i, m := range items {
+			targets[i] = m.ID.String()
+		}
+	}
+
+	queued := 0
+	for _, id := range targets {
+		if err := s.Rescan(ctx, id); err != nil {
+			continue
+		}
+		queued++
+	}
+	return &BatchRescanResult{Queued: queued}, nil
+}
+
 // Update 编辑媒资
 func (s *MediaService) Update(ctx context.Context, m *media.Media) error {
 	if m.Title == "" {
@@ -150,6 +184,8 @@ func toSummary(m *media.Media) MediaSummary {
 		BackdropURL:   m.BackdropURL,
 		Genres:        genres,
 		HasSubtitle:   m.HasSubtitle,
+		ScrapeStatus:  m.ScrapeStatus,
+		ScrapeError:   m.ScrapeError,
 	}
 }
 
