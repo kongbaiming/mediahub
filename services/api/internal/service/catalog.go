@@ -336,6 +336,91 @@ func (s *CatalogService) tmdbCastCredits(ctx context.Context, cast []scraper.TMD
 	return out
 }
 
+func (s *CatalogService) TMDBSimilar(ctx context.Context, mediaType string, tmdbID, limit int) ([]PersonWorkItem, error) {
+	if limit <= 0 {
+		limit = 12
+	}
+	if tmdbID <= 0 || s.tmdb == nil {
+		return nil, nil
+	}
+	var entries []scraper.SearchEntry
+	switch mediaType {
+	case "movie":
+		r, err := s.tmdb.GetMovieRecommendations(ctx, tmdbID)
+		if err != nil {
+			return nil, apperr.ExternalAPI(err, "拉取 TMDB 相似推荐失败")
+		}
+		if r != nil {
+			entries = r.Results
+		}
+	case "tvshow", "tv":
+		r, err := s.tmdb.GetTVRecommendations(ctx, tmdbID)
+		if err != nil {
+			return nil, apperr.ExternalAPI(err, "拉取 TMDB 相似推荐失败")
+		}
+		if r != nil {
+			entries = r.Results
+		}
+	default:
+		return nil, apperr.Validation(map[string]string{"type": "unsupported media type"})
+	}
+	return s.tmdbEntriesToWorks(ctx, entries, tmdbID, limit), nil
+}
+
+func (s *CatalogService) tmdbEntriesToWorks(ctx context.Context, entries []scraper.SearchEntry, excludeTMDBID, limit int) []PersonWorkItem {
+	seen := map[string]bool{}
+	var out []PersonWorkItem
+	for _, e := range entries {
+		if len(out) >= limit {
+			break
+		}
+		if e.ID <= 0 || e.ID == excludeTMDBID {
+			continue
+		}
+		if local, _ := s.media.GetByTMDBID(ctx, e.ID); local != nil {
+			item := PersonWorkItem{MediaSummary: toSummary(local)}
+			if local.TMDBID != nil {
+				item.TMDBID = *local.TMDBID
+			}
+			key := item.ID.String()
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			out = append(out, item)
+			continue
+		}
+		title := e.Title
+		if title == "" {
+			title = e.Name
+		}
+		if title == "" {
+			continue
+		}
+		mt := common.MediaTypeMovie
+		if e.MediaType == "tv" {
+			mt = common.MediaTypeTVShow
+		}
+		key := "tmdb:" + strconv.Itoa(e.ID)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, PersonWorkItem{
+			MediaSummary: MediaSummary{
+				Title:     title,
+				Year:      parseCreditYear(e.ReleaseDate, e.FirstAirDate),
+				Type:      mt,
+				Rating:    e.VoteAverage,
+				PosterURL: s.tmdb.PosterURL(e.PosterPath, "w500"),
+			},
+			External: true,
+			TMDBID:   e.ID,
+		})
+	}
+	return out
+}
+
 func (s *CatalogService) ListCategories(ctx context.Context, kind string) ([]catalog.Category, error) {
 	return s.catalog.ListCategories(ctx, kind)
 }

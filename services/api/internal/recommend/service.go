@@ -94,7 +94,28 @@ func (s *Service) SimilarTo(ctx context.Context, mediaID string, limit int) ([]m
 	if limit <= 0 {
 		limit = 20
 	}
-	return s.engine.ContentBased(ctx, mediaID, limit)
+	items, err := s.engine.ContentBased(ctx, mediaID, limit)
+	if err != nil {
+		return nil, err
+	}
+	if len(items) > 0 {
+		return items, nil
+	}
+	// 内容相似无结果时回退：同类型高分或全局热门
+	seed, err := s.engine.mediaRepo.GetByID(ctx, mediaID)
+	if err != nil {
+		return s.Hot(ctx, limit)
+	}
+	candidates, _, err := s.engine.mediaRepo.List(ctx, repository.MediaFilter{
+		Type:       string(seed.Type),
+		Sort:       "rating",
+		SortDesc:   true,
+		ExcludeIDs: []string{mediaID},
+	}, limit, 0)
+	if err != nil || len(candidates) == 0 {
+		return s.Hot(ctx, limit)
+	}
+	return candidates, nil
 }
 
 // GuessYouLike 猜你喜欢（观影习惯 + TMDB）

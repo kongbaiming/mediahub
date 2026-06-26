@@ -224,6 +224,13 @@ export const mediaApi = {
     return body.data
   },
 
+  async tmdbSimilar(type: string, tmdbId: number, limit = 12): Promise<PersonWork[]> {
+    const body = (await http.get<unknown>(`/api/v1/media/tmdb/${type}/${tmdbId}/similar`, {
+      params: { limit },
+    })) as { data: PersonWork[] }
+    return body.data || []
+  },
+
   async list(
     params: {
       q?: string

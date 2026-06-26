@@ -123,6 +123,20 @@ func (h *CatalogHandler) TMDBMediaDetail(c *gin.Context) {
 	c.JSON(200, gin.H{"data": detail})
 }
 
+func (h *CatalogHandler) TMDBSimilar(c *gin.Context) {
+	tmdbID, err := strconv.Atoi(c.Param("tmdb_id"))
+	if err != nil || tmdbID <= 0 {
+		respondError(c, apperr.Validation(map[string]string{"tmdb_id": "invalid"}))
+		return
+	}
+	items, err := h.svc.TMDBSimilar(c.Request.Context(), c.Param("type"), tmdbID, atoi(c.Query("limit"), 12))
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"data": items})
+}
+
 func (h *CatalogHandler) PersonWorks(c *gin.Context) {
 	items, err := h.svc.PersonWorks(c.Request.Context(), c.Param("id"), c.Query("exclude_media_id"), atoi(c.Query("limit"), 40))
 	if err != nil {

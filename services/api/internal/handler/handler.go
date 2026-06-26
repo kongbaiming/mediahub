@@ -111,6 +111,7 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 		v1.GET("/media", h.Media.List)
 		v1.GET("/media/stats", h.Media.Stats)
 		v1.GET("/media/tmdb/:type/:tmdb_id", h.Catalog.TMDBMediaDetail)
+		v1.GET("/media/tmdb/:type/:tmdb_id/similar", h.Catalog.TMDBSimilar)
 		v1.POST("/media/batch-rescan", middleware.Auth(h.Auth.svc), h.Media.BatchRescan)
 		v1.GET("/media/:id", h.Media.Get)
 		v1.POST("/media", middleware.Auth(h.Auth.svc), h.Media.Create)

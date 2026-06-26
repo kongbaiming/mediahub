@@ -84,6 +84,30 @@
         </div>
       </div>
 
+      <!-- 相似推荐（紧跟演职员） -->
+      <div class="section">
+        <h2 class="section-title">相似推荐</h2>
+        <div v-if="similar.length" class="similar-row">
+          <button
+            v-for="m in similar"
+            :key="m.id || `tmdb-${m.tmdb_id}`"
+            type="button"
+            class="similar-card"
+            :class="{ 'similar-card--external': m.external }"
+            @click="openSimilarItem(m)"
+          >
+            <div class="poster-card">
+              <img v-if="m.poster_url" :src="m.poster_url" :alt="m.title" loading="lazy" />
+              <span v-else>{{ m.title.slice(0, 2) }}</span>
+              <div v-if="m.rating > 0" class="rating">⭐ {{ m.rating.toFixed(1) }}</div>
+            </div>
+            <div class="card-title">{{ m.title }}</div>
+            <div class="card-meta">{{ m.year || '—' }} · {{ typeLabel(m.type) }}</div>
+          </button>
+        </div>
+        <p v-else-if="!loading" class="similar-empty">暂无相似推荐</p>
+      </div>
+
       <div v-if="trailers.length" class="section">
         <h2 class="section-title">预告 / 花絮</h2>
         <div class="extras-row">
@@ -144,27 +168,6 @@
         </div>
       </div>
 
-      <!-- 相似推荐 -->
-      <div v-if="!isExternal && similar.length > 0" class="section">
-        <h2 class="section-title">相似推荐</h2>
-        <div class="similar-row">
-          <button
-            v-for="m in similar"
-            :key="m.id"
-            type="button"
-            class="similar-card"
-            @click="openSimilar(m.id)"
-          >
-            <div class="poster-card">
-              <img v-if="m.poster_url" :src="m.poster_url" :alt="m.title" loading="lazy" />
-              <span v-else>{{ m.title.slice(0, 2) }}</span>
-              <div v-if="m.rating > 0" class="rating">⭐ {{ m.rating.toFixed(1) }}</div>
-            </div>
-            <div class="card-title">{{ m.title }}</div>
-            <div class="card-meta">{{ m.year }} · {{ typeLabel(m.type) }}</div>
-          </button>
-        </div>
-      </div>
     </section>
   </div>
 </template>
@@ -184,6 +187,7 @@ import {
   type SeasonDetail,
   type MediaCredit,
   type MediaExtra,
+  type PersonWork,
 } from '@/api'
 
 const route = useRoute()
@@ -192,7 +196,7 @@ const loading = ref(false)
 const media = ref<MediaDetail | null>(null)
 const favorited = ref(false)
 const wantListed = ref(false)
-const similar = ref<MediaSummary[]>([])
+const similar = ref<PersonWork[]>([])
 const castCredits = ref<MediaCredit[]>([])
 const contentRating = ref('')
 const trailers = ref<MediaExtra[]>([])
@@ -230,12 +234,26 @@ const heroBg = computed(() => {
   return url ? { backgroundImage: `url(${url})` } : {}
 })
 
+function toSimilarWorks(items: MediaSummary[], excludeId?: string): PersonWork[] {
+  return items
+    .filter((m) => !excludeId || m.id !== excludeId)
+    .map((m) => ({ ...m, external: false }))
+}
+
+async function fetchLocalSimilar(id: string): Promise<PersonWork[]> {
+  let items = toSimilarWorks(await recommendApi.similar(id, 12).catch(() => []), id)
+  if (items.length === 0) {
+    items = toSimilarWorks(await recommendApi.hot(12).catch(() => []), id)
+  }
+  return items
+}
+
 async function loadLocal(id: string) {
   const data = await mediaApi.get(id)
   media.value = data
 
   const [simRes, credits, ratings, extras, wants, favs] = await Promise.all([
-    recommendApi.similar(id, 12).catch(() => [] as MediaSummary[]),
+    fetchLocalSimilar(id),
     catalogApi.credits(id, 'actor').catch(() => [] as MediaCredit[]),
     catalogApi.ratings(id).catch(() => []),
     catalogApi.extras(id, 'trailer').catch(() => [] as MediaExtra[]),
@@ -243,7 +261,7 @@ async function loadLocal(id: string) {
     libraryApi.favoritesList().catch(() => []),
   ])
 
-  similar.value = simRes.filter((m) => m.id !== id)
+  similar.value = simRes
   castCredits.value = credits
   contentRating.value = ratings[0]?.rating || ''
   trailers.value = extras
@@ -252,7 +270,10 @@ async function loadLocal(id: string) {
 }
 
 async function loadTmdb(type: string, tmdbId: number) {
-  const data = await mediaApi.getTmdb(type, tmdbId)
+  const [data, simRes] = await Promise.all([
+    mediaApi.getTmdb(type, tmdbId),
+    mediaApi.tmdbSimilar(type, tmdbId, 12).catch(() => [] as PersonWork[]),
+  ])
   if (data.local_media_id) {
     await router.replace(`/media/${data.local_media_id}`)
     return
@@ -273,7 +294,7 @@ async function loadTmdb(type: string, tmdbId: number) {
     tmdb_id: data.tmdb_id,
   }
   castCredits.value = data.credits || []
-  similar.value = []
+  similar.value = simRes.filter((m) => m.tmdb_id !== tmdbId)
   contentRating.value = ''
   trailers.value = []
   wantListed.value = false
@@ -348,6 +369,20 @@ function openPerson(c: MediaCredit) {
   }
   if (tmdbPersonId) {
     router.push({ path: `/person/tmdb/${tmdbPersonId}`, query })
+  }
+}
+
+function isPlayableSimilar(m: PersonWork) {
+  return !m.external && !!m.id && m.id !== '00000000-0000-0000-0000-000000000000'
+}
+
+function openSimilarItem(m: PersonWork) {
+  if (isPlayableSimilar(m)) {
+    openSimilar(m.id)
+    return
+  }
+  if (m.tmdb_id && m.type) {
+    router.push(`/media/tmdb/${m.type}/${m.tmdb_id}`)
   }
 }
 
@@ -822,6 +857,16 @@ onMounted(load)
 .card-meta {
   font-size: 11px;
   color: #94a3b8;
+}
+
+.similar-empty {
+  margin: 0;
+  font-size: 14px;
+  color: var(--mh-text-muted, #6b6b80);
+}
+
+.similar-card--external {
+  opacity: 0.85;
 }
 
 .season-block {
