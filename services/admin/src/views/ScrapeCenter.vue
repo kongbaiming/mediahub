@@ -8,12 +8,11 @@
           刷新
         </el-button>
         <el-button
-          v-if="activeTab !== 'done'"
           type="primary"
           :loading="batchLoading"
           @click="retryByStatus"
         >
-          重试当前 Tab 全部
+          {{ activeTab === 'done' ? '重新刮削全部' : '重试当前 Tab 全部' }}
         </el-button>
         <el-button
           type="warning"
@@ -21,7 +20,7 @@
           :loading="batchLoading"
           @click="retrySelected"
         >
-          重试选中 ({{ selectedIds.length }})
+          {{ activeTab === 'done' ? '重新刮削选中' : '重试选中' }} ({{ selectedIds.length }})
         </el-button>
       </div>
     </div>
@@ -67,7 +66,7 @@
         stripe
         @selection-change="onSelectionChange"
       >
-        <el-table-column v-if="activeTab !== 'done'" type="selection" width="48" />
+        <el-table-column type="selection" width="48" />
         <el-table-column label="媒资" min-width="280">
           <template #default="{ row }">
             <div class="media-cell" @click="$router.push(`/media/${row.id}`)">
@@ -99,14 +98,13 @@
         <el-table-column label="操作" width="140" fixed="right">
           <template #default="{ row }">
             <el-button
-              v-if="row.scrape_status !== 'done'"
               size="small"
               type="primary"
               link
               :loading="retryingId === row.id"
               @click="retryOne(row.id)"
             >
-              重试
+              {{ row.scrape_status === 'done' ? '重新刮削' : '重试' }}
             </el-button>
             <el-button size="small" link @click="$router.push(`/media/${row.id}`)">
               详情
@@ -131,7 +129,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { mediaApi } from '@/api/media'
 import type { MediaSummary, Stats } from '@/api/types'
 
@@ -222,6 +220,17 @@ async function retryOne(id: string) {
 
 async function retrySelected() {
   if (selectedIds.value.length === 0) return
+  if (activeTab.value === 'done') {
+    try {
+      await ElMessageBox.confirm(
+        `将重新刮削选中的 ${selectedIds.value.length} 条媒资，演职员等元数据会按最新规则更新。`,
+        '重新刮削',
+        { type: 'warning', confirmButtonText: '开始', cancelButtonText: '取消' },
+      )
+    } catch {
+      return
+    }
+  }
   batchLoading.value = true
   try {
     const res = await mediaApi.batchRescan({ ids: selectedIds.value })
@@ -236,6 +245,22 @@ async function retrySelected() {
 }
 
 async function retryByStatus() {
+  const count =
+    activeTab.value === 'pending' ? stats.value?.by_scrape?.pending :
+    activeTab.value === 'scraping' ? stats.value?.by_scrape?.scraping :
+    activeTab.value === 'failed' ? stats.value?.by_scrape?.failed :
+    stats.value?.by_scrape?.done
+  if (activeTab.value === 'done') {
+    try {
+      await ElMessageBox.confirm(
+        `将重新刮削全部 ${count ?? 0} 条已完成媒资（含演职员中文译名刷新），任务会在后台排队执行。`,
+        '重新刮削全部已完成',
+        { type: 'warning', confirmButtonText: '开始', cancelButtonText: '取消' },
+      )
+    } catch {
+      return
+    }
+  }
   batchLoading.value = true
   try {
     const res = await mediaApi.batchRescan({ scrape_status: activeTab.value })
@@ -251,7 +276,7 @@ async function retryByStatus() {
 onMounted(async () => {
   await refresh()
   pollTimer = setInterval(() => {
-    if (activeTab.value === 'scraping' || activeTab.value === 'pending') {
+    if (activeTab.value === 'scraping' || activeTab.value === 'pending' || activeTab.value === 'done') {
       refresh()
     }
   }, 15000)
