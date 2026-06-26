@@ -37,7 +37,12 @@ export async function syncProfiles(): Promise<LocalProfile[]> {
   await historyApi.ensureProfileId()
   try {
     const remote = await profileApi.listWeb()
-    const locals = remote.map(toLocal)
+    const seen = new Set<string>()
+    const locals = remote.map(toLocal).filter((p) => {
+      if (seen.has(p.id)) return false
+      seen.add(p.id)
+      return true
+    })
     if (locals.length > 0) {
       saveProfilesLocal(locals)
       const active = getActiveProfileId()

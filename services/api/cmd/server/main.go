@@ -217,6 +217,14 @@ func main() {
 	}
 	scannerSvc := scanner.NewService(roots, mediaRepo, catalogRepo, q)
 
+	go func() {
+		if n, err := mediaRepo.DedupeMoviesInFolder(context.Background()); err != nil {
+			logger.Warn("合并重复电影记录失败", "err", err)
+		} else if n > 0 {
+			logger.Info("已合并同文件夹重复电影", "count", n)
+		}
+	}()
+
 	// 启动库扫描 watcher（30 分钟一次）
 	go scannerSvc.StartWatcher(context.Background(), 30*time.Minute)
 	logger.Info("库扫描已启动", "roots", roots, "interval", "30m")

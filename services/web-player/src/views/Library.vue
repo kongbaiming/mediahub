@@ -154,9 +154,9 @@ async function loadAll() {
       libraryApi.favoritesList(),
       libraryApi.wantList(),
     ])
-    continueItems.value = cw.map(normalizeHistory)
-    favoriteItems.value = fav.map(normalizeFavorite)
-    wantItems.value = want.map(normalizeFavorite)
+    continueItems.value = dedupeByMedia(cw.map(normalizeHistory))
+    favoriteItems.value = dedupeByMedia(fav.map(normalizeFavorite))
+    wantItems.value = dedupeByMedia(want.map(normalizeFavorite))
   } catch {
     window.toast?.('加载片库失败', 'error', 2500)
   } finally {
@@ -180,6 +180,18 @@ function normalizeFavorite(f: any): LibraryItem {
     media_id: f.media_id || f.MediaID || f.media?.id,
     media: f.media,
   }
+}
+
+function dedupeByMedia(items: LibraryItem[]): LibraryItem[] {
+  const seen = new Set<string>()
+  const out: LibraryItem[] = []
+  for (const item of items) {
+    const id = item.media_id || item.media?.id
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    out.push(item)
+  }
+  return out
 }
 
 onMounted(loadAll)

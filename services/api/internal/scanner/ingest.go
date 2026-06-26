@@ -59,12 +59,26 @@ func ingestMovieFile(ctx context.Context, deps IngestDeps, filePath string, pars
 		return res, nil
 	}
 
+	albumDir := movieAlbumDir(filePath)
+	if albumDir != "" {
+		if album, _ := deps.MediaRepo.FindMovieInFolder(ctx, albumDir); album != nil {
+			_, _ = deps.MediaRepo.UpsertMediaFile(ctx, scanMediaFile(album.ID, nil, filePath))
+			res.Skipped = true
+			return res, nil
+		}
+	}
+
+	storagePath := filePath
+	if albumDir != "" {
+		storagePath = albumDir
+	}
+
 	m := &media.Media{
 		Type:         mtype,
 		Kind:         mediaKind(mtype),
 		Title:        parsed.Title,
 		Year:         parsed.Year,
-		StoragePath:  filePath,
+		StoragePath:  storagePath,
 		Container:    strPtr(parsed.Container),
 		VideoCodec:   strPtr(parsed.VideoCodec),
 		AudioCodec:   strPtr(parsed.AudioCodec),
@@ -88,6 +102,14 @@ func ingestMovieFile(ctx context.Context, deps IngestDeps, filePath string, pars
 	}
 	logger.Info("媒资入库", "id", m.ID, "title", m.Title, "path", filePath)
 	return res, nil
+}
+
+func movieAlbumDir(filePath string) string {
+	parent := filepath.Dir(filePath)
+	if isMovieCategoryFolder(filepath.Base(parent)) {
+		return ""
+	}
+	return parent
 }
 
 func ingestEpisodeFile(ctx context.Context, deps IngestDeps, filePath string, parsed *ParsedFile, mtype common.MediaType) (*IngestResult, error) {

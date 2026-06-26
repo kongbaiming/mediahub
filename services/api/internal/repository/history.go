@@ -91,18 +91,41 @@ func (r *HistoryRepo) ListByProfile(ctx context.Context, profileID string, limit
 	return hs, nil
 }
 
-// ListInProgress 在看（未完成）
+// ListInProgress 在看（未完成，按媒资去重）
 func (r *HistoryRepo) ListInProgress(ctx context.Context, profileID string, limit int) ([]history.History, error) {
+	if limit <= 0 {
+		limit = 12
+	}
 	var hs []history.History
 	if err := r.db.WithContext(ctx).
 		Preload("Media").
 		Where("profile_id = ? AND completed = ? AND progress > 0", profileID, false).
 		Order("updated_at DESC").
-		Limit(limit).
+		Limit(limit * 4).
 		Find(&hs).Error; err != nil {
 		return nil, apperr.Wrap(err, apperr.CodeInternal, "查询历史失败")
 	}
-	return hs, nil
+	return dedupeHistoryByMedia(hs, limit), nil
+}
+
+func dedupeHistoryByMedia(hs []history.History, limit int) []history.History {
+	seen := map[string]struct{}{}
+	out := make([]history.History, 0, limit)
+	for _, h := range hs {
+		key := h.MediaID.String()
+		if h.EpisodeID != nil {
+			key += ":" + h.EpisodeID.String()
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, h)
+		if len(out) >= limit {
+			break
+		}
+	}
+	return out
 }
 
 // ---- Favorite ----
