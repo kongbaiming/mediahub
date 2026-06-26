@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"strings"
+	"time"
 
 	"github.com/mediahub/api/internal/apperr"
 	"github.com/mediahub/api/internal/domain/catalog"
@@ -25,11 +27,32 @@ func NewCatalogService(catalog *repository.CatalogRepo, media *repository.MediaR
 }
 
 func (s *CatalogService) ListCredits(ctx context.Context, mediaID, role string) ([]catalog.MediaCredit, error) {
-	return s.catalog.ListCredits(ctx, mediaID, role, 80)
+	items, err := s.catalog.ListCredits(ctx, mediaID, role, 80)
+	if err != nil {
+		return nil, err
+	}
+	for i := range items {
+		s.enrichPerson(items[i].Person)
+	}
+	return items, nil
+}
+
+func (s *CatalogService) enrichPerson(p *catalog.Person) {
+	if p == nil {
+		return
+	}
+	if s.tmdb != nil && p.ProfilePath != "" {
+		p.ProfileURL = s.tmdb.PosterURL(p.ProfilePath, "w185")
+	}
 }
 
 func (s *CatalogService) GetPerson(ctx context.Context, id string) (*catalog.Person, error) {
-	return s.catalog.GetPerson(ctx, id)
+	p, err := s.catalog.GetPerson(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	s.enrichPerson(p)
+	return p, nil
 }
 
 func (s *CatalogService) PersonWorks(ctx context.Context, personID string, limit int) ([]media.Media, error) {
@@ -192,10 +215,15 @@ func (s *CatalogService) syncCredits(ctx context.Context, m *media.Media, tmdbID
 	return s.catalog.ReplaceCredits(ctx, m.ID, credits)
 }
 
-// upsertPersonFromTMDB 按 TMDB_LANGUAGE 拉取影人本地化姓名后入库
+// upsertPersonFromTMDB 按 TMDB_LANGUAGE 拉取影人本地化姓名与简介后入库
 func (s *CatalogService) upsertPersonFromTMDB(ctx context.Context, tmdbPersonID int, fallbackName, profilePath, department string) (*catalog.Person, error) {
 	name := fallbackName
 	originalName := ""
+	biography := ""
+	placeOfBirth := ""
+	var birthday *time.Time
+	gender := 0
+	popularity := 0.0
 	if s.tmdb != nil {
 		if p, err := s.tmdb.GetPerson(ctx, tmdbPersonID); err == nil && p != nil {
 			if p.Name != "" {
@@ -208,6 +236,15 @@ func (s *CatalogService) upsertPersonFromTMDB(ctx context.Context, tmdbPersonID 
 			if department == "" && p.KnownForDepartment != "" {
 				department = p.KnownForDepartment
 			}
+			biography = strings.TrimSpace(p.Biography)
+			placeOfBirth = strings.TrimSpace(p.PlaceOfBirth)
+			gender = p.Gender
+			popularity = p.Popularity
+			if p.Birthday != "" {
+				if t, err := time.Parse("2006-01-02", p.Birthday); err == nil {
+					birthday = &t
+				}
+			}
 		}
 	}
 	pid := tmdbPersonID
@@ -216,7 +253,12 @@ func (s *CatalogService) upsertPersonFromTMDB(ctx context.Context, tmdbPersonID 
 		OriginalName:       originalName,
 		TMDBPersonID:       &pid,
 		ProfilePath:        profilePath,
+		Biography:          biography,
+		Birthday:           birthday,
+		PlaceOfBirth:       placeOfBirth,
+		Gender:             gender,
 		KnownForDepartment: department,
+		Popularity:         popularity,
 	})
 }
 

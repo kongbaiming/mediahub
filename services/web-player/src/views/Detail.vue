@@ -61,19 +61,53 @@
       <div v-if="castCredits.length" class="section">
         <h2 class="section-title">演职员</h2>
         <div class="credits-row">
-          <div v-for="c in castCredits.slice(0, 12)" :key="c.id" class="credit-card">
+          <button
+            v-for="c in castCredits.slice(0, 16)"
+            :key="c.id"
+            type="button"
+            class="credit-card"
+            @click="openCreditDetail(c)"
+          >
             <div class="credit-avatar">
               <img
-                v-if="c.person?.profile_path"
-                :src="profileImage(c.person.profile_path)"
+                v-if="creditAvatar(c)"
+                :src="creditAvatar(c)"
                 :alt="c.person?.name"
                 loading="lazy"
               />
               <span v-else>{{ c.person?.name?.slice(0, 1) || '?' }}</span>
             </div>
             <div class="credit-name">{{ c.person?.name }}</div>
-            <div v-if="c.character_name" class="credit-role">{{ c.character_name }}</div>
+            <div v-if="c.character_name" class="credit-role">饰 {{ c.character_name }}</div>
+          </button>
+        </div>
+      </div>
+
+      <div v-if="creditModalOpen && selectedCredit?.person" class="credit-modal-backdrop" @click.self="creditModalOpen = false">
+        <div class="credit-modal" role="dialog" aria-modal="true">
+          <button type="button" class="credit-modal-close" aria-label="关闭" @click="creditModalOpen = false">×</button>
+          <div class="credit-modal-head">
+            <div class="credit-modal-avatar">
+              <img
+                v-if="creditAvatar(selectedCredit)"
+                :src="creditAvatar(selectedCredit)"
+                :alt="selectedCredit.person.name"
+              />
+              <span v-else>{{ selectedCredit.person.name?.slice(0, 1) || '?' }}</span>
+            </div>
+            <div class="credit-modal-meta">
+              <h3>{{ selectedCredit.person.name }}</h3>
+              <p v-if="selectedCredit.character_name" class="credit-modal-role">饰 {{ selectedCredit.character_name }}</p>
+              <p v-if="selectedCredit.person.known_for_department" class="credit-modal-dept">
+                {{ selectedCredit.person.known_for_department }}
+              </p>
+              <p v-if="personMeta(selectedCredit.person)" class="credit-modal-extra">
+                {{ personMeta(selectedCredit.person) }}
+              </p>
+            </div>
           </div>
+          <p v-if="selectedCredit.person.biography" class="credit-modal-bio">{{ selectedCredit.person.biography }}</p>
+          <p v-else class="credit-modal-empty">暂无人物介绍</p>
         </div>
       </div>
 
@@ -187,6 +221,8 @@ const similar = ref<MediaSummary[]>([])
 const castCredits = ref<MediaCredit[]>([])
 const contentRating = ref('')
 const trailers = ref<MediaExtra[]>([])
+const creditModalOpen = ref(false)
+const selectedCredit = ref<MediaCredit | null>(null)
 
 const isSeries = computed(() => media.value?.type === 'tvshow' || media.value?.type === 'anime')
 
@@ -272,6 +308,26 @@ async function toggleFavorite() {
   } catch {
     // ignore
   }
+}
+
+function creditAvatar(c: MediaCredit) {
+  const p = c.person
+  if (!p) return ''
+  if (p.profile_url) return p.profile_url
+  if (p.profile_path) return profileImage(p.profile_path)
+  return ''
+}
+
+function openCreditDetail(c: MediaCredit) {
+  selectedCredit.value = c
+  creditModalOpen.value = true
+}
+
+function personMeta(p: NonNullable<MediaCredit['person']>) {
+  const parts: string[] = []
+  if (p.place_of_birth) parts.push(p.place_of_birth)
+  if (p.birthday) parts.push(p.birthday.slice(0, 10))
+  return parts.join(' · ')
 }
 
 function profileImage(path: string) {
@@ -414,6 +470,16 @@ onMounted(load)
   flex-shrink: 0;
   width: 96px;
   text-align: center;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+
+  &:hover .credit-avatar {
+    border-color: var(--mh-primary, #6c63ff);
+  }
 }
 
 .credit-avatar {
@@ -453,6 +519,107 @@ onMounted(load)
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.credit-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.credit-modal {
+  position: relative;
+  width: min(520px, 100%);
+  max-height: min(80vh, 640px);
+  overflow-y: auto;
+  background: var(--mh-surface, #14141f);
+  border: 1px solid var(--mh-outline, rgba(255, 255, 255, 0.08));
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.credit-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--mh-text, #f0f0f5);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.credit-modal-head {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.credit-modal-avatar {
+  flex-shrink: 0;
+  width: 96px;
+  height: 96px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--mh-surface-variant, #1e1e2e);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--mh-text-muted, #6b6b80);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.credit-modal-meta {
+  min-width: 0;
+
+  h3 {
+    margin: 0 0 8px;
+    font-size: 20px;
+    color: var(--mh-text, #f0f0f5);
+  }
+}
+
+.credit-modal-role {
+  margin: 0 0 6px;
+  font-size: 14px;
+  color: var(--mh-primary, #6c63ff);
+}
+
+.credit-modal-dept,
+.credit-modal-extra {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: var(--mh-text-muted, #6b6b80);
+}
+
+.credit-modal-bio {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--mh-text, #d8d8e8);
+  white-space: pre-wrap;
+}
+
+.credit-modal-empty {
+  margin: 0;
+  font-size: 14px;
+  color: var(--mh-text-muted, #6b6b80);
 }
 
 .extras-row {

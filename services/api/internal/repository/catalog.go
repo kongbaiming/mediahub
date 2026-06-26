@@ -57,6 +57,18 @@ func (r *CatalogRepo) UpsertPersonByTMDB(ctx context.Context, p *catalog.Person)
 	if p.ProfilePath != "" {
 		existing.ProfilePath = p.ProfilePath
 	}
+	if p.Biography != "" {
+		existing.Biography = p.Biography
+	}
+	if p.PlaceOfBirth != "" {
+		existing.PlaceOfBirth = p.PlaceOfBirth
+	}
+	if p.Birthday != nil {
+		existing.Birthday = p.Birthday
+	}
+	if p.Gender > 0 {
+		existing.Gender = p.Gender
+	}
 	if p.KnownForDepartment != "" {
 		existing.KnownForDepartment = p.KnownForDepartment
 	}

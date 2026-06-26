@@ -21,7 +21,13 @@ export interface MediaCredit {
   person?: {
     id: string
     name: string
+    original_name?: string
     profile_path?: string
+    profile_url?: string
+    biography?: string
+    place_of_birth?: string
+    known_for_department?: string
+    birthday?: string
   }
 }
 

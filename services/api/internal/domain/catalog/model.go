@@ -16,6 +16,7 @@ type Person struct {
 	OriginalName       string  `gorm:"type:varchar(300)" json:"original_name,omitempty"`
 	TMDBPersonID       *int    `gorm:"column:tmdb_person_id;uniqueIndex" json:"tmdb_person_id,omitempty"`
 	ProfilePath        string  `gorm:"type:text" json:"profile_path,omitempty"`
+	ProfileURL         string  `gorm:"-" json:"profile_url,omitempty"`
 	Biography          string  `gorm:"type:text" json:"biography,omitempty"`
 	Birthday           *time.Time `gorm:"type:date" json:"birthday,omitempty"`
 	PlaceOfBirth       string  `gorm:"type:varchar(200)" json:"place_of_birth,omitempty"`

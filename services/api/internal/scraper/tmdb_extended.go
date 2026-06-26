@@ -86,6 +86,10 @@ type TMDBPerson struct {
 	Name               string  `json:"name"`
 	OriginalName       string  `json:"original_name"`
 	ProfilePath        string  `json:"profile_path"`
+	Biography          string  `json:"biography"`
+	Birthday           string  `json:"birthday"`
+	PlaceOfBirth       string  `json:"place_of_birth"`
+	Gender             int     `json:"gender"`
 	KnownForDepartment string  `json:"known_for_department"`
 	Popularity         float64 `json:"popularity"`
 }

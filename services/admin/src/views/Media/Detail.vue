@@ -180,13 +180,64 @@
       <el-card v-if="castCredits.length" shadow="never" class="credits-card">
         <template #header><span>演职员</span></template>
         <div class="credits-row">
-          <div v-for="c in castCredits.slice(0, 16)" :key="c.id" class="credit-item">
-            <div class="credit-avatar">{{ c.person?.name?.slice(0, 1) || '?' }}</div>
+          <div
+            v-for="c in castCredits.slice(0, 20)"
+            :key="c.id"
+            class="credit-item"
+            role="button"
+            tabindex="0"
+            @click="openCreditDetail(c)"
+            @keyup.enter="openCreditDetail(c)"
+          >
+            <div class="credit-avatar">
+              <img
+                v-if="creditAvatar(c)"
+                :src="creditAvatar(c)"
+                :alt="c.person?.name"
+                loading="lazy"
+              />
+              <span v-else>{{ c.person?.name?.slice(0, 1) || '?' }}</span>
+            </div>
             <div class="credit-name">{{ c.person?.name }}</div>
-            <div v-if="c.character_name" class="credit-role">{{ c.character_name }}</div>
+            <div v-if="c.character_name" class="credit-role">饰 {{ c.character_name }}</div>
           </div>
         </div>
       </el-card>
+
+      <el-dialog
+        v-model="creditDialogVisible"
+        :title="selectedCredit?.person?.name || '演职员'"
+        width="520px"
+        destroy-on-close
+      >
+        <div v-if="selectedCredit?.person" class="credit-detail">
+          <div class="credit-detail-head">
+            <div class="credit-detail-avatar">
+              <img
+                v-if="creditAvatar(selectedCredit)"
+                :src="creditAvatar(selectedCredit)"
+                :alt="selectedCredit.person.name"
+              />
+              <span v-else>{{ selectedCredit.person.name?.slice(0, 1) || '?' }}</span>
+            </div>
+            <div class="credit-detail-meta">
+              <div v-if="selectedCredit.character_name" class="credit-detail-role">
+                饰 {{ selectedCredit.character_name }}
+              </div>
+              <div v-if="selectedCredit.person.known_for_department" class="credit-detail-dept">
+                {{ selectedCredit.person.known_for_department }}
+              </div>
+              <div v-if="personMeta(selectedCredit.person)" class="credit-detail-extra">
+                {{ personMeta(selectedCredit.person) }}
+              </div>
+            </div>
+          </div>
+          <p v-if="selectedCredit.person.biography" class="credit-detail-bio">
+            {{ selectedCredit.person.biography }}
+          </p>
+          <el-empty v-else description="暂无人物介绍" :image-size="64" />
+        </div>
+      </el-dialog>
 
       <el-card v-if="media.seasons?.length" shadow="never" class="seasons-card">
         <template #header><span>季 / 集</span></template>
@@ -235,6 +286,8 @@ const editing = ref(false)
 const media = ref<MediaDetail | null>(null)
 const castCredits = ref<MediaCredit[]>([])
 const contentRatings = ref<ContentRating[]>([])
+const creditDialogVisible = ref(false)
+const selectedCredit = ref<MediaCredit | null>(null)
 const scrapeCandidates = ref<ScrapeCandidate[]>([])
 const candidatesLoading = ref(false)
 const applyingKey = ref('')
@@ -251,6 +304,27 @@ const editForm = reactive({
   genresStr: '',
   overview: '',
 })
+
+function creditAvatar(c: MediaCredit) {
+  const p = c.person
+  if (!p) return ''
+  if (p.profile_url) return p.profile_url
+  if (p.profile_path?.startsWith('http')) return p.profile_path
+  if (p.profile_path) return `https://image.tmdb.org/t/p/w185${p.profile_path}`
+  return ''
+}
+
+function openCreditDetail(c: MediaCredit) {
+  selectedCredit.value = c
+  creditDialogVisible.value = true
+}
+
+function personMeta(p: NonNullable<MediaCredit['person']>) {
+  const parts: string[] = []
+  if (p.place_of_birth) parts.push(p.place_of_birth)
+  if (p.birthday) parts.push(p.birthday.slice(0, 10))
+  return parts.join(' · ')
+}
 
 async function load() {
   const id = route.params.id as string
@@ -627,11 +701,19 @@ onMounted(load)
 .credit-item {
   width: 88px;
   text-align: center;
+  cursor: pointer;
+  border-radius: 10px;
+  padding: 4px;
+  transition: background 0.15s;
+
+  &:hover {
+    background: rgba(108, 99, 255, 0.08);
+  }
 }
 
 .credit-avatar {
-  width: 56px;
-  height: 56px;
+  width: 64px;
+  height: 64px;
   margin: 0 auto 6px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--mh-primary, #6c63ff), #ec4899);
@@ -641,6 +723,13 @@ onMounted(load)
   justify-content: center;
   font-weight: 600;
   font-size: 20px;
+  overflow: hidden;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 }
 
 .credit-name {
@@ -655,6 +744,67 @@ onMounted(load)
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.credit-detail-head {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.credit-detail-avatar {
+  flex-shrink: 0;
+  width: 96px;
+  height: 96px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--mh-primary, #6c63ff), #ec4899);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 600;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.credit-detail-meta {
+  flex: 1;
+  min-width: 0;
+  padding-top: 4px;
+}
+
+.credit-detail-role {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--mh-text, #1a1a28);
+  margin-bottom: 6px;
+}
+
+.credit-detail-dept {
+  font-size: 13px;
+  color: var(--mh-text-secondary, #64748b);
+  margin-bottom: 4px;
+}
+
+.credit-detail-extra {
+  font-size: 12px;
+  color: var(--mh-text-secondary, #64748b);
+}
+
+.credit-detail-bio {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--mh-text, #334155);
+  white-space: pre-wrap;
+  max-height: 360px;
+  overflow-y: auto;
 }
 
 .edit-form {
