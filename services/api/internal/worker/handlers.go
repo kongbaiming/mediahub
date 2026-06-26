@@ -92,26 +92,57 @@ func (h *Handlers) HandleScrape(ctx context.Context, t *asynq.Task) error {
 	// 2. 标记 scraping（仅更新状态，不清空已有元数据）
 	_ = h.mediaRepo.UpdateScrapeStatus(ctx, mid.String(), string(common.ScrapeStatusScraping), "")
 
-	// 3. 搜索 TMDB（剧集始终用专辑文件夹名，不用 Emby 后缀）
+	// 2b. ffprobe：读取内嵌元数据与时长（用于 IMDB 直查 / 搜索候选 / 时长消歧）
+	probePath := h.probePathForMedia(ctx, mid.String(), m)
+	var probeResult *scanner.ProbeResult
+	emb := scanner.EmbeddedMeta{}
+	if info, probeErr := scanner.Probe(ctx, "", probePath); probeErr == nil {
+		probeResult = info
+		emb = scanner.ExtractEmbeddedMeta(info)
+	}
+	durationSec := emb.DurationSec
+	if emb.Year != nil && m.Year == nil {
+		m.Year = emb.Year
+	}
+
+	// 3. 搜索 TMDB
 	var tmdbInfo *scraperResult
-	if m.IsTV() {
-		folder := filepath.Base(m.StoragePath)
-		searchTitle := scanner.SeriesFolderTitle(folder)
-		if searchTitle == "" {
-			searchTitle = m.Title
+	if emb.IMDBID != "" {
+		if info, imdbErr := h.scrapeByIMDB(ctx, emb.IMDBID, m.IsTV()); imdbErr == nil {
+			tmdbInfo = info
 		}
+	}
+	if tmdbInfo == nil && m.IsTV() {
+		folder := filepath.Base(m.StoragePath)
 		searchYear := m.Year
 		if searchYear == nil {
 			searchYear = scanner.SeriesFolderYear(folder)
 		}
-		tmdbInfo, err = h.searchTVShow(ctx, searchTitle, searchYear, nil, nil)
-		if err != nil && searchYear != nil {
-			// 文件夹年份可能与 TMDB first_air_date 不一致，去掉年份再试
-			tmdbInfo, err = h.searchTVShow(ctx, searchTitle, nil, nil, nil)
+		if searchYear == nil && emb.Year != nil {
+			searchYear = emb.Year
+		}
+		season, episode := emb.Season, emb.Episode
+		var lastErr error
+		for _, searchTitle := range scanner.TVSearchCandidates(m.StoragePath, m.Title, &emb) {
+			tmdbInfo, err = h.searchTVShow(ctx, searchTitle, searchYear, season, episode)
+			if err == nil {
+				break
+			}
+			lastErr = err
+			if searchYear != nil {
+				tmdbInfo, err = h.searchTVShow(ctx, searchTitle, nil, season, episode)
+				if err == nil {
+					break
+				}
+				lastErr = err
+			}
+		}
+		if tmdbInfo == nil && lastErr != nil {
+			err = lastErr
 		}
 		// 误将电影单文件按剧集入库（如 冰河世纪4/053.mp4）时，回退按电影刮削
 		if err != nil {
-			if info, movieErr := h.searchMovieCandidates(ctx, m); movieErr == nil {
+			if info, movieErr := h.searchMovieCandidates(ctx, m, &emb, durationSec); movieErr == nil {
 				tmdbInfo = info
 				err = nil
 				m.Type = common.MediaTypeMovie
@@ -119,20 +150,31 @@ func (h *Handlers) HandleScrape(ctx context.Context, t *asynq.Task) error {
 				logger.Info("剧集刮削失败，已按电影匹配", "media_id", mid, "title", m.Title)
 			}
 		}
-	} else {
+	} else if tmdbInfo == nil {
 		searchYear := m.Year
-		for _, candidate := range scanner.MovieSearchCandidates(m.StoragePath, m.Title) {
-			tmdbInfo, err = h.searchMovie(ctx, candidate, searchYear)
+		if searchYear == nil && emb.Year != nil {
+			searchYear = emb.Year
+		}
+		var lastErr error
+		for _, candidate := range scanner.MovieSearchCandidates(m.StoragePath, m.Title, &emb) {
+			tmdbInfo, err = h.searchMovie(ctx, candidate, searchYear, durationSec)
 			if err == nil {
 				break
 			}
+			lastErr = err
 			if searchYear != nil {
-				tmdbInfo, err = h.searchMovie(ctx, candidate, nil)
+				tmdbInfo, err = h.searchMovie(ctx, candidate, nil, durationSec)
 				if err == nil {
 					break
 				}
+				lastErr = err
 			}
 		}
+		if tmdbInfo == nil && lastErr != nil {
+			err = lastErr
+		}
+	} else {
+		err = nil
 	}
 
 	if err != nil {
@@ -143,16 +185,10 @@ func (h *Handlers) HandleScrape(ctx context.Context, t *asynq.Task) error {
 	// 4. 合并元数据
 	h.applyTMDB(m, tmdbInfo)
 
-	// 5. 探测文件（ffprobe）；剧集专辑探测第一集文件
-	probePath := m.StoragePath
-	if m.IsTV() {
-		if epPath, err := h.mediaRepo.GetFirstEpisodeFilePath(ctx, mid.String()); err == nil {
-			probePath = epPath
-		}
-	}
-	if info, err := scanner.Probe(ctx, "", probePath); err == nil {
-		mi := info.Extract()
-		width, height := probeVideoSize(info)
+	// 5. 写入 ffprobe 结果
+	if probeResult != nil {
+		mi := probeResult.Extract()
+		width, height := probeVideoSize(probeResult)
 		_ = h.mediaRepo.ApplyProbeToFile(ctx, probePath, repository.FileProbeInfo{
 			Duration:    mi.Duration,
 			VideoCodec:  mi.VideoCodec,
@@ -219,7 +255,46 @@ type scraperResult struct {
 	Runtime    *int
 }
 
-func (h *Handlers) searchMovie(ctx context.Context, title string, year *int) (*scraperResult, error) {
+func (h *Handlers) probePathForMedia(ctx context.Context, mediaID string, m *media.Media) string {
+	probePath := m.StoragePath
+	if m.IsTV() {
+		if epPath, err := h.mediaRepo.GetFirstEpisodeFilePath(ctx, mediaID); err == nil && epPath != "" {
+			probePath = epPath
+		}
+	}
+	return probePath
+}
+
+func (h *Handlers) scrapeByIMDB(ctx context.Context, imdbID string, preferTV bool) (*scraperResult, error) {
+	found, err := h.tmdb.FindByIMDBID(ctx, imdbID)
+	if err != nil {
+		return nil, err
+	}
+	if preferTV && len(found.TVResults) > 0 {
+		t, err := h.tmdb.GetTVShow(ctx, found.TVResults[0].ID)
+		if err != nil {
+			return nil, err
+		}
+		return h.tvToResultNoSeason(t), nil
+	}
+	if len(found.MovieResults) > 0 {
+		m, err := h.tmdb.GetMovie(ctx, found.MovieResults[0].ID)
+		if err != nil {
+			return nil, err
+		}
+		return h.movieToResult(m), nil
+	}
+	if len(found.TVResults) > 0 {
+		t, err := h.tmdb.GetTVShow(ctx, found.TVResults[0].ID)
+		if err != nil {
+			return nil, err
+		}
+		return h.tvToResultNoSeason(t), nil
+	}
+	return nil, fmt.Errorf("TMDB 未找到 IMDB: %s", imdbID)
+}
+
+func (h *Handlers) searchMovie(ctx context.Context, title string, year *int, durationSec int) (*scraperResult, error) {
 	res, err := h.tmdb.SearchMovie(ctx, title, year)
 	if err != nil {
 		return nil, err
@@ -227,16 +302,52 @@ func (h *Handlers) searchMovie(ctx context.Context, title string, year *int) (*s
 	if len(res.Results) == 0 {
 		return nil, fmt.Errorf("TMDB 未找到电影: %s", title)
 	}
-	// 取第一个结果
-	first := res.Results[0]
-	m, err := h.tmdb.GetMovie(ctx, first.ID)
+	pick := h.pickMovieResult(ctx, res.Results, durationSec)
+	m, err := h.tmdb.GetMovie(ctx, pick)
 	if err != nil {
 		return nil, err
 	}
 	return h.movieToResult(m), nil
 }
 
-func (h *Handlers) searchMovieCandidates(ctx context.Context, m *media.Media) (*scraperResult, error) {
+func (h *Handlers) pickMovieResult(ctx context.Context, results []scraper.SearchEntry, durationSec int) int {
+	if len(results) == 0 {
+		return 0
+	}
+	if durationSec <= 0 || len(results) == 1 {
+		return results[0].ID
+	}
+	limit := len(results)
+	if limit > 5 {
+		limit = 5
+	}
+	bestID := results[0].ID
+	bestDiff := durationSec + 1
+	for i := 0; i < limit; i++ {
+		m, err := h.tmdb.GetMovie(ctx, results[i].ID)
+		if err != nil || m.Runtime <= 0 {
+			continue
+		}
+		diff := absInt(m.Runtime*60 - durationSec)
+		if diff < bestDiff {
+			bestDiff = diff
+			bestID = results[i].ID
+		}
+	}
+	if bestDiff <= 180 {
+		return bestID
+	}
+	return results[0].ID
+}
+
+func absInt(n int) int {
+	if n < 0 {
+		return -n
+	}
+	return n
+}
+
+func (h *Handlers) searchMovieCandidates(ctx context.Context, m *media.Media, emb *scanner.EmbeddedMeta, durationSec int) (*scraperResult, error) {
 	folder := filepath.Base(m.StoragePath)
 	title := scanner.SeriesFolderTitle(folder)
 	if title == "" {
@@ -246,15 +357,18 @@ func (h *Handlers) searchMovieCandidates(ctx context.Context, m *media.Media) (*
 	if searchYear == nil {
 		searchYear = scanner.SeriesFolderYear(folder)
 	}
+	if searchYear == nil && emb != nil && emb.Year != nil {
+		searchYear = emb.Year
+	}
 	var lastErr error
-	for _, candidate := range scanner.MovieSearchCandidates(m.StoragePath, title) {
-		if info, err := h.searchMovie(ctx, candidate, searchYear); err == nil {
+	for _, candidate := range scanner.MovieSearchCandidates(m.StoragePath, title, emb) {
+		if info, err := h.searchMovie(ctx, candidate, searchYear, durationSec); err == nil {
 			return info, nil
 		} else {
 			lastErr = err
 		}
 		if searchYear != nil {
-			if info, err := h.searchMovie(ctx, candidate, nil); err == nil {
+			if info, err := h.searchMovie(ctx, candidate, nil, durationSec); err == nil {
 				return info, nil
 			} else {
 				lastErr = err

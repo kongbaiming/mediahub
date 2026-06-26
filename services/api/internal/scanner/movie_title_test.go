@@ -7,7 +7,7 @@ import (
 
 func TestMovieSearchCandidates_WeakFilenameUsesFolder(t *testing.T) {
 	path := "/media/唐人街探案3【合集】/唐z人z街z探z案3 (2021) 4K 60FPS/D.C.3.2021.2160p.WEB-DL.60fps.H265.10bit.AAC.mp4"
-	candidates := MovieSearchCandidates(path, "D C 3")
+	candidates := MovieSearchCandidates(path, "D C 3", nil)
 	if len(candidates) < 2 {
 		t.Fatalf("expected multiple candidates, got %v", candidates)
 	}
@@ -25,7 +25,7 @@ func TestMovieSearchCandidates_WeakFilenameUsesFolder(t *testing.T) {
 func TestMovieSearchCandidates_FrozenEnglish(t *testing.T) {
 	path := "/media/冰雪奇缘2.3D出屏/Frozen.II.2019.3D.1080p.BluRay.x264.mkv"
 	title := "3D冰雪奇缘2 3D出屏国配字幕 国粤台英4语 Frozen II"
-	candidates := MovieSearchCandidates(path, title)
+	candidates := MovieSearchCandidates(path, title, nil)
 	foundFrozen := false
 	foundHan := false
 	for _, c := range candidates {
@@ -56,7 +56,7 @@ func TestRefineMovieTitleFromPath_TitanicFolder(t *testing.T) {
 }
 
 func TestMovieSearchCandidates_IceAgeAlias(t *testing.T) {
-	candidates := MovieSearchCandidates("/media/冰川时代4/053.MP4", "冰川时代4")
+	candidates := MovieSearchCandidates("/media/冰川时代4/053.MP4", "冰川时代4", nil)
 	found := false
 	for _, c := range candidates {
 		if c == "冰河世纪4" {

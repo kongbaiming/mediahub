@@ -78,8 +78,8 @@ func stripObfuscationLatin(s string) string {
 	return strings.Join(strings.Fields(b.String()), "")
 }
 
-// MovieSearchCandidates 生成电影 TMDB 搜索候选（文件名 + 上级文件夹 + 英文片名）
-func MovieSearchCandidates(storagePath, parsedTitle string) []string {
+// MovieSearchCandidates 生成电影 TMDB 搜索候选（内嵌元数据 + 文件名 + 文件夹）
+func MovieSearchCandidates(storagePath, parsedTitle string, emb *EmbeddedMeta) []string {
 	seen := map[string]struct{}{}
 	var out []string
 	add := func(s string) {
@@ -122,9 +122,35 @@ func MovieSearchCandidates(storagePath, parsedTitle string) []string {
 		// 弱文件名时优先尝试文件夹/英文标题
 		reordered := append([]string{}, out[1:]...)
 		reordered = append(reordered, parsedTitle)
-		return reordered
+		return PrependEmbeddedCandidates(reordered, emb)
 	}
-	return out
+	return PrependEmbeddedCandidates(out, emb)
+}
+
+// TVSearchCandidates 生成剧集 TMDB 搜索候选
+func TVSearchCandidates(storagePath, parsedTitle string, emb *EmbeddedMeta) []string {
+	seen := map[string]struct{}{}
+	var out []string
+	add := func(s string) {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			return
+		}
+		if _, ok := seen[s]; ok {
+			return
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
+	}
+	folder := filepath.Base(filepath.Dir(storagePath))
+	if folder != "." {
+		add(SeriesFolderTitle(folder))
+	}
+	add(parsedTitle)
+	for _, folder := range movieFolderChain(storagePath, 3) {
+		add(SeriesFolderTitle(folder))
+	}
+	return PrependEmbeddedCandidates(out, emb)
 }
 
 // movieTitleAliases 常见两岸/别译片名互搜
