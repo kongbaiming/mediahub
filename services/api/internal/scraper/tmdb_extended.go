@@ -66,7 +66,7 @@ type TMDBContentRatings struct {
 
 func (c *TMDBClient) GetMovieCredits(ctx context.Context, id int) (*TMDBCredits, error) {
 	var cr TMDBCredits
-	if err := c.get(ctx, fmt.Sprintf("/movie/%d/credits", id), url.Values{}, &cr); err != nil {
+	if err := c.get(ctx, fmt.Sprintf("/movie/%d/credits", id), c.langQuery(), &cr); err != nil {
 		return nil, err
 	}
 	return &cr, nil
@@ -74,27 +74,41 @@ func (c *TMDBClient) GetMovieCredits(ctx context.Context, id int) (*TMDBCredits,
 
 func (c *TMDBClient) GetTVCredits(ctx context.Context, id int) (*TMDBCredits, error) {
 	var cr TMDBCredits
-	if err := c.get(ctx, fmt.Sprintf("/tv/%d/credits", id), url.Values{}, &cr); err != nil {
+	if err := c.get(ctx, fmt.Sprintf("/tv/%d/credits", id), c.langQuery(), &cr); err != nil {
 		return nil, err
 	}
 	return &cr, nil
 }
 
+// TMDBPerson 影人详情（language 参数决定本地化姓名）
+type TMDBPerson struct {
+	ID                 int     `json:"id"`
+	Name               string  `json:"name"`
+	OriginalName       string  `json:"original_name"`
+	ProfilePath        string  `json:"profile_path"`
+	KnownForDepartment string  `json:"known_for_department"`
+	Popularity         float64 `json:"popularity"`
+}
+
+func (c *TMDBClient) GetPerson(ctx context.Context, id int) (*TMDBPerson, error) {
+	var p TMDBPerson
+	if err := c.get(ctx, fmt.Sprintf("/person/%d", id), c.langQuery(), &p); err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
 func (c *TMDBClient) GetMovieVideos(ctx context.Context, id int) (*TMDBVideos, error) {
-	q := url.Values{}
-	q.Set("language", c.language)
 	var v TMDBVideos
-	if err := c.get(ctx, fmt.Sprintf("/movie/%d/videos", id), q, &v); err != nil {
+	if err := c.get(ctx, fmt.Sprintf("/movie/%d/videos", id), c.langQuery(), &v); err != nil {
 		return nil, err
 	}
 	return &v, nil
 }
 
 func (c *TMDBClient) GetTVVideos(ctx context.Context, id int) (*TMDBVideos, error) {
-	q := url.Values{}
-	q.Set("language", c.language)
 	var v TMDBVideos
-	if err := c.get(ctx, fmt.Sprintf("/tv/%d/videos", id), q, &v); err != nil {
+	if err := c.get(ctx, fmt.Sprintf("/tv/%d/videos", id), c.langQuery(), &v); err != nil {
 		return nil, err
 	}
 	return &v, nil
@@ -118,9 +132,8 @@ func (c *TMDBClient) GetTVContentRatings(ctx context.Context, id int) (*TMDBCont
 
 // SearchMulti 综合搜索（含 person）
 func (c *TMDBClient) SearchMulti(ctx context.Context, query string) (*SearchResult, error) {
-	q := url.Values{}
+	q := c.langQuery()
 	q.Set("query", query)
-	q.Set("language", c.language)
 	q.Set("include_adult", "false")
 	var r SearchResult
 	if err := c.get(ctx, "/search/multi", q, &r); err != nil {

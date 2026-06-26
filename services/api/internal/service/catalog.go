@@ -162,12 +162,7 @@ func (s *CatalogService) syncCredits(ctx context.Context, m *media.Media, tmdbID
 		if i >= 30 {
 			break
 		}
-		pid := c.ID
-		person, err := s.catalog.UpsertPersonByTMDB(ctx, &catalog.Person{
-			Name:         c.Name,
-			TMDBPersonID: &pid,
-			ProfilePath:  c.ProfilePath,
-		})
+		person, err := s.upsertPersonFromTMDB(ctx, c.ID, c.Name, c.ProfilePath, "")
 		if err != nil || person == nil {
 			continue
 		}
@@ -186,11 +181,7 @@ func (s *CatalogService) syncCredits(ctx context.Context, m *media.Media, tmdbID
 		} else if c.Job == "Writer" || c.Department == "Writing" {
 			role = "writer"
 		}
-		pid := c.ID
-		person, err := s.catalog.UpsertPersonByTMDB(ctx, &catalog.Person{
-			Name: c.Name, TMDBPersonID: &pid, ProfilePath: c.ProfilePath,
-			KnownForDepartment: c.Department,
-		})
+		person, err := s.upsertPersonFromTMDB(ctx, c.ID, c.Name, c.ProfilePath, c.Department)
 		if err != nil || person == nil {
 			continue
 		}
@@ -199,6 +190,34 @@ func (s *CatalogService) syncCredits(ctx context.Context, m *media.Media, tmdbID
 		})
 	}
 	return s.catalog.ReplaceCredits(ctx, m.ID, credits)
+}
+
+// upsertPersonFromTMDB 按 TMDB_LANGUAGE 拉取影人本地化姓名后入库
+func (s *CatalogService) upsertPersonFromTMDB(ctx context.Context, tmdbPersonID int, fallbackName, profilePath, department string) (*catalog.Person, error) {
+	name := fallbackName
+	originalName := ""
+	if s.tmdb != nil {
+		if p, err := s.tmdb.GetPerson(ctx, tmdbPersonID); err == nil && p != nil {
+			if p.Name != "" {
+				name = p.Name
+			}
+			originalName = p.OriginalName
+			if profilePath == "" && p.ProfilePath != "" {
+				profilePath = p.ProfilePath
+			}
+			if department == "" && p.KnownForDepartment != "" {
+				department = p.KnownForDepartment
+			}
+		}
+	}
+	pid := tmdbPersonID
+	return s.catalog.UpsertPersonByTMDB(ctx, &catalog.Person{
+		Name:               name,
+		OriginalName:       originalName,
+		TMDBPersonID:       &pid,
+		ProfilePath:        profilePath,
+		KnownForDepartment: department,
+	})
 }
 
 func (s *CatalogService) syncExtras(ctx context.Context, mediaID uuid.UUID, tmdbID int, isTV bool) error {

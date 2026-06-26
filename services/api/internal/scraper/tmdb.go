@@ -46,6 +46,15 @@ func NewTMDBClient(apiKey, baseURL, language string, timeoutSec int, imageBase s
 	}
 }
 
+// langQuery 带 TMDB 语言参数的查询（默认 zh-CN，见 TMDB_LANGUAGE）
+func (c *TMDBClient) langQuery() url.Values {
+	q := url.Values{}
+	if c.language != "" {
+		q.Set("language", c.language)
+	}
+	return q
+}
+
 // ---- 类型定义（简化版，覆盖核心字段）----
 
 // TMDBMovie 电影详情
