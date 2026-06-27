@@ -166,7 +166,17 @@ onMounted(async () => {
 <style lang="scss" scoped>
 .home {
   min-height: 100vh;
-  background: var(--mh-bg);
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(108, 99, 255, 0.12), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 50%, rgba(62, 207, 207, 0.06), transparent),
+    var(--mh-bg);
+}
+
+.home--immersive {
+  :deep(.feed-hero) {
+    margin-top: 0;
+    padding-top: calc(var(--mh-topbar-height) + var(--mh-space-6));
+  }
 }
 
 .logo {
