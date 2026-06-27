@@ -42,12 +42,29 @@ export interface M3UImportResult {
   errors?: string[]
 }
 
+export interface LivePlaylistStat {
+  url: string
+  count: number
+}
+
 export const liveApi = {
-  list: (params?: { status?: string; page?: number; page_size?: number }) =>
+  list: (params?: {
+    status?: string
+    room_type?: string
+    group_title?: string
+    search?: string
+    page?: number
+    page_size?: number
+  }) =>
     http.get<{ data: LiveRoom[]; total: number; page: number; size: number }>(
       '/api/v1/live/rooms',
       { params },
     ),
+
+  groups: () => http.get<{ data: M3UGroupStat[] }>('/api/v1/live/groups'),
+
+  playlists: () =>
+    http.get<{ data: LivePlaylistStat[] }>('/api/v1/live/rooms/m3u/playlists'),
 
   get: (id: string) => http.get<{ data: LiveRoom }>(`/api/v1/live/rooms/${id}`),
 
@@ -64,6 +81,9 @@ export const liveApi = {
 
   importM3U: (data: { playlist_url: string; groups?: string[]; replace?: boolean }) =>
     http.post<{ data: M3UImportResult }>('/api/v1/live/rooms/m3u/import', data),
+
+  syncM3U: (playlist_url: string) =>
+    http.post<{ data: M3UImportResult }>('/api/v1/live/rooms/m3u/sync', { playlist_url }),
 
   update: (id: string, data: {
     title?: string

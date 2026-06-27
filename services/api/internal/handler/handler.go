@@ -248,6 +248,7 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 		// 直播
 		if h.Live != nil {
 			v1.GET("/live/rooms", h.Live.List)
+			v1.GET("/live/groups", h.Live.ListGroups)
 			v1.GET("/live/rooms/:id", h.Live.Get)
 			v1.GET("/live/rooms/:id/playlist.m3u8", h.Live.ProxyPlaylist)
 			v1.GET("/live/rooms/:id/upstream", h.Live.ProxyUpstream)
@@ -261,6 +262,8 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 				liveAdmin.POST("", h.Live.Create)
 				liveAdmin.POST("/m3u/preview", h.Live.PreviewM3U)
 				liveAdmin.POST("/m3u/import", h.Live.ImportM3U)
+				liveAdmin.POST("/m3u/sync", h.Live.SyncM3U)
+				liveAdmin.GET("/m3u/playlists", h.Live.ListPlaylists)
 				liveAdmin.PATCH("/:id", h.Live.Update)
 				liveAdmin.DELETE("/:id", h.Live.Delete)
 				liveAdmin.POST("/:id/stop", h.Live.Stop)

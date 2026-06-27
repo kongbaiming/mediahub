@@ -485,6 +485,7 @@ export interface LiveRoom {
   room_type?: 'push' | 'iptv'
   source_url?: string
   group_title?: string
+  playlist_url?: string
   status: 'idle' | 'live' | 'ended'
   stream_key: string
   viewer_count: number
@@ -495,11 +496,27 @@ export interface LiveRoom {
   play_url?: string
 }
 
+export interface LiveGroupStat {
+  name: string
+  count: number
+}
+
 export const liveApi = {
-  async list(params?: { status?: string }): Promise<LiveRoom[]> {
+  async list(params?: {
+    status?: string
+    room_type?: string
+    group_title?: string
+    search?: string
+    page_size?: number
+  }): Promise<LiveRoom[]> {
     const body = (await http.get<unknown>('/api/v1/live/rooms', { params })) as {
       data: LiveRoom[]
     }
+    return body.data || []
+  },
+
+  async groups(): Promise<LiveGroupStat[]> {
+    const body = (await http.get<unknown>('/api/v1/live/groups')) as { data: LiveGroupStat[] }
     return body.data || []
   },
 

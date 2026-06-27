@@ -53,20 +53,90 @@ func (r *LiveRepo) GetByStreamKey(ctx context.Context, key string) (*live.Room, 
 }
 
 // List 列表
-func (r *LiveRepo) List(ctx context.Context, status string, limit, offset int) ([]live.Room, int64, error) {
-	q := r.db.WithContext(ctx).Model(&live.Room{})
-	if status != "" {
-		q = q.Where("status = ?", status)
-	}
+func (r *LiveRepo) List(ctx context.Context, f LiveListFilter) ([]live.Room, int64, error) {
+	q := r.applyListFilter(r.db.WithContext(ctx).Model(&live.Room{}), f)
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, apperr.Wrap(err, apperr.CodeInternal, "统计直播间失败")
 	}
 	var items []live.Room
-	if err := q.Order("updated_at DESC").Limit(limit).Offset(offset).Find(&items).Error; err != nil {
+	order := "updated_at DESC"
+	if f.GroupTitle != "" {
+		order = "title ASC"
+	}
+	if err := q.Order(order).Limit(f.Limit).Offset(f.Offset).Find(&items).Error; err != nil {
 		return nil, 0, apperr.Wrap(err, apperr.CodeInternal, "查询直播间列表失败")
 	}
 	return items, total, nil
+}
+
+func (r *LiveRepo) applyListFilter(q *gorm.DB, f LiveListFilter) *gorm.DB {
+	if f.Status != "" {
+		q = q.Where("status = ?", f.Status)
+	}
+	if f.RoomType != "" {
+		q = q.Where("room_type = ?", f.RoomType)
+	}
+	if f.GroupTitle != "" {
+		if f.GroupTitle == "未分组" {
+			q = q.Where("group_title IS NULL OR group_title = ''")
+		} else {
+			q = q.Where("group_title = ?", f.GroupTitle)
+		}
+	}
+	if f.PlaylistURL != "" {
+		q = q.Where("playlist_url = ?", f.PlaylistURL)
+	}
+	if f.Search != "" {
+		like := "%" + f.Search + "%"
+		q = q.Where("title ILIKE ?", like)
+	}
+	return q
+}
+
+// ListGroups 分组统计
+func (r *LiveRepo) ListGroups(ctx context.Context) ([]LiveGroupStat, error) {
+	type row struct {
+		Name  string
+		Count int64
+	}
+	var rows []row
+	err := r.db.WithContext(ctx).Model(&live.Room{}).
+		Select(`COALESCE(NULLIF(group_title, ''), '未分组') AS name, COUNT(*) AS count`).
+		Group("name").
+		Order("name ASC").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, apperr.Wrap(err, apperr.CodeInternal, "查询分组失败")
+	}
+	out := make([]LiveGroupStat, len(rows))
+	for i, row := range rows {
+		out[i] = LiveGroupStat{Name: row.Name, Count: row.Count}
+	}
+	return out, nil
+}
+
+// ListPlaylists M3U 来源统计
+func (r *LiveRepo) ListPlaylists(ctx context.Context) ([]LivePlaylistStat, error) {
+	type row struct {
+		URL   string
+		Count int64
+	}
+	var rows []row
+	err := r.db.WithContext(ctx).Model(&live.Room{}).
+		Select("playlist_url AS url, COUNT(*) AS count").
+		Where("room_type = ? AND playlist_url <> ''", live.RoomTypeIPTV).
+		Group("playlist_url").
+		Order("count DESC").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, apperr.Wrap(err, apperr.CodeInternal, "查询 M3U 来源失败")
+	}
+	out := make([]LivePlaylistStat, len(rows))
+	for i, row := range rows {
+		out[i] = LivePlaylistStat{URL: row.URL, Count: row.Count}
+	}
+	return out, nil
 }
 
 // Update 更新

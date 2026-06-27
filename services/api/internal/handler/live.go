@@ -30,9 +30,17 @@ func NewLiveHandler(svc *service.LiveService) *LiveHandler {
 func (h *LiveHandler) List(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
-	status := c.Query("status")
+	q := service.LiveListQuery{
+		Status:      c.Query("status"),
+		RoomType:    c.Query("room_type"),
+		GroupTitle:  c.Query("group_title"),
+		PlaylistURL: c.Query("playlist_url"),
+		Search:      c.Query("search"),
+		Page:        page,
+		PageSize:    pageSize,
+	}
 
-	items, total, err := h.svc.List(c.Request.Context(), status, page, pageSize)
+	items, total, err := h.svc.List(c.Request.Context(), q)
 	if err != nil {
 		respondError(c, err)
 		return
@@ -43,6 +51,16 @@ func (h *LiveHandler) List(c *gin.Context) {
 		"page":  page,
 		"size":  pageSize,
 	})
+}
+
+// ListGroups 频道分组统计
+func (h *LiveHandler) ListGroups(c *gin.Context) {
+	groups, err := h.svc.ListGroups(c.Request.Context())
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"data": groups})
 }
 
 // Get 直播间详情
@@ -151,6 +169,43 @@ func (h *LiveHandler) ImportM3U(c *gin.Context) {
 		return
 	}
 	result, err := h.svc.ImportM3U(c.Request.Context(), req, userID)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"data": result})
+}
+
+// ListPlaylists M3U 来源列表（CMS）
+func (h *LiveHandler) ListPlaylists(c *gin.Context) {
+	items, err := h.svc.ListPlaylists(c.Request.Context())
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"data": items})
+}
+
+// SyncM3U 重新同步 M3U 列表（CMS）
+func (h *LiveHandler) SyncM3U(c *gin.Context) {
+	var req struct {
+		PlaylistURL string `json:"playlist_url" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, apperr.Validation(err.Error()))
+		return
+	}
+	userIDStr := middleware.GetUserID(c)
+	if userIDStr == "" {
+		respondError(c, apperr.Unauthorized("未登录"))
+		return
+	}
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		respondError(c, apperr.Unauthorized("无效用户"))
+		return
+	}
+	result, err := h.svc.SyncM3U(c.Request.Context(), req.PlaylistURL, userID)
 	if err != nil {
 		respondError(c, err)
 		return

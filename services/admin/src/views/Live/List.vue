@@ -32,6 +32,40 @@
       </template>
     </el-alert>
 
+    <div v-if="playlists.length > 0" class="playlist-bar">
+      <span class="playlist-label">M3U 来源：</span>
+      <el-tag v-for="p in playlists" :key="p.url" class="playlist-tag">
+        {{ shortUrl(p.url) }} ({{ p.count }})
+        <el-button link type="primary" size="small" :loading="syncingUrl === p.url" @click.stop="onSyncM3U(p.url)">
+          同步
+        </el-button>
+      </el-tag>
+    </div>
+
+    <div class="filter-bar">
+      <el-input
+        v-model="filters.search"
+        placeholder="搜索标题"
+        clearable
+        style="width: 200px"
+        @keyup.enter="loadRooms"
+        @clear="loadRooms"
+      />
+      <el-select v-model="filters.room_type" placeholder="类型" clearable style="width: 110px" @change="loadRooms">
+        <el-option label="推流" value="push" />
+        <el-option label="IPTV" value="iptv" />
+      </el-select>
+      <el-select v-model="filters.group_title" placeholder="分组" clearable style="width: 140px" @change="loadRooms">
+        <el-option v-for="g in groupOptions" :key="g.name" :label="`${g.name} (${g.count})`" :value="g.name" />
+      </el-select>
+      <el-select v-model="filters.status" placeholder="状态" clearable style="width: 110px" @change="loadRooms">
+        <el-option label="直播中" value="live" />
+        <el-option label="待开播" value="idle" />
+        <el-option label="已结束" value="ended" />
+      </el-select>
+      <el-button @click="loadRooms">查询</el-button>
+    </div>
+
     <el-table v-loading="loading" :data="rooms" stripe>
       <el-table-column label="标题" min-width="200">
         <template #default="{ row }">
@@ -87,6 +121,16 @@
         </template>
       </el-table-column>
     </el-table>
+
+    <div v-if="total > pageSize" class="pagination">
+      <el-pagination
+        v-model:current-page="page"
+        :page-size="pageSize"
+        :total="total"
+        layout="total, prev, pager, next"
+        @current-change="loadRooms"
+      />
+    </div>
 
     <!-- 创建对话框 -->
     <el-dialog v-model="createDialog" :title="createTitle" width="520">
@@ -227,7 +271,19 @@ import { copyToClipboard } from '@/utils/clipboard'
 
 const loading = ref(false)
 const creating = ref(false)
+const syncingUrl = ref('')
 const rooms = ref<LiveRoom[]>([])
+const playlists = ref<{ url: string; count: number }[]>([])
+const groupOptions = ref<M3UPreviewResult['groups']>([])
+const total = ref(0)
+const page = ref(1)
+const pageSize = 50
+const filters = ref({
+  search: '',
+  room_type: '',
+  group_title: '',
+  status: '',
+})
 const createDialog = ref(false)
 const importDialog = ref(false)
 const streamDialog = ref(false)
@@ -287,12 +343,60 @@ function formatTime(iso: string) {
 async function loadRooms() {
   loading.value = true
   try {
-    const resp = await liveApi.list({ page_size: 500 })
+    const params: Record<string, string | number> = {
+      page: page.value,
+      page_size: pageSize,
+    }
+    if (filters.value.search.trim()) params.search = filters.value.search.trim()
+    if (filters.value.room_type) params.room_type = filters.value.room_type
+    if (filters.value.group_title) params.group_title = filters.value.group_title
+    if (filters.value.status) params.status = filters.value.status
+    const resp = await liveApi.list(params)
     rooms.value = resp.data
+    total.value = resp.total
   } catch (e: any) {
     ElMessage.error(e?.message || '加载失败')
   } finally {
     loading.value = false
+  }
+}
+
+async function loadMeta() {
+  try {
+    const [gResp, pResp] = await Promise.all([liveApi.groups(), liveApi.playlists()])
+    groupOptions.value = gResp.data
+    playlists.value = pResp.data
+  } catch {
+    // ignore
+  }
+}
+
+function shortUrl(url: string) {
+  try {
+    const u = new URL(url)
+    const parts = u.pathname.split('/')
+    return parts[parts.length - 1] || u.hostname
+  } catch {
+    return url.length > 40 ? url.slice(0, 40) + '…' : url
+  }
+}
+
+async function onSyncM3U(url: string) {
+  await ElMessageBox.confirm(
+    '将删除该 M3U 来源下的旧频道并重新导入最新列表，是否继续？',
+    '同步 M3U',
+    { type: 'warning' },
+  )
+  syncingUrl.value = url
+  try {
+    const resp = await liveApi.syncM3U(url)
+    const r = resp.data
+    ElMessage.success(`同步完成：新增 ${r.created}，跳过 ${r.skipped}，失败 ${r.failed}`)
+    await Promise.all([loadRooms(), loadMeta()])
+  } catch (e: any) {
+    ElMessage.error(e?.message || '同步失败')
+  } finally {
+    syncingUrl.value = ''
   }
 }
 
@@ -348,7 +452,7 @@ async function onImportM3U() {
     const r = resp.data
     importDialog.value = false
     ElMessage.success(`导入完成：新增 ${r.created}，跳过 ${r.skipped}，失败 ${r.failed}`)
-    await loadRooms()
+    await Promise.all([loadRooms(), loadMeta()])
   } catch (e: any) {
     ElMessage.error(e?.message || '导入失败')
   } finally {
@@ -427,7 +531,8 @@ async function copy(text: string, label = '内容') {
 
 onMounted(() => {
   loadRooms()
-  pollTimer = setInterval(loadRooms, 10000)
+  loadMeta()
+  pollTimer = setInterval(loadRooms, 15000)
 })
 
 onBeforeUnmount(() => {
@@ -459,6 +564,42 @@ onBeforeUnmount(() => {
     margin: 0 0 4px;
     font-size: 13px;
   }
+}
+
+.playlist-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--mh-space-2);
+  margin-bottom: var(--mh-space-4);
+  padding: var(--mh-space-3);
+  background: var(--mh-admin-surface-muted);
+  border-radius: var(--mh-radius-sm);
+  font-size: 13px;
+}
+
+.playlist-label {
+  color: var(--mh-text-muted, #888);
+  flex-shrink: 0;
+}
+
+.playlist-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mh-space-2);
+  margin-bottom: var(--mh-space-4);
+}
+
+.pagination {
+  margin-top: var(--mh-space-4);
+  display: flex;
+  justify-content: flex-end;
 }
 
 .title-cell {

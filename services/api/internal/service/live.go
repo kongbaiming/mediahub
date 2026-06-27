@@ -118,25 +118,32 @@ func (s *LiveService) Get(ctx context.Context, id string) (*live.RoomView, error
 	return &view, nil
 }
 
-func (s *LiveService) List(ctx context.Context, status string, page, pageSize int) ([]live.RoomView, int64, error) {
-	if page < 1 {
-		page = 1
+func (s *LiveService) List(ctx context.Context, q LiveListQuery) ([]live.RoomView, int64, error) {
+	if q.Page < 1 {
+		q.Page = 1
 	}
-	if pageSize < 1 {
-		pageSize = 20
+	if q.PageSize < 1 {
+		q.PageSize = 20
 	}
-	if pageSize > 100 {
-		pageSize = 100
+	if q.PageSize > 500 {
+		q.PageSize = 500
 	}
-	offset := (page - 1) * pageSize
-	items, total, err := s.repo.List(ctx, status, pageSize, offset)
+	offset := (q.Page - 1) * q.PageSize
+	filter := repository.LiveListFilter{
+		Status:      q.Status,
+		RoomType:    q.RoomType,
+		GroupTitle:  q.GroupTitle,
+		PlaylistURL: q.PlaylistURL,
+		Search:      q.Search,
+		Limit:       q.PageSize,
+		Offset:      offset,
+	}
+	items, total, err := s.repo.List(ctx, filter)
 	if err != nil {
 		return nil, 0, err
 	}
 	s.syncRoomsWithMediaMTX(ctx, items)
-	s.syncIPTVRooms(ctx, items)
-	// 同步后重新拉列表
-	items, total, err = s.repo.List(ctx, status, pageSize, offset)
+	items, total, err = s.repo.List(ctx, filter)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -145,6 +152,33 @@ func (s *LiveService) List(ctx context.Context, status string, page, pageSize in
 		views[i] = s.toView(&items[i])
 	}
 	return views, total, nil
+}
+
+// LiveListQuery 列表查询参数
+type LiveListQuery struct {
+	Status      string
+	RoomType    string
+	GroupTitle  string
+	PlaylistURL string
+	Search      string
+	Page        int
+	PageSize    int
+}
+
+func (s *LiveService) ListGroups(ctx context.Context) ([]repository.LiveGroupStat, error) {
+	return s.repo.ListGroups(ctx)
+}
+
+func (s *LiveService) ListPlaylists(ctx context.Context) ([]repository.LivePlaylistStat, error) {
+	return s.repo.ListPlaylists(ctx)
+}
+
+// SyncM3U 重新同步 M3U 列表（替换同源频道）
+func (s *LiveService) SyncM3U(ctx context.Context, playlistURL string, userID uuid.UUID) (*ImportM3UResult, error) {
+	return s.ImportM3U(ctx, ImportM3URequest{
+		PlaylistURL: playlistURL,
+		Replace:     true,
+	}, userID)
 }
 
 func (s *LiveService) Update(ctx context.Context, id string, req UpdateRoomRequest) (*live.RoomView, error) {
