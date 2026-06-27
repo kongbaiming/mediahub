@@ -143,8 +143,17 @@ func (h *LiveHandler) UnpublishHook(c *gin.Context) {
 	c.JSON(200, gin.H{"status": "ok"})
 }
 
-// ProxyPlaylist 反代 MediaMTX HLS playlist（播放端使用）
+// ProxyPlaylist 反代 MediaMTX 主 HLS playlist
 func (h *LiveHandler) ProxyPlaylist(c *gin.Context) {
+	h.proxyMedia(c, "index.m3u8")
+}
+
+// ProxySegment 反代 HLS 子 playlist / 切片（保留 query，如 LL-HLS 的 session）
+func (h *LiveHandler) ProxySegment(c *gin.Context) {
+	h.proxyMedia(c, c.Param("file"))
+}
+
+func (h *LiveHandler) proxyMedia(c *gin.Context, file string) {
 	id := c.Param("id")
 	room, err := h.svc.Get(c.Request.Context(), id)
 	if err != nil {
@@ -152,8 +161,14 @@ func (h *LiveHandler) ProxyPlaylist(c *gin.Context) {
 		return
 	}
 
-	srcURL := h.svc.HLSPlaylistURL(room.StreamKey)
-	resp, err := http.Get(srcURL)
+	upstream := h.svc.HLSMediaURL(room.StreamKey, file, c.Request.URL.RawQuery)
+
+	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, upstream, nil)
+	if err != nil {
+		c.JSON(502, gin.H{"error": "upstream_error", "message": "构建上游请求失败"})
+		return
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		c.JSON(502, gin.H{"error": "upstream_error", "message": "无法连接推流服务"})
 		return
@@ -163,57 +178,31 @@ func (h *LiveHandler) ProxyPlaylist(c *gin.Context) {
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		msg := "推流尚未就绪"
-		if strings.Contains(string(body), "authentication") {
+		if resp.StatusCode == http.StatusUnauthorized || strings.Contains(string(body), "authentication") {
 			msg = "推流服务鉴权失败，请检查 mediamtx.yml 中 authInternalUsers 配置"
 		}
 		c.JSON(resp.StatusCode, gin.H{"error": "upstream_error", "message": msg, "detail": string(body)})
 		return
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		c.JSON(502, gin.H{"error": "upstream_error", "message": "读取 playlist 失败"})
+	fileName := strings.SplitN(file, "?", 2)[0]
+	if strings.HasSuffix(fileName, ".m3u8") {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			c.JSON(502, gin.H{"error": "upstream_error", "message": "读取 playlist 失败"})
+			return
+		}
+		proxyBase := "/api/v1/live/rooms/" + id + "/"
+		content := rewriteM3U8(string(body), proxyBase)
+		c.Header("Content-Type", "application/vnd.apple.mpegurl")
+		c.Header("Cache-Control", "no-cache, no-store")
+		c.String(200, content)
 		return
 	}
-
-	// 重写 playlist 中的相对路径为 API 代理路径
-	proxyBase := "/api/v1/live/rooms/" + id + "/"
-	content := rewriteM3U8(string(body), proxyBase)
-
-	c.Header("Content-Type", "application/vnd.apple.mpegurl")
-	c.Header("Cache-Control", "no-cache, no-store")
-	c.String(200, content)
-}
-
-// ProxySegment 反代 HLS 切片
-func (h *LiveHandler) ProxySegment(c *gin.Context) {
-	id := c.Param("id")
-	file := c.Param("file")
-	room, err := h.svc.Get(c.Request.Context(), id)
-	if err != nil {
-		respondError(c, err)
-		return
-	}
-
-	srcURL := h.svc.HLSPlaylistURL(room.StreamKey)
-	base := srcURL[:strings.LastIndex(srcURL, "/")+1]
-	segURL := base + file
-
-	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, segURL, nil)
-	if err != nil {
-		c.Status(502)
-		return
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		c.Status(502)
-		return
-	}
-	defer resp.Body.Close()
 
 	c.Header("Content-Type", resp.Header.Get("Content-Type"))
 	if ct := resp.Header.Get("Content-Type"); ct == "" {
-		if strings.HasSuffix(file, ".m4s") || strings.HasSuffix(file, ".mp4") {
+		if strings.HasSuffix(fileName, ".m4s") || strings.HasSuffix(fileName, ".mp4") {
 			c.Header("Content-Type", "video/iso.segment")
 		} else {
 			c.Header("Content-Type", "video/mp2t")
@@ -233,8 +222,11 @@ func rewriteM3U8(content, proxyBase string) string {
 		}
 		if strings.HasPrefix(trimmed, "http://") || strings.HasPrefix(trimmed, "https://") {
 			if u, err := url.Parse(trimmed); err == nil {
-				seg := u.Path[strings.LastIndex(u.Path, "/")+1:]
-				lines[i] = proxyBase + seg
+				ref := u.Path[strings.LastIndex(u.Path, "/")+1:]
+				if u.RawQuery != "" {
+					ref += "?" + u.RawQuery
+				}
+				lines[i] = proxyBase + ref
 			}
 		} else {
 			lines[i] = proxyBase + trimmed

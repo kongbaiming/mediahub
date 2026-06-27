@@ -86,9 +86,10 @@ type IndexerConfig struct {
 }
 
 type LiveConfig struct {
-	Enabled     bool
-	RTMPHost    string // 对外 RTMP 地址 host:port
-	MediaMTXURL string // 内部 HLS 源 http://mediamtx:8888
+	Enabled        bool
+	RTMPHost       string
+	MediaMTXURL    string
+	MediaMTXAPIURL string
 }
 
 // Load 加载配置（先尝试读 .env，再读环境变量）
@@ -150,9 +151,10 @@ func Load() (*Config, error) {
 			APIKey: getEnv("INDEXER_API_KEY", ""),
 		},
 		Live: LiveConfig{
-			Enabled:     getEnv("LIVE_ENABLED", "true") == "true",
-			RTMPHost:    getEnv("LIVE_RTMP_HOST", "localhost:1935"),
-			MediaMTXURL: getEnv("LIVE_MEDIAMTX_URL", "http://mediamtx:8888"),
+			Enabled:        getEnv("LIVE_ENABLED", "true") == "true",
+			RTMPHost:       getEnv("LIVE_RTMP_HOST", "localhost:1935"),
+			MediaMTXURL:    getEnv("LIVE_MEDIAMTX_URL", "http://mediamtx:8888"),
+			MediaMTXAPIURL: getEnv("LIVE_MEDIAMTX_API_URL", "http://mediamtx:9997"),
 		},
 	}
 

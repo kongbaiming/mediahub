@@ -17,10 +17,11 @@ import (
 
 // LiveConfig 直播服务配置
 type LiveConfig struct {
-	Enabled      bool
-	RTMPHost     string // 对外 RTMP 地址（OBS 推流用）
-	MediaMTXURL  string // 内部 HLS 源地址，如 http://mediamtx:8888
-	PublicAPIURL string // 对外 API 基址（生成播放 URL），如 http://192.168.1.100:8081
+	Enabled       bool
+	RTMPHost      string // 对外 RTMP 地址（OBS 推流用）
+	MediaMTXURL   string // 内部 HLS 源地址，如 http://mediamtx:8888
+	MediaMTXAPIURL string // MediaMTX Control API，如 http://mediamtx:9997
+	PublicAPIURL  string // 对外 API 基址（生成播放 URL），如 http://192.168.1.100:8081
 }
 
 // LiveService 直播间业务
@@ -78,6 +79,12 @@ func (s *LiveService) Get(ctx context.Context, id string) (*live.RoomView, error
 	if err != nil {
 		return nil, err
 	}
+	s.syncRoomsWithMediaMTX(ctx, []live.Room{*room})
+	// 同步后重新读取
+	room, err = s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
 	view := s.toView(room)
 	return &view, nil
 }
@@ -94,6 +101,12 @@ func (s *LiveService) List(ctx context.Context, status string, page, pageSize in
 	}
 	offset := (page - 1) * pageSize
 	items, total, err := s.repo.List(ctx, status, pageSize, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	s.syncRoomsWithMediaMTX(ctx, items)
+	// 同步后重新拉列表
+	items, total, err = s.repo.List(ctx, status, pageSize, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -180,10 +193,19 @@ func (s *LiveService) OnUnpublish(ctx context.Context, streamPath string) error 
 	return s.repo.Update(ctx, room)
 }
 
-// HLSPlaylistURL 返回 MediaMTX 上的 HLS 地址
+// HLSPlaylistURL 返回 MediaMTX 上的主 HLS playlist 地址
 func (s *LiveService) HLSPlaylistURL(streamKey string) string {
+	return s.HLSMediaURL(streamKey, "index.m3u8", "")
+}
+
+// HLSMediaURL 返回 MediaMTX 上某个媒体资源的完整 URL（含 query）
+func (s *LiveService) HLSMediaURL(streamKey, file, rawQuery string) string {
 	base := strings.TrimRight(s.config.MediaMTXURL, "/")
-	return fmt.Sprintf("%s/%s/index.m3u8", base, streamKey)
+	u := fmt.Sprintf("%s/%s/%s", base, streamKey, file)
+	if rawQuery != "" {
+		u += "?" + rawQuery
+	}
+	return u
 }
 
 func (s *LiveService) toView(room *live.Room) live.RoomView {

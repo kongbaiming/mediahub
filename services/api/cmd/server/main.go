@@ -248,12 +248,13 @@ func main() {
 
 	// 直播服务
 	liveSvc := service.NewLiveService(liveRepo, service.LiveConfig{
-		Enabled:     cfg.Live.Enabled,
-		RTMPHost:    cfg.Live.RTMPHost,
-		MediaMTXURL: cfg.Live.MediaMTXURL,
+		Enabled:        cfg.Live.Enabled,
+		RTMPHost:       cfg.Live.RTMPHost,
+		MediaMTXURL:    cfg.Live.MediaMTXURL,
+		MediaMTXAPIURL: cfg.Live.MediaMTXAPIURL,
 	})
 	if cfg.Live.Enabled {
-		logger.Info("直播功能已启用", "rtmp", cfg.Live.RTMPHost, "mediamtx", cfg.Live.MediaMTXURL)
+		logger.Info("直播功能已启用", "rtmp", cfg.Live.RTMPHost, "mediamtx", cfg.Live.MediaMTXURL, "mtx_api", cfg.Live.MediaMTXAPIURL)
 	}
 
 	// ---------- 8. Health checkers ----------

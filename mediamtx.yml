@@ -17,26 +17,30 @@ authInternalUsers:
         path:
       - action: playback
         path:
+      - action: api
+        path:
 
 # RTMP 推流入口（OBS / FFmpeg）
 rtmp: yes
 rtmpAddress: :1935
 
 # HLS 输出（播放端拉流）
+# 使用 mpegts 而非 lowLatency：OBS 默认 H.264 含 B 帧，LL-HLS 会报
+# "too many reordered frames" 导致 muxer 崩溃
 hls: yes
 hlsAddress: :8888
 hlsAlwaysRemux: yes
-hlsVariant: lowLatency
+hlsVariant: mpegts
 hlsSegmentCount: 7
-hlsSegmentDuration: 1s
-hlsPartDuration: 200ms
+hlsSegmentDuration: 2s
+
+# Control API（Go API 轮询推流状态；官方镜像无 curl，勿用 runOnReady webhook）
+api: yes
+apiAddress: :9997
 
 # 所有路径默认为推流发布者模式
 pathDefaults:
   source: publisher
-  # 推流开始/结束时通知 API 更新直播间状态
-  runOnReady: curl -sf -X POST "http://api:3000/api/v1/live/hooks/publish?path=$MTX_PATH"
-  runOnNotReady: curl -sf -X POST "http://api:3000/api/v1/live/hooks/unpublish?path=$MTX_PATH"
 
 paths:
   all_others:
