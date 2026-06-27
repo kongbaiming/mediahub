@@ -154,7 +154,7 @@ func isCollectionAlbumDir(folderName string) bool {
 func collectionEpisodeTitle(filePath string) string {
 	base := filepath.Base(filePath)
 	lower := strings.ToLower(base)
-	for _, ext := range []string{".mp4", ".mkv", ".m4v", ".avi", ".mov", ".webm", ".ts"} {
+	for _, ext := range []string{".mp4", ".mkv", ".m4v", ".avi", ".mov", ".webm", ".ts", ".rmvb", ".rm"} {
 		if i := strings.Index(lower, ext); i > 0 {
 			return strings.TrimSpace(base[:i])
 		}

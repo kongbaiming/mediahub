@@ -167,10 +167,11 @@ var mediaExtensions = map[string]bool{
 	".mkv": true, ".mp4": true, ".m4v": true, ".avi": true, ".mov": true,
 	".wmv": true, ".flv": true, ".webm": true, ".ts": true,
 	".m2ts": true, ".iso": true, ".bdmv": true,
+	".rmvb": true, ".rm": true,
 }
 
 // Emby/Jellyfin：「吃面.mp4 5678」等 basename 含 .mp4 但 Ext() 无法识别
-var embeddedVideoExt = regexp.MustCompile(`(?i)\.(mkv|mp4|m4v|avi|mov|wmv|flv|webm|ts|m2ts)(?:[\s.]|$)`)
+var embeddedVideoExt = regexp.MustCompile(`(?i)\.(mkv|mp4|m4v|avi|mov|wmv|flv|webm|ts|m2ts|rmvb|rm)(?:[\s.]|$)`)
 
 // IsMediaFile 是否是视频文件
 func IsMediaFile(path string) bool {

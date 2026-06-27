@@ -19,7 +19,7 @@ var (
 // IsVideoFileName 是否为视频文件名（含扩展名）
 func IsVideoFileName(name string) bool {
 	switch strings.ToLower(filepath.Ext(name)) {
-	case ".mkv", ".mp4", ".m4v", ".avi", ".mov", ".webm", ".ts":
+	case ".mkv", ".mp4", ".m4v", ".avi", ".mov", ".webm", ".ts", ".rmvb", ".rm":
 		return true
 	default:
 		return false

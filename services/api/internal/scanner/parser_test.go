@@ -115,6 +115,8 @@ func TestIsMediaFile(t *testing.T) {
 		{"/volume1/media/Inception.mkv", true},
 		{"/volume1/media/Show.mp4", true},
 		{"/volume1/media/old.avi", true},
+		{"/volume1/media/legacy.rmvb", true},
+		{"/volume1/media/legacy.rm", true},
 		{"/volume1/media/high.ts", true},
 		{"/volume1/media/4k.m2ts", true},
 		{"/volume1/media/notes.txt", false},

@@ -53,6 +53,10 @@ func IsPlayable(path string) (bool, string) {
 	if buf[0] == 0x47 {
 		return true, ""
 	}
+	// RealMedia / RMVB
+	if n >= 4 && string(buf[0:4]) == ".RMF" {
+		return true, ""
+	}
 
 	return false, "不是有效的视频文件，可能仍在下载中或已损坏"
 }

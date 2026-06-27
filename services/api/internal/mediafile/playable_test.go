@@ -28,6 +28,17 @@ func TestIsPlayable(t *testing.T) {
 	if !ok || reason != "" {
 		t.Fatalf("expected valid mkv header, got ok=%v reason=%q", ok, reason)
 	}
+
+	rmvb := filepath.Join(dir, "ok.rmvb")
+	rmHeader := make([]byte, minPlayableBytes)
+	copy(rmHeader, []byte(".RMF"))
+	if err := os.WriteFile(rmvb, rmHeader, 0644); err != nil {
+		t.Fatal(err)
+	}
+	ok, reason = IsPlayable(rmvb)
+	if !ok || reason != "" {
+		t.Fatalf("expected valid rmvb header, got ok=%v reason=%q", ok, reason)
+	}
 }
 
 func TestShouldSkipScan(t *testing.T) {

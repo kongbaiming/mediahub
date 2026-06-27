@@ -613,6 +613,8 @@ func sniffVideoMime(path string) string {
 		return "video/mp2t"
 	case ".avi":
 		return "video/x-msvideo"
+	case ".rmvb", ".rm":
+		return "video/vnd.rn-realvideo"
 	default:
 		return "application/octet-stream"
 	}
