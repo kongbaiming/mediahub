@@ -16,8 +16,8 @@
         :closable="false"
         show-icon
         class="layout-list-tip"
-        title="编排说明"
-        description="在编辑器中拖拽组件并配置数据源，保存后发布到 Web 平台，播放端首页将按行顺序展示内容。"
+        title="模版说明"
+        description="支持榜单行（TOP 排行）、专题行（专辑 + 沉浸式头图）、沉浸式页面模版。可「从模版创建」或在编辑器右侧配置页面模版。"
       />
 
       <el-tabs v-model="activeTab" @tab-change="reload">

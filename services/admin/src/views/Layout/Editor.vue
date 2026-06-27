@@ -170,6 +170,34 @@
 
       <aside class="config-panel">
         <div class="panel-title">属性</div>
+        <div v-if="layout" class="layout-global-bar">
+          <el-form label-position="top" size="small">
+            <el-form-item label="页面模版">
+              <el-select v-model="layoutSchema" class="w-full">
+                <el-option
+                  v-for="s in LAYOUT_SCHEMAS"
+                  :key="s.value"
+                  :label="s.label"
+                  :value="s.value"
+                />
+              </el-select>
+              <div class="field-hint-block mt-8">{{ layoutSchemaHint }}</div>
+            </el-form-item>
+            <el-form-item label="快速套用">
+              <div class="preset-btns">
+                <el-button
+                  v-for="p in LAYOUT_PRESETS"
+                  :key="p.name"
+                  size="small"
+                  @click="applyLayoutPreset(p)"
+                >
+                  {{ p.name }}
+                </el-button>
+              </div>
+            </el-form-item>
+          </el-form>
+          <el-divider v-if="selectedRow" />
+        </div>
         <div v-if="selectedRow" class="config-form">
           <el-alert
             v-if="rowPlayerHint(selectedRow.type)"
@@ -226,8 +254,25 @@
                 <el-radio-button label="default">卡片行</el-radio-button>
                 <el-radio-button label="immersive">沉浸式头图</el-radio-button>
               </el-radio-group>
+            </el-form-item>
+            <el-form-item v-if="selectedRow.type === 'topic'" label="专题专辑">
+              <el-select
+                v-model="selectedRow.source.params!.album_id"
+                filterable
+                clearable
+                placeholder="选择 CMS 专题专辑"
+                :disabled="selectedRow._inherited"
+                @change="onTopicAlbumChange"
+              >
+                <el-option v-for="a in albums" :key="a.id" :label="a.title" :value="a.id" />
+              </el-select>
               <div class="field-hint-block mt-8">
-                数据源选「专题专辑」；沉浸式模式在播放端全宽展示专辑背景
+                需先在媒资库创建专题专辑；沉浸式模式会全宽展示专辑封面
+              </div>
+            </el-form-item>
+            <el-form-item v-if="selectedRow.type === 'ranking'" label="榜单说明">
+              <div class="field-hint-block">
+                播放端显示 TOP 序号列表。数据源推荐「热门榜单」或「库筛选」，并可设置排序字段。
               </div>
             </el-form-item>
             <el-form-item v-if="selectedRow.type === 'ranking'" label="榜单排序">
@@ -321,7 +366,7 @@
             </el-form-item>
 
             <template v-if="!['text-banner', 'divider'].includes(selectedRow.type)">
-            <template v-if="selectedRow.type === 'topic' || selectedRow.source.type === 'album'">
+            <template v-if="selectedRow.source.type === 'album' && selectedRow.type !== 'topic'">
               <el-form-item label="专题专辑">
                 <el-select
                   v-model="selectedRow.source.params!.album_id"
@@ -422,43 +467,7 @@
             </template>
           </el-form>
         </div>
-        <el-empty v-else-if="layout" description="选中一行编辑属性，或在此配置页面模版" :image-size="80">
-          <template #default>
-            <div class="layout-global-form">
-              <el-form label-position="top" size="small">
-                <el-form-item label="页面模版">
-                  <el-select v-model="layoutSchema" class="w-full">
-                    <el-option
-                      v-for="s in LAYOUT_SCHEMAS"
-                      :key="s.value"
-                      :label="s.label"
-                      :value="s.value"
-                    />
-                  </el-select>
-                  <div class="field-hint-block mt-8">
-                    {{ layoutSchemaHint }}
-                  </div>
-                </el-form-item>
-                <el-form-item label="一键套用">
-                  <div class="preset-btns">
-                    <el-button
-                      v-for="p in LAYOUT_PRESETS"
-                      :key="p.name"
-                      size="small"
-                      @click="applyLayoutPreset(p)"
-                    >
-                      {{ p.name }}
-                    </el-button>
-                  </div>
-                  <div class="field-hint-block mt-8">
-                    套用后将替换当前所有行，建议先保存备份
-                  </div>
-                </el-form-item>
-              </el-form>
-            </div>
-          </template>
-        </el-empty>
-        <el-empty v-else description="加载中…" :image-size="80" />
+        <el-empty v-else description="点击左侧一行，配置榜单 / 专题 / 数据源" :image-size="80" />
       </aside>
     </div>
 
@@ -731,6 +740,12 @@ function ensureRowParams(row: LayoutRow) {
 
 function showLimitField(type: string) {
   return !['manual', 'union', 'continue-watching'].includes(type)
+}
+
+function onTopicAlbumChange() {
+  if (!selectedRow.value || selectedRow.value.type !== 'topic') return
+  selectedRow.value.source.type = 'album'
+  syncParamsJson()
 }
 
 function onSourceTypeChange() {
@@ -1263,6 +1278,10 @@ onMounted(async () => {
 
 .mt-8 { margin-top: 8px; }
 .mt-16 { margin-top: 16px; }
+.layout-global-bar {
+  padding-bottom: 4px;
+}
+
 .preset-btns {
   display: flex;
   flex-wrap: wrap;
