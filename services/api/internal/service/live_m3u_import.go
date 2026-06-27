@@ -29,9 +29,11 @@ type PreviewM3UResult struct {
 
 // ImportM3URequest 导入 M3U 列表
 type ImportM3URequest struct {
-	PlaylistURL string   `json:"playlist_url" binding:"required"`
-	Groups      []string `json:"groups"`
-	Replace     bool     `json:"replace"`
+	PlaylistURL          string   `json:"playlist_url" binding:"required"`
+	Groups               []string `json:"groups"`
+	Replace              bool     `json:"replace"`
+	AutoSync             *bool    `json:"auto_sync"`
+	AutoSyncIntervalMins int      `json:"auto_sync_interval_minutes"`
 }
 
 // ImportM3UResult 导入结果
@@ -105,6 +107,10 @@ func (s *LiveService) ImportM3U(ctx context.Context, req ImportM3URequest, userI
 	}
 
 	now := time.Now()
+	var createdBy *uuid.UUID
+	if userID != uuid.Nil {
+		createdBy = &userID
+	}
 	for _, entry := range entries {
 		streamURL, err := validateIPTVSourceURL(entry.StreamURL)
 		if err != nil {
@@ -140,7 +146,7 @@ func (s *LiveService) ImportM3U(ctx context.Context, req ImportM3URequest, userI
 			Status:      live.StatusLive,
 			StreamKey:   key,
 			StartedAt:   &now,
-			CreatedBy:   &userID,
+			CreatedBy:   createdBy,
 		}
 		if err := s.repo.Create(ctx, room); err != nil {
 			result.Failed++
@@ -152,7 +158,29 @@ func (s *LiveService) ImportM3U(ctx context.Context, req ImportM3URequest, userI
 		existsSet[streamURL] = struct{}{}
 		result.Created++
 	}
+	if result.Created > 0 || req.Replace {
+		s.applyImportSyncConfig(ctx, playlistURL, req)
+	}
 	return result, nil
+}
+
+func (s *LiveService) applyImportSyncConfig(ctx context.Context, playlistURL string, req ImportM3URequest) {
+	if s.syncRepo == nil {
+		return
+	}
+	enabled := true
+	if req.AutoSync != nil {
+		enabled = *req.AutoSync
+	}
+	interval := 1440
+	if req.AutoSyncIntervalMins > 0 {
+		interval = live.NormalizeSyncInterval(req.AutoSyncIntervalMins)
+	}
+	_ = s.syncRepo.Upsert(ctx, &live.M3USyncJob{
+		PlaylistURL:     playlistURL,
+		Enabled:         enabled,
+		IntervalMinutes: interval,
+	})
 }
 
 func buildIPTVDescription(groupTitle, playlistURL string) string {

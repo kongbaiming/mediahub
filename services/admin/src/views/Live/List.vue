@@ -32,15 +32,66 @@
       </template>
     </el-alert>
 
-    <div v-if="playlists.length > 0" class="playlist-bar">
-      <span class="playlist-label">M3U 来源：</span>
-      <el-tag v-for="p in playlists" :key="p.url" class="playlist-tag">
-        {{ shortUrl(p.url) }} ({{ p.count }})
-        <el-button link type="primary" size="small" :loading="syncingUrl === p.url" @click.stop="onSyncM3U(p.url)">
-          同步
-        </el-button>
-      </el-tag>
-    </div>
+    <el-card v-if="playlists.length > 0" shadow="never" class="m3u-sync-panel">
+      <template #header>
+        <span>M3U 自动同步</span>
+      </template>
+      <el-table :data="playlists" size="small" stripe>
+        <el-table-column label="列表来源" min-width="200" show-overflow-tooltip>
+          <template #default="{ row }">
+            <el-link :href="row.url" target="_blank" type="primary">{{ shortUrl(row.url) }}</el-link>
+          </template>
+        </el-table-column>
+        <el-table-column label="频道数" width="80" prop="count" />
+        <el-table-column label="自动同步" width="100">
+          <template #default="{ row }">
+            <el-switch
+              :model-value="row.sync_enabled"
+              @change="(v: boolean) => saveSyncConfig(row, { sync_enabled: v })"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column label="同步频率" width="150">
+          <template #default="{ row }">
+            <el-select
+              :model-value="row.interval_minutes"
+              size="small"
+              :disabled="!row.sync_enabled"
+              @change="(v: number) => saveSyncConfig(row, { interval_minutes: v })"
+            >
+              <el-option v-for="o in syncIntervalOptions" :key="o.value" :label="o.label" :value="o.value" />
+            </el-select>
+          </template>
+        </el-table-column>
+        <el-table-column label="上次同步" min-width="180">
+          <template #default="{ row }">
+            <span v-if="row.last_sync_at">{{ formatTime(row.last_sync_at) }}</span>
+            <span v-else class="text-muted">尚未同步</span>
+            <el-tag
+              v-if="row.last_sync_status"
+              size="small"
+              :type="row.last_sync_status === 'ok' ? 'success' : 'danger'"
+              class="sync-status-tag"
+            >
+              {{ row.last_sync_status === 'ok' ? '成功' : '失败' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="100" fixed="right">
+          <template #default="{ row }">
+            <el-button
+              link
+              type="primary"
+              size="small"
+              :loading="syncingUrl === row.url"
+              @click="onSyncM3U(row.url)"
+            >
+              立即同步
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
 
     <div class="filter-bar">
       <el-input
@@ -194,6 +245,14 @@
             替换同源频道（删除此前从该 M3U 地址导入的频道后重新导入）
           </el-checkbox>
         </el-form-item>
+        <el-form-item label="自动同步">
+          <el-checkbox v-model="importForm.auto_sync">导入后启用定时同步</el-checkbox>
+        </el-form-item>
+        <el-form-item v-if="importForm.auto_sync" label="同步频率">
+          <el-select v-model="importForm.auto_sync_interval_minutes" style="width: 100%">
+            <el-option v-for="o in syncIntervalOptions" :key="o.value" :label="o.label" :value="o.value" />
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="importDialog = false">取消</el-button>
@@ -266,14 +325,15 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Link, Upload } from '@element-plus/icons-vue'
-import { liveApi, type LiveRoom, type LiveRoomType, type M3UPreviewResult } from '@/api/live'
+import { liveApi, type LiveRoom, type LiveRoomType, type M3UPreviewResult, type LivePlaylistStat, SYNC_INTERVAL_OPTIONS } from '@/api/live'
 import { copyToClipboard } from '@/utils/clipboard'
 
 const loading = ref(false)
 const creating = ref(false)
 const syncingUrl = ref('')
 const rooms = ref<LiveRoom[]>([])
-const playlists = ref<{ url: string; count: number }[]>([])
+const playlists = ref<LivePlaylistStat[]>([])
+const syncIntervalOptions = SYNC_INTERVAL_OPTIONS
 const groupOptions = ref<M3UPreviewResult['groups']>([])
 const total = ref(0)
 const page = ref(1)
@@ -302,6 +362,8 @@ const importForm = ref({
   playlist_url: 'https://raw.githubusercontent.com/hujingguang/ChinaIPTV/main/cnTV_AutoUpdate.m3u8',
   groups: [] as string[],
   replace: false,
+  auto_sync: true,
+  auto_sync_interval_minutes: 1440,
 })
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -400,6 +462,30 @@ async function onSyncM3U(url: string) {
   }
 }
 
+async function saveSyncConfig(
+  row: LivePlaylistStat,
+  patch: Partial<{ sync_enabled: boolean; interval_minutes: number }>,
+) {
+  const enabled = patch.sync_enabled ?? row.sync_enabled
+  const interval = patch.interval_minutes ?? row.interval_minutes
+  try {
+    await liveApi.updateSyncConfig({
+      playlist_url: row.url,
+      enabled,
+      interval_minutes: interval,
+    })
+    const item = playlists.value.find((p) => p.url === row.url)
+    if (item) {
+      item.sync_enabled = enabled
+      item.interval_minutes = interval
+    }
+    ElMessage.success('同步配置已保存')
+  } catch (e: any) {
+    ElMessage.error(e?.message || '保存失败')
+    await loadMeta()
+  }
+}
+
 function openCreate(type: LiveRoomType) {
   createForm.value = {
     title: '',
@@ -415,6 +501,8 @@ function openImportM3U() {
   preview.value = null
   importForm.value.groups = []
   importForm.value.replace = false
+  importForm.value.auto_sync = true
+  importForm.value.auto_sync_interval_minutes = 1440
   importDialog.value = true
 }
 
@@ -448,6 +536,8 @@ async function onImportM3U() {
       playlist_url: importForm.value.playlist_url.trim(),
       groups: importForm.value.groups.length ? importForm.value.groups : undefined,
       replace: importForm.value.replace,
+      auto_sync: importForm.value.auto_sync,
+      auto_sync_interval_minutes: importForm.value.auto_sync_interval_minutes,
     })
     const r = resp.data
     importDialog.value = false
@@ -566,27 +656,17 @@ onBeforeUnmount(() => {
   }
 }
 
-.playlist-bar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--mh-space-2);
+.m3u-sync-panel {
   margin-bottom: var(--mh-space-4);
-  padding: var(--mh-space-3);
-  background: var(--mh-admin-surface-muted);
   border-radius: var(--mh-radius-sm);
-  font-size: 13px;
 }
 
-.playlist-label {
+.sync-status-tag {
+  margin-left: 8px;
+}
+
+.text-muted {
   color: var(--mh-text-muted, #888);
-  flex-shrink: 0;
-}
-
-.playlist-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
 }
 
 .filter-bar {

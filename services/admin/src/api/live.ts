@@ -45,7 +45,20 @@ export interface M3UImportResult {
 export interface LivePlaylistStat {
   url: string
   count: number
+  sync_enabled: boolean
+  interval_minutes: number
+  last_sync_at?: string
+  last_sync_status?: string
+  last_sync_message?: string
 }
+
+export const SYNC_INTERVAL_OPTIONS = [
+  { value: 60, label: '每 1 小时' },
+  { value: 360, label: '每 6 小时' },
+  { value: 720, label: '每 12 小时' },
+  { value: 1440, label: '每 24 小时' },
+  { value: 10080, label: '每 7 天' },
+] as const
 
 export const liveApi = {
   list: (params?: {
@@ -79,11 +92,22 @@ export const liveApi = {
   previewM3U: (playlist_url: string) =>
     http.post<{ data: M3UPreviewResult }>('/api/v1/live/rooms/m3u/preview', { playlist_url }),
 
-  importM3U: (data: { playlist_url: string; groups?: string[]; replace?: boolean }) =>
-    http.post<{ data: M3UImportResult }>('/api/v1/live/rooms/m3u/import', data),
+  importM3U: (data: {
+    playlist_url: string
+    groups?: string[]
+    replace?: boolean
+    auto_sync?: boolean
+    auto_sync_interval_minutes?: number
+  }) => http.post<{ data: M3UImportResult }>('/api/v1/live/rooms/m3u/import', data),
 
   syncM3U: (playlist_url: string) =>
     http.post<{ data: M3UImportResult }>('/api/v1/live/rooms/m3u/sync', { playlist_url }),
+
+  updateSyncConfig: (data: {
+    playlist_url: string
+    enabled: boolean
+    interval_minutes: number
+  }) => http.put<{ data: LivePlaylistStat }>('/api/v1/live/rooms/m3u/sync-config', data),
 
   update: (id: string, data: {
     title?: string

@@ -26,13 +26,14 @@ type LiveConfig struct {
 
 // LiveService 直播间业务
 type LiveService struct {
-	repo   *repository.LiveRepo
-	config LiveConfig
+	repo     *repository.LiveRepo
+	syncRepo *repository.LiveM3USyncRepo
+	config   LiveConfig
 }
 
 // NewLiveService 构造
-func NewLiveService(repo *repository.LiveRepo, cfg LiveConfig) *LiveService {
-	return &LiveService{repo: repo, config: cfg}
+func NewLiveService(repo *repository.LiveRepo, syncRepo *repository.LiveM3USyncRepo, cfg LiveConfig) *LiveService {
+	return &LiveService{repo: repo, syncRepo: syncRepo, config: cfg}
 }
 
 // CreateRoomRequest 创建直播间
@@ -175,10 +176,29 @@ func (s *LiveService) ListPlaylists(ctx context.Context) ([]repository.LivePlayl
 
 // SyncM3U 重新同步 M3U 列表（替换同源频道）
 func (s *LiveService) SyncM3U(ctx context.Context, playlistURL string, userID uuid.UUID) (*ImportM3UResult, error) {
-	return s.ImportM3U(ctx, ImportM3URequest{
+	playlistURL, err := validateM3UPlaylistURL(playlistURL)
+	if err != nil {
+		return nil, err
+	}
+	result, err := s.ImportM3U(ctx, ImportM3URequest{
 		PlaylistURL: playlistURL,
 		Replace:     true,
 	}, userID)
+	if s.syncRepo != nil {
+		status := live.SyncStatusOK
+		msg := "同步完成"
+		if err != nil {
+			status = live.SyncStatusFailed
+			msg = err.Error()
+		} else {
+			msg = fmt.Sprintf("新增 %d，跳过 %d，失败 %d", result.Created, result.Skipped, result.Failed)
+		}
+		if upsertErr := s.syncRepo.UpdateSyncResult(ctx, playlistURL, status, msg); upsertErr != nil {
+			_ = s.syncRepo.EnsureDefault(ctx, playlistURL)
+			_ = s.syncRepo.UpdateSyncResult(ctx, playlistURL, status, msg)
+		}
+	}
+	return result, err
 }
 
 func (s *LiveService) Update(ctx context.Context, id string, req UpdateRoomRequest) (*live.RoomView, error) {

@@ -263,6 +263,7 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 				liveAdmin.POST("/m3u/preview", h.Live.PreviewM3U)
 				liveAdmin.POST("/m3u/import", h.Live.ImportM3U)
 				liveAdmin.POST("/m3u/sync", h.Live.SyncM3U)
+				liveAdmin.PUT("/m3u/sync-config", h.Live.UpdateM3USyncConfig)
 				liveAdmin.GET("/m3u/playlists", h.Live.ListPlaylists)
 				liveAdmin.PATCH("/:id", h.Live.Update)
 				liveAdmin.DELETE("/:id", h.Live.Delete)

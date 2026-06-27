@@ -105,6 +105,7 @@ func main() {
 	recommendRepo := repository.NewRecommendRepo(database.DB)
 	catalogRepo := repository.NewCatalogRepo(database.DB)
 	liveRepo := repository.NewLiveRepo(database.DB)
+	liveSyncRepo := repository.NewLiveM3USyncRepo(database.DB)
 
 	// 启动 Asynq worker（注册具体的 handler）
 	tmdbClient := scraper.NewTMDBClient(
@@ -247,7 +248,7 @@ func main() {
 	subtitleSvc := subtitle.NewService(mediaRepo)
 
 	// 直播服务
-	liveSvc := service.NewLiveService(liveRepo, service.LiveConfig{
+	liveSvc := service.NewLiveService(liveRepo, liveSyncRepo, service.LiveConfig{
 		Enabled:        cfg.Live.Enabled,
 		RTMPHost:       cfg.Live.RTMPHost,
 		MediaMTXURL:    cfg.Live.MediaMTXURL,
@@ -255,6 +256,7 @@ func main() {
 	})
 	if cfg.Live.Enabled {
 		logger.Info("直播功能已启用", "rtmp", cfg.Live.RTMPHost, "mediamtx", cfg.Live.MediaMTXURL, "mtx_api", cfg.Live.MediaMTXAPIURL)
+		go liveSvc.StartM3USyncWatcher(context.Background())
 	}
 
 	// ---------- 8. Health checkers ----------

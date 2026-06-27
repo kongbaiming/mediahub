@@ -176,14 +176,29 @@ func (h *LiveHandler) ImportM3U(c *gin.Context) {
 	c.JSON(200, gin.H{"data": result})
 }
 
-// ListPlaylists M3U 来源列表（CMS）
+// ListPlaylists M3U 来源及同步配置（CMS）
 func (h *LiveHandler) ListPlaylists(c *gin.Context) {
-	items, err := h.svc.ListPlaylists(c.Request.Context())
+	items, err := h.svc.ListPlaylistsWithSync(c.Request.Context())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 	c.JSON(200, gin.H{"data": items})
+}
+
+// UpdateM3USyncConfig 更新 M3U 自动同步配置（CMS）
+func (h *LiveHandler) UpdateM3USyncConfig(c *gin.Context) {
+	var req service.UpdateM3USyncConfigRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, apperr.Validation(err.Error()))
+		return
+	}
+	item, err := h.svc.UpdateM3USyncConfig(c.Request.Context(), req)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"data": item})
 }
 
 // SyncM3U 重新同步 M3U 列表（CMS）
