@@ -90,7 +90,9 @@ export const liveApi = {
   }) => http.post<{ data: LiveRoom }>('/api/v1/live/rooms', data),
 
   previewM3U: (data: { playlist_url?: string; playlist_content?: string }) =>
-    http.post<{ data: M3UPreviewResult }>('/api/v1/live/rooms/m3u/preview', data),
+    http.post<{ data: M3UPreviewResult }>('/api/v1/live/rooms/m3u/preview', data, {
+      timeout: 120000,
+    }),
 
   importM3U: (data: {
     playlist_url?: string
@@ -99,10 +101,15 @@ export const liveApi = {
     replace?: boolean
     auto_sync?: boolean
     auto_sync_interval_minutes?: number
-  }) => http.post<{ data: M3UImportResult }>('/api/v1/live/rooms/m3u/import', data),
+  }) =>
+    http.post<{ data: M3UImportResult }>('/api/v1/live/rooms/m3u/import', data, {
+      timeout: 600000,
+    }),
 
   syncM3U: (playlist_url: string) =>
-    http.post<{ data: M3UImportResult }>('/api/v1/live/rooms/m3u/sync', { playlist_url }),
+    http.post<{ data: M3UImportResult }>('/api/v1/live/rooms/m3u/sync', { playlist_url }, {
+      timeout: 600000,
+    }),
 
   updateSyncConfig: (data: {
     playlist_url: string

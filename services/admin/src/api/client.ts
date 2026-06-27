@@ -44,6 +44,8 @@ http.interceptors.response.use(
       ElMessage.error(`服务异常：${msg}`)
     } else if (status >= 400) {
       ElMessage.warning(msg || '请求失败')
+    } else if (error.code === 'ECONNABORTED' || msg?.includes('timeout')) {
+      ElMessage.warning('请求超时，任务可能仍在后台执行，请稍后刷新页面查看结果')
     }
 
     return Promise.reject(error)
@@ -155,7 +157,7 @@ export const scannerApi = {
   scan: (root?: string) =>
     http.post<{
       data: { total: number; added: number; skipped: number; failed: number }
-    }>('/api/v1/scanner/scan', root ? { root } : {}),
+    }>('/api/v1/scanner/scan', root ? { root } : {}, { timeout: 600000 }),
 }
 
 export interface Subtitle {
