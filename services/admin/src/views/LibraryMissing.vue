@@ -113,11 +113,28 @@ async function load() {
   loading.value = true
   try {
     const res = await libraryMissingApi.list({ limit: 50, discover_limit: 16 })
-    items.value = res.data || []
+    items.value = (res.data || []).map(normalizeLibraryMissingItem)
   } catch (e: any) {
     ElMessage.error(e?.message || '加载失败')
   } finally {
     loading.value = false
+  }
+}
+
+/** 兼容 API 未升级时的 PascalCase 字段 */
+function normalizeLibraryMissingItem(raw: LibraryMissingItem & Record<string, unknown>): LibraryMissingItem {
+  const r = raw as Record<string, unknown>
+  return {
+    tmdb_id: (raw.tmdb_id ?? r.TMDBID) as number | undefined,
+    title: String(raw.title ?? r.Title ?? ''),
+    poster_url: (raw.poster_url ?? r.PosterURL) as string | undefined,
+    backdrop_url: (raw.backdrop_url ?? r.BackdropURL) as string | undefined,
+    media_type: (raw.media_type ?? r.MediaType) as string | undefined,
+    rating: Number(raw.rating ?? r.Rating ?? 0) || undefined,
+    year: (raw.year ?? r.Year) as number | undefined,
+    overview: String(raw.overview ?? r.Overview ?? ''),
+    genres: (raw.genres ?? r.Genres) as string[] | undefined,
+    external: Boolean(raw.external ?? r.External ?? true),
   }
 }
 
