@@ -1,6 +1,6 @@
 <template>
   <div class="search-page">
-    <header class="topbar mh-topbar">
+    <header class="search-topbar mh-topbar mh-sub-topbar">
       <button class="back-btn" @click="$router.back()">← 返回</button>
       <div class="search-box">
         <input
@@ -95,10 +95,8 @@ onMounted(() => {
   color: var(--mh-text);
 }
 
-.topbar {
-  position: sticky;
-  top: 0;
-  padding: var(--mh-space-4) clamp(var(--mh-space-4), 4vw, var(--mh-space-10));
+.search-topbar {
+  gap: var(--mh-space-3);
 }
 
 .back-btn {
@@ -145,7 +143,7 @@ onMounted(() => {
 }
 
 .results {
-  padding: var(--mh-space-8) clamp(var(--mh-space-4), 4vw, var(--mh-space-10));
+  padding: calc(var(--mh-topbar-height) + var(--mh-space-6)) var(--mh-page-gutter) var(--mh-space-10);
 }
 
 .grid {

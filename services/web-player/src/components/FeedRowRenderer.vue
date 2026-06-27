@@ -154,7 +154,7 @@ function progressPct(item: FeedItem) {
   background-position: center top;
   display: flex;
   align-items: center;
-  padding: 0 clamp(var(--mh-space-6), 6vw, 80px);
+  padding: 0 var(--mh-page-gutter);
 
   &__overlay {
     position: absolute;
@@ -224,7 +224,7 @@ function progressPct(item: FeedItem) {
   align-items: center;
   gap: var(--mh-space-4);
   margin: var(--mh-space-2) 0;
-  padding: 0 clamp(var(--mh-space-4), 4vw, var(--mh-space-6));
+  padding: 0 var(--mh-page-gutter);
 
   &__label {
     font-size: 12px;
@@ -245,7 +245,7 @@ function progressPct(item: FeedItem) {
 
 .feed-text-banner {
   margin: var(--mh-space-2) 0;
-  padding: 0 clamp(var(--mh-space-4), 4vw, var(--mh-space-6));
+  padding: 0 var(--mh-page-gutter);
 
   &__inner {
     padding: var(--mh-space-5) var(--mh-space-6);
@@ -295,7 +295,7 @@ function progressPct(item: FeedItem) {
     justify-content: space-between;
     gap: var(--mh-space-4);
     margin-bottom: var(--mh-space-4);
-    padding: 0 clamp(var(--mh-space-4), 4vw, var(--mh-space-6));
+    padding: 0 var(--mh-page-gutter);
   }
 
   &__titles {
@@ -336,7 +336,7 @@ function progressPct(item: FeedItem) {
     display: flex;
     gap: var(--mh-space-4);
     overflow-x: auto;
-    padding: 0 clamp(var(--mh-space-4), 4vw, var(--mh-space-6)) var(--mh-space-4);
+    padding: 0 var(--mh-page-gutter) var(--mh-space-4);
     scroll-behavior: smooth;
     scrollbar-width: thin;
 
@@ -354,7 +354,7 @@ function progressPct(item: FeedItem) {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: var(--mh-space-4);
-    padding: 0 clamp(var(--mh-space-4), 4vw, var(--mh-space-6));
+    padding: 0 var(--mh-page-gutter);
   }
 }
 

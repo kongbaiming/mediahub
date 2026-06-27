@@ -1,6 +1,6 @@
 <template>
   <div class="live-list-page">
-    <header class="live-topbar mh-topbar">
+    <header class="live-topbar mh-topbar mh-sub-topbar">
       <button class="back-btn" @click="$router.push('/')">← 首页</button>
       <h1 class="page-title">直播</h1>
       <div class="topbar-search">
@@ -285,7 +285,7 @@ onBeforeUnmount(() => {
 }
 
 .filter-bar {
-  padding: var(--mh-space-4) var(--mh-space-6);
+  padding: var(--mh-space-4) var(--mh-page-gutter);
   background: rgba(10, 10, 18, 0.6);
   border-bottom: 1px solid var(--mh-outline);
   display: flex;
@@ -345,16 +345,21 @@ onBeforeUnmount(() => {
   gap: 8px;
   overflow-x: auto;
   flex: 1;
-  padding-bottom: 4px;
+  padding-bottom: 2px;
   scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
 
   &::-webkit-scrollbar {
-    height: 4px;
+    height: 3px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
   }
 
   &::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
   }
 }
 
@@ -406,9 +411,8 @@ onBeforeUnmount(() => {
 }
 
 .content {
-  padding: var(--mh-space-5) var(--mh-space-6) var(--mh-space-8);
-  max-width: 1280px;
-  margin: 0 auto;
+  padding: var(--mh-space-5) var(--mh-page-gutter) var(--mh-space-10);
+  width: 100%;
 }
 
 .empty {

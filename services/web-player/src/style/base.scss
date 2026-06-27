@@ -95,9 +95,26 @@ h1, h2, h3 {
   z-index: 100;
   display: flex;
   align-items: center;
-  padding: 0 clamp(var(--mh-space-4), 4vw, var(--mh-space-10));
+  padding: 0 var(--mh-page-gutter);
   gap: var(--mh-space-6);
   border-bottom: 1px solid var(--mh-outline);
+}
+
+// 固定顶栏下方的页面主体
+.mh-page-body {
+  padding-top: var(--mh-topbar-height);
+  min-height: calc(100vh - var(--mh-topbar-height));
+  box-sizing: border-box;
+}
+
+// 子页顶栏：仅布局扩展，不覆盖 fixed / 背景
+.mh-sub-topbar {
+  gap: var(--mh-space-4);
+}
+
+// 网格内空状态占满整行
+.mh-grid-empty {
+  grid-column: 1 / -1;
 }
 
 // 卡片 elevated

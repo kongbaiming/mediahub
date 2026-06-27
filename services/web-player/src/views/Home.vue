@@ -246,7 +246,7 @@ onMounted(async () => {
 
 .feed-skeleton {
   margin: calc(var(--mh-topbar-height) + var(--mh-space-6)) 0 var(--mh-space-12);
-  padding: 0 clamp(var(--mh-space-4), 4vw, var(--mh-space-10));
+  padding: 0 var(--mh-page-gutter);
 
   &__title {
     font-size: clamp(18px, 2vw, 22px);

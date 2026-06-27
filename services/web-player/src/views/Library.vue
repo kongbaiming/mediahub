@@ -1,11 +1,12 @@
 <template>
   <div class="library-page">
-    <header class="topbar mh-topbar">
+    <header class="library-topbar mh-topbar mh-sub-topbar">
       <button class="back-btn" @click="$router.push('/')">← 首页</button>
       <h1 class="page-title">我的片库</h1>
       <button class="icon-btn" @click="loadAll" title="刷新">↻</button>
     </header>
 
+    <div class="library-body">
     <div class="tabs">
       <button
         v-for="t in tabs"
@@ -47,6 +48,7 @@
         </div>
         <EmptyState
           v-if="!loading && continueItems.length === 0"
+          class="mh-grid-empty"
           icon="▶"
           title="暂无续播"
           description="开始观看后，进度会出现在这里"
@@ -73,6 +75,7 @@
         </div>
         <EmptyState
           v-if="!loading && favoriteItems.length === 0"
+          class="mh-grid-empty"
           icon="★"
           title="暂无收藏"
           description="在详情页点击收藏即可添加"
@@ -100,11 +103,13 @@
         </div>
         <EmptyState
           v-if="!loading && wantItems.length === 0"
+          class="mh-grid-empty"
           icon="+"
           title="暂无想看"
           description="在详情页标记「想看」即可添加"
         />
       </div>
+    </div>
     </div>
   </div>
 </template>
@@ -239,11 +244,8 @@ onMounted(loadAll)
   color: var(--mh-text);
 }
 
-.topbar {
-  display: flex;
-  align-items: center;
-  gap: var(--mh-space-4);
-  padding: var(--mh-space-4) var(--mh-space-6);
+.library-body {
+  padding-top: var(--mh-topbar-height);
 }
 
 .back-btn,
@@ -270,7 +272,7 @@ onMounted(loadAll)
 .tabs {
   display: flex;
   gap: var(--mh-space-2);
-  padding: 0 var(--mh-space-6) var(--mh-space-4);
+  padding: var(--mh-space-4) var(--mh-page-gutter) 0;
   border-bottom: 1px solid var(--mh-outline);
 }
 
@@ -296,7 +298,7 @@ onMounted(loadAll)
 }
 
 .content {
-  padding: var(--mh-space-6);
+  padding: var(--mh-space-6) var(--mh-page-gutter) var(--mh-space-10);
   min-height: 400px;
 }
 

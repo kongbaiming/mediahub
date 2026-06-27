@@ -1,6 +1,6 @@
 <template>
   <div v-loading="loading" class="detail-page">
-    <header class="topbar">
+    <header class="detail-topbar mh-topbar mh-sub-topbar">
       <button class="back-btn" @click="$router.back()">← 返回</button>
       <span class="breadcrumb">
         <span @click="$router.push('/')" class="link">首页</span>
@@ -465,31 +465,19 @@ onMounted(load)
   color: var(--mh-text, #f0f0f5);
 }
 
-.topbar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 60px;
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(20px);
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  padding: 0 40px;
-  gap: 16px;
-}
+.detail-topbar {
+  .back-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--mh-outline);
+    color: var(--mh-text);
+    padding: 8px 14px;
+    border-radius: var(--mh-radius-sm);
+    cursor: pointer;
+    font-size: 14px;
+    transition: background var(--mh-duration) var(--mh-ease);
 
-.back-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: none;
-  color: #fff;
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-
-  &:hover { background: rgba(255, 255, 255, 0.2); }
+    &:hover { background: rgba(255, 255, 255, 0.14); }
+  }
 }
 
 .breadcrumb {
@@ -669,8 +657,8 @@ onMounted(load)
   background-position: center;
   display: flex;
   align-items: flex-end;
-  padding: 0 80px 60px;
-  margin-top: 60px;
+  padding: 0 var(--mh-page-gutter) 60px;
+  margin-top: var(--mh-topbar-height);
 }
 
 .hero-overlay {
@@ -786,9 +774,8 @@ onMounted(load)
 }
 
 .info-section {
-  padding: 60px 80px 80px;
-  max-width: 1400px;
-  margin: 0 auto;
+  padding: var(--mh-space-10) var(--mh-page-gutter) var(--mh-space-12);
+  width: 100%;
 }
 
 .section {

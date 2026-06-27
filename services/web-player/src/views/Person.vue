@@ -1,6 +1,6 @@
 <template>
   <div v-loading="loading" class="person-page">
-    <header class="topbar">
+    <header class="person-topbar mh-topbar mh-sub-topbar">
       <button class="back-btn" @click="$router.back()">← 返回</button>
       <span class="breadcrumb">
         <span class="link" @click="$router.push('/')">首页</span>
@@ -180,31 +180,18 @@ onMounted(load)
   color: var(--mh-text, #f0f0f5);
 }
 
-.topbar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 60px;
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(20px);
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  padding: 0 40px;
-  gap: 16px;
-}
+.person-topbar {
+  .back-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--mh-outline);
+    color: var(--mh-text);
+    padding: 8px 14px;
+    border-radius: var(--mh-radius-sm);
+    cursor: pointer;
+    font-size: 14px;
 
-.back-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: none;
-  color: #fff;
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-
-  &:hover { background: rgba(255, 255, 255, 0.2); }
+    &:hover { background: rgba(255, 255, 255, 0.14); }
+  }
 }
 
 .breadcrumb {
@@ -237,9 +224,8 @@ onMounted(load)
 }
 
 .content {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 84px 40px 80px;
+  width: 100%;
+  padding: calc(var(--mh-topbar-height) + var(--mh-space-6)) var(--mh-page-gutter) var(--mh-space-12);
 }
 
 .profile {

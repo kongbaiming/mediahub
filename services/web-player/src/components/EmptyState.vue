@@ -26,7 +26,8 @@ withDefaults(defineProps<{
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: var(--mh-space-16, 64px) var(--mh-space-6);
+  padding: var(--mh-space-12) var(--mh-page-gutter);
+  min-height: min(420px, 50vh);
   text-align: center;
 }
 

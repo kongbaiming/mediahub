@@ -236,8 +236,6 @@ onBeforeUnmount(() => {
 .player-container {
   position: relative;
   width: 100%;
-  max-width: 1280px;
-  margin: 0 auto;
   aspect-ratio: 16 / 9;
   background: #111;
 }
@@ -275,9 +273,8 @@ onBeforeUnmount(() => {
 }
 
 .room-info {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: var(--mh-space-5);
+  width: 100%;
+  padding: var(--mh-space-5) var(--mh-page-gutter) var(--mh-space-8);
 
   .description {
     color: #ccc;

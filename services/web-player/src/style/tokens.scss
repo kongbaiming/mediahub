@@ -46,6 +46,7 @@
   --mh-duration: 200ms;
 
   --mh-topbar-height: 60px;
+  --mh-page-gutter: clamp(var(--mh-space-4), 4vw, var(--mh-space-10));
   --mh-font-display: 'Syne', 'Noto Sans SC', system-ui, sans-serif;
   --mh-font-body: 'Manrope', 'Noto Sans SC', 'PingFang SC', sans-serif;
 
