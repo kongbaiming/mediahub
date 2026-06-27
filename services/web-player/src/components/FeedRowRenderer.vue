@@ -63,7 +63,7 @@
     <div
       class="feed-row__cards"
       :class="[
-        isGrid ? 'feed-row__cards--grid' : 'feed-row__cards--scroll',
+        isGrid ? 'feed-row__cards--grid' : 'feed-row__cards--wrap',
         `card-style-${row.card_style || defaultCardStyle}`,
       ]"
     >
@@ -332,22 +332,11 @@ function progressPct(item: FeedItem) {
     }
   }
 
-  &__cards--scroll {
-    display: flex;
+  &__cards--wrap {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: var(--mh-space-4);
-    overflow-x: auto;
     padding: 0 var(--mh-page-gutter) var(--mh-space-4);
-    scroll-behavior: smooth;
-    scrollbar-width: thin;
-
-    &::-webkit-scrollbar {
-      height: 6px;
-    }
-
-    &::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.15);
-      border-radius: 3px;
-    }
   }
 
   &__cards--grid {
@@ -361,11 +350,7 @@ function progressPct(item: FeedItem) {
 .feed-card {
   cursor: pointer;
   transition: transform var(--mh-duration) var(--mh-ease-spring);
-
-  .feed-row__cards--scroll & {
-    flex-shrink: 0;
-    width: 200px;
-  }
+  min-width: 0;
 
   &:hover {
     transform: scale(1.04);
@@ -467,8 +452,8 @@ function progressPct(item: FeedItem) {
   aspect-ratio: 16/9;
 }
 
-.card-style-landscape.feed-row__cards--scroll .feed-card {
-  width: 280px;
+.card-style-landscape.feed-row__cards--wrap {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
 }
 
 .card-style-square .feed-card__poster {
@@ -479,11 +464,11 @@ function progressPct(item: FeedItem) {
   aspect-ratio: 21/9;
 }
 
-.card-style-banner.feed-row__cards--scroll .feed-card {
-  width: 360px;
+.card-style-banner.feed-row__cards--wrap {
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
 }
 
-.feed-row--topic .feed-row__cards--scroll .feed-card {
-  width: 300px;
+.feed-row--topic .feed-row__cards--wrap {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
 }
 </style>
