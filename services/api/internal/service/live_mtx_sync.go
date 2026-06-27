@@ -36,6 +36,9 @@ func (s *LiveService) syncRoomsWithMediaMTX(ctx context.Context, rooms []live.Ro
 	now := time.Now()
 	for i := range rooms {
 		room := &rooms[i]
+		if room.IsIPTV() {
+			continue
+		}
 		isOnline := online[room.StreamKey]
 		if !isOnline {
 			// 兼容旧版 API 字段

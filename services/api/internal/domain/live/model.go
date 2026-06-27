@@ -9,13 +9,21 @@ import (
 	"github.com/google/uuid"
 )
 
+// RoomType 直播间类型
+type RoomType string
+
+const (
+	RoomTypePush RoomType = "push" // OBS/RTMP 推流
+	RoomTypeIPTV RoomType = "iptv" // 外部 IPTV/HLS 拉流
+)
+
 // RoomStatus 直播间状态
 type RoomStatus string
 
 const (
-	StatusIdle   RoomStatus = "idle"
-	StatusLive   RoomStatus = "live"
-	StatusEnded  RoomStatus = "ended"
+	StatusIdle  RoomStatus = "idle"
+	StatusLive  RoomStatus = "live"
+	StatusEnded RoomStatus = "ended"
 )
 
 // Room 直播间
@@ -24,6 +32,8 @@ type Room struct {
 	Title       string     `gorm:"type:varchar(200);not null" json:"title"`
 	Description string     `gorm:"type:text" json:"description,omitempty"`
 	CoverURL    string     `gorm:"type:text" json:"cover_url,omitempty"`
+	RoomType    RoomType   `gorm:"type:varchar(20);not null;default:'push';index" json:"room_type"`
+	SourceURL   string     `gorm:"type:text" json:"source_url,omitempty"`
 	Status      RoomStatus `gorm:"type:varchar(20);not null;default:'idle';index" json:"status"`
 	StreamKey   string     `gorm:"type:varchar(64);not null;uniqueIndex" json:"stream_key"`
 	ViewerCount int        `gorm:"default:0" json:"viewer_count"`
@@ -31,6 +41,8 @@ type Room struct {
 	EndedAt     *time.Time `json:"ended_at,omitempty"`
 	CreatedBy   *uuid.UUID `gorm:"type:uuid" json:"created_by,omitempty"`
 }
+
+func (r Room) IsIPTV() bool { return r.RoomType == RoomTypeIPTV }
 
 func (Room) TableName() string { return "live_rooms" }
 

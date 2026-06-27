@@ -1,10 +1,14 @@
 import { http } from './client'
 
+export type LiveRoomType = 'push' | 'iptv'
+
 export interface LiveRoom {
   id: string
   title: string
   description?: string
   cover_url?: string
+  room_type: LiveRoomType
+  source_url?: string
   status: 'idle' | 'live' | 'ended'
   stream_key: string
   viewer_count: number
@@ -27,11 +31,20 @@ export const liveApi = {
 
   get: (id: string) => http.get<{ data: LiveRoom }>(`/api/v1/live/rooms/${id}`),
 
-  create: (data: { title: string; description?: string; cover_url?: string }) =>
-    http.post<{ data: LiveRoom }>('/api/v1/live/rooms', data),
+  create: (data: {
+    title: string
+    description?: string
+    cover_url?: string
+    room_type?: LiveRoomType
+    source_url?: string
+  }) => http.post<{ data: LiveRoom }>('/api/v1/live/rooms', data),
 
-  update: (id: string, data: { title?: string; description?: string; cover_url?: string }) =>
-    http.patch<{ data: LiveRoom }>(`/api/v1/live/rooms/${id}`, data),
+  update: (id: string, data: {
+    title?: string
+    description?: string
+    cover_url?: string
+    source_url?: string
+  }) => http.patch<{ data: LiveRoom }>(`/api/v1/live/rooms/${id}`, data),
 
   delete: (id: string) => http.delete<{ status: string }>(`/api/v1/live/rooms/${id}`),
 

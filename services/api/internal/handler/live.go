@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/mediahub/api/internal/apperr"
+	"github.com/mediahub/api/internal/domain/live"
 	"github.com/mediahub/api/internal/middleware"
 	"github.com/mediahub/api/internal/service"
 
@@ -153,11 +154,55 @@ func (h *LiveHandler) ProxySegment(c *gin.Context) {
 	h.proxyMedia(c, c.Param("file"))
 }
 
+// ProxyUpstream 反代 IPTV 上游资源（子 playlist / 切片）
+func (h *LiveHandler) ProxyUpstream(c *gin.Context) {
+	id := c.Param("id")
+	rawURL := c.Query("u")
+	if rawURL == "" {
+		c.JSON(400, gin.H{"error": "missing_url", "message": "缺少上游地址"})
+		return
+	}
+	targetURL, err := url.QueryUnescape(rawURL)
+	if err != nil || targetURL == "" {
+		c.JSON(400, gin.H{"error": "invalid_url", "message": "上游地址无效"})
+		return
+	}
+
+	room, err := h.svc.GetRoomRaw(c.Request.Context(), id)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	if !room.IsIPTV() {
+		c.JSON(404, gin.H{"error": "not_iptv", "message": "非 IPTV 直播间"})
+		return
+	}
+
+	h.fetchAndProxyURL(c, room, targetURL)
+}
+
 func (h *LiveHandler) proxyMedia(c *gin.Context, file string) {
 	id := c.Param("id")
 	room, err := h.svc.GetRoomRaw(c.Request.Context(), id)
 	if err != nil {
 		respondError(c, err)
+		return
+	}
+
+	if room.IsIPTV() {
+		if file != "index.m3u8" {
+			c.JSON(404, gin.H{"error": "not_found", "message": "资源不存在"})
+			return
+		}
+		if room.Status == live.StatusEnded {
+			c.JSON(503, gin.H{"error": "stream_ended", "message": "直播已结束"})
+			return
+		}
+		if room.SourceURL == "" {
+			c.JSON(503, gin.H{"error": "no_source", "message": "未配置 IPTV 源地址"})
+			return
+		}
+		h.fetchAndProxyURL(c, room, room.SourceURL)
 		return
 	}
 
@@ -204,7 +249,6 @@ func (h *LiveHandler) proxyMedia(c *gin.Context, file string) {
 		return
 	}
 
-	fileName := strings.SplitN(file, "?", 2)[0]
 	if strings.HasSuffix(fileName, ".m3u8") {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
@@ -226,6 +270,75 @@ func (h *LiveHandler) proxyMedia(c *gin.Context, file string) {
 		} else {
 			c.Header("Content-Type", "video/mp2t")
 		}
+	}
+	c.Header("Cache-Control", "no-cache")
+	c.Status(resp.StatusCode)
+	io.Copy(c.Writer, resp.Body)
+}
+
+func (h *LiveHandler) fetchAndProxyURL(c *gin.Context, room *live.Room, targetURL string) {
+	parsed, err := url.Parse(targetURL)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		c.JSON(400, gin.H{"error": "invalid_url", "message": "上游地址无效"})
+		return
+	}
+	if !service.IsSafePublicURL(parsed) {
+		c.JSON(403, gin.H{"error": "forbidden", "message": "不允许访问该地址"})
+		return
+	}
+
+	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, targetURL, nil)
+	if err != nil {
+		c.JSON(502, gin.H{"error": "upstream_error", "message": "构建上游请求失败"})
+		return
+	}
+	req.Header.Set("User-Agent", "MediaHub-Live-Proxy/1.0")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		c.JSON(502, gin.H{"error": "upstream_error", "message": "无法连接 IPTV 源"})
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
+		body, _ := io.ReadAll(resp.Body)
+		c.JSON(resp.StatusCode, gin.H{
+			"error":   "upstream_error",
+			"message": "IPTV 源返回错误",
+			"detail":  string(body),
+		})
+		return
+	}
+
+	pathLower := strings.ToLower(parsed.Path)
+	ct := resp.Header.Get("Content-Type")
+	isPlaylist := strings.HasSuffix(pathLower, ".m3u8") ||
+		strings.Contains(strings.ToLower(ct), "mpegurl") ||
+		strings.Contains(strings.ToLower(ct), "m3u8")
+
+	if isPlaylist {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			c.JSON(502, gin.H{"error": "upstream_error", "message": "读取 playlist 失败"})
+			return
+		}
+		content, err := service.RewriteIPTVM3U8(string(body), room.ID.String(), targetURL)
+		if err != nil {
+			c.JSON(502, gin.H{"error": "upstream_error", "message": "解析 playlist 失败"})
+			return
+		}
+		c.Header("Content-Type", "application/vnd.apple.mpegurl")
+		c.Header("Cache-Control", "no-cache, no-store")
+		c.String(200, content)
+		return
+	}
+
+	if ct := resp.Header.Get("Content-Type"); ct != "" {
+		c.Header("Content-Type", ct)
+	} else if strings.HasSuffix(pathLower, ".m4s") || strings.HasSuffix(pathLower, ".mp4") {
+		c.Header("Content-Type", "video/iso.segment")
+	} else if strings.HasSuffix(pathLower, ".ts") {
+		c.Header("Content-Type", "video/mp2t")
 	}
 	c.Header("Cache-Control", "no-cache")
 	c.Status(resp.StatusCode)

@@ -250,6 +250,7 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 			v1.GET("/live/rooms", h.Live.List)
 			v1.GET("/live/rooms/:id", h.Live.Get)
 			v1.GET("/live/rooms/:id/playlist.m3u8", h.Live.ProxyPlaylist)
+			v1.GET("/live/rooms/:id/upstream", h.Live.ProxyUpstream)
 			v1.GET("/live/rooms/:id/:file", h.Live.ProxySegment)
 			v1.POST("/live/hooks/publish", h.Live.PublishHook)
 			v1.POST("/live/hooks/unpublish", h.Live.UnpublishHook)

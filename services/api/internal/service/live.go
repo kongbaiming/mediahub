@@ -40,6 +40,8 @@ type CreateRoomRequest struct {
 	Title       string `json:"title" binding:"required,min=1,max=200"`
 	Description string `json:"description"`
 	CoverURL    string `json:"cover_url"`
+	RoomType    string `json:"room_type"`  // push | iptv，默认 push
+	SourceURL   string `json:"source_url"` // IPTV 拉流地址（m3u8）
 }
 
 // UpdateRoomRequest 更新直播间
@@ -47,6 +49,7 @@ type UpdateRoomRequest struct {
 	Title       *string `json:"title"`
 	Description *string `json:"description"`
 	CoverURL    *string `json:"cover_url"`
+	SourceURL   *string `json:"source_url"`
 }
 
 func (s *LiveService) Enabled() bool { return s.config.Enabled }
@@ -55,18 +58,40 @@ func (s *LiveService) Create(ctx context.Context, req CreateRoomRequest, userID 
 	if !s.config.Enabled {
 		return nil, apperr.Validation("直播功能未启用")
 	}
+	roomType := live.RoomType(strings.TrimSpace(req.RoomType))
+	if roomType == "" {
+		roomType = live.RoomTypePush
+	}
+	if roomType != live.RoomTypePush && roomType != live.RoomTypeIPTV {
+		return nil, apperr.Validation("无效的直播间类型")
+	}
+
 	key, err := generateStreamKey()
 	if err != nil {
 		return nil, apperr.Wrap(err, apperr.CodeInternal, "生成推流密钥失败")
 	}
+
+	now := time.Now()
 	room := &live.Room{
 		Title:       strings.TrimSpace(req.Title),
 		Description: strings.TrimSpace(req.Description),
 		CoverURL:    strings.TrimSpace(req.CoverURL),
+		RoomType:    roomType,
 		Status:      live.StatusIdle,
 		StreamKey:   key,
 		CreatedBy:   &userID,
 	}
+
+	if roomType == live.RoomTypeIPTV {
+		sourceURL, err := validateIPTVSourceURL(req.SourceURL)
+		if err != nil {
+			return nil, err
+		}
+		room.SourceURL = sourceURL
+		room.Status = live.StatusLive
+		room.StartedAt = &now
+	}
+
 	if err := s.repo.Create(ctx, room); err != nil {
 		return nil, err
 	}
@@ -80,6 +105,7 @@ func (s *LiveService) Get(ctx context.Context, id string) (*live.RoomView, error
 		return nil, err
 	}
 	s.syncRoomsWithMediaMTX(ctx, []live.Room{*room})
+	s.syncIPTVRooms(ctx, []live.Room{*room})
 	// 同步后重新读取
 	room, err = s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -105,6 +131,7 @@ func (s *LiveService) List(ctx context.Context, status string, page, pageSize in
 		return nil, 0, err
 	}
 	s.syncRoomsWithMediaMTX(ctx, items)
+	s.syncIPTVRooms(ctx, items)
 	// 同步后重新拉列表
 	items, total, err = s.repo.List(ctx, status, pageSize, offset)
 	if err != nil {
@@ -130,6 +157,13 @@ func (s *LiveService) Update(ctx context.Context, id string, req UpdateRoomReque
 	}
 	if req.CoverURL != nil {
 		room.CoverURL = strings.TrimSpace(*req.CoverURL)
+	}
+	if req.SourceURL != nil && room.IsIPTV() {
+		sourceURL, err := validateIPTVSourceURL(*req.SourceURL)
+		if err != nil {
+			return nil, err
+		}
+		room.SourceURL = sourceURL
 	}
 	if err := s.repo.Update(ctx, room); err != nil {
 		return nil, err
@@ -167,6 +201,9 @@ func (s *LiveService) OnPublish(ctx context.Context, streamPath string) error {
 	if err != nil {
 		return err
 	}
+	if room.IsIPTV() {
+		return nil
+	}
 	now := time.Now()
 	room.Status = live.StatusLive
 	room.StartedAt = &now
@@ -183,6 +220,9 @@ func (s *LiveService) OnUnpublish(ctx context.Context, streamPath string) error 
 	room, err := s.repo.GetByStreamKey(ctx, key)
 	if err != nil {
 		return err
+	}
+	if room.IsIPTV() {
+		return nil
 	}
 	if room.Status != live.StatusLive {
 		return nil
@@ -210,6 +250,10 @@ func (s *LiveService) HLSMediaURL(streamKey, file, rawQuery string) string {
 
 func (s *LiveService) toView(room *live.Room) live.RoomView {
 	view := live.RoomView{Room: *room}
+	if room.IsIPTV() {
+		view.PlayURL = fmt.Sprintf("/api/v1/live/rooms/%s/playlist.m3u8", room.ID)
+		return view
+	}
 	view.StreamPath = room.StreamKey
 	if s.config.RTMPHost != "" {
 		view.RTMPURL = fmt.Sprintf("rtmp://%s/%s", strings.TrimPrefix(s.config.RTMPHost, "rtmp://"), room.StreamKey)

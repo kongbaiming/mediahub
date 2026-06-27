@@ -22,7 +22,9 @@
         >
           <div class="room-cover" :style="coverStyle(room)">
             <span v-if="room.status === 'live'" class="live-badge">LIVE</span>
-            <span v-else-if="room.status === 'idle'" class="idle-badge">待开播</span>
+            <span v-else-if="room.status === 'idle'" class="idle-badge">
+              {{ room.room_type === 'iptv' ? 'IPTV' : '待开播' }}
+            </span>
           </div>
           <div class="room-info">
             <h3>{{ room.title }}</h3>

@@ -27,7 +27,9 @@
         <span v-if="room.status === 'live' && room.started_at">
           开播时间：{{ formatTime(room.started_at) }}
         </span>
-        <span v-else-if="room.status === 'idle'">等待主播推流中…</span>
+        <span v-else-if="room.status === 'idle'">
+          {{ room.room_type === 'iptv' ? 'IPTV 源暂不可用…' : '等待主播推流中…' }}
+        </span>
         <span v-else-if="room.status === 'ended'">直播已结束</span>
       </div>
     </div>
@@ -92,7 +94,8 @@ function attachHls(playlistUrl: string) {
     instance.on(Hls.Events.ERROR, (_e, data) => {
       if (data.fatal) {
         if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-          waitMessage.value = '等待推流中…'
+          const isIPTV = room.value?.room_type === 'iptv'
+          waitMessage.value = isIPTV ? 'IPTV 源连接中断，正在重试…' : '等待推流中…'
           waiting.value = true
           instance.startLoad()
         } else {
@@ -120,9 +123,10 @@ async function startPlay() {
 
   const id = route.params.id as string
   const playlistUrl = liveApi.playlistUrl(id)
+  const isIPTV = room.value?.room_type === 'iptv'
 
-  // 轮询直到 playlist 可用（OBS 推流后自动开始播放）
-  for (let i = 0; i < 600; i++) {
+  const maxAttempts = isIPTV ? 30 : 600
+  for (let i = 0; i < maxAttempts; i++) {
     try {
       await refreshStatus()
       const resp = await fetch(playlistUrl)
@@ -131,7 +135,9 @@ async function startPlay() {
         return
       }
       const data = await resp.json().catch(() => null)
-      if (data?.error === 'not_streaming' || data?.message?.includes('推流')) {
+      if (isIPTV) {
+        waitMessage.value = data?.message || '正在连接 IPTV 源…'
+      } else if (data?.error === 'not_streaming' || data?.message?.includes('推流')) {
         waitMessage.value = '等待主播推流中…（请确认 OBS 已点击「开始直播」）'
       } else {
         waitMessage.value = room.value?.status === 'live'
@@ -139,13 +145,15 @@ async function startPlay() {
           : '等待主播开始推流…'
       }
     } catch {
-      waitMessage.value = '正在连接直播流…'
+      waitMessage.value = isIPTV ? '正在连接 IPTV 源…' : '正在连接直播流…'
     }
-    await new Promise((r) => setTimeout(r, 2000))
+    await new Promise((r) => setTimeout(r, isIPTV ? 1000 : 2000))
   }
 
   waiting.value = false
-  error.value = '暂无直播信号。请确认 OBS 正在推流，且 Stream Key 与 CMS 一致'
+  error.value = isIPTV
+    ? '无法连接 IPTV 源，请检查 CMS 中配置的流地址是否有效'
+    : '暂无直播信号。请确认 OBS 正在推流，且 Stream Key 与 CMS 一致'
 }
 
 async function refreshStatus() {

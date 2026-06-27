@@ -482,6 +482,8 @@ export interface LiveRoom {
   title: string
   description?: string
   cover_url?: string
+  room_type?: 'push' | 'iptv'
+  source_url?: string
   status: 'idle' | 'live' | 'ended'
   stream_key: string
   viewer_count: number
