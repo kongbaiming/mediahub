@@ -22,6 +22,7 @@ type Config struct {
 	Database DatabaseConfig
 	Redis    RedisConfig
 	TMDB     TMDBConfig
+	OpenSubtitles OpenSubtitlesConfig
 	Media    MediaConfig
 	Scraper  ScraperConfig
 	Transcode TranscodeConfig
@@ -58,6 +59,16 @@ type TMDBConfig struct {
 	BaseURL   string
 	ImageBase string
 	Timeout   int // 秒
+}
+
+type OpenSubtitlesConfig struct {
+	APIKey     string
+	Username   string
+	Password   string
+	UserAgent  string
+	RESTBase   string
+	XMLRPCBase string
+	Timeout    int // 秒
 }
 
 type MediaConfig struct {
@@ -117,6 +128,15 @@ func Load() (*Config, error) {
 			BaseURL:   getEnv("TMDB_BASE_URL", "https://api.themoviedb.org/3"),
 			ImageBase: getEnv("TMDB_IMAGE_BASE_URL", "https://image.tmdb.org/t/p"),
 			Timeout:   getEnvInt("TMDB_TIMEOUT", 45),
+		},
+		OpenSubtitles: OpenSubtitlesConfig{
+			APIKey:     getEnv("OPENSUBTITLES_API_KEY", ""),
+			Username:   getEnv("OPENSUBTITLES_USERNAME", ""),
+			Password:   getEnv("OPENSUBTITLES_PASSWORD", ""),
+			UserAgent:  getEnv("OPENSUBTITLES_USER_AGENT", "MediaHub v0.5"),
+			RESTBase:   getEnv("OPENSUBTITLES_REST_BASE", "https://api.opensubtitles.com/api/v1"),
+			XMLRPCBase: getEnv("OPENSUBTITLES_XMLRPC_BASE", "https://api.opensubtitles.org/xml-rpc"),
+			Timeout:    getEnvInt("OPENSUBTITLES_TIMEOUT", 20),
 		},
 		Media: MediaConfig{
 			Root:         getEnv("MEDIA_ROOT", "/media"),

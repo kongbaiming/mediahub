@@ -10,6 +10,7 @@ import (
 	"github.com/mediahub/api/internal/apperr"
 	"github.com/mediahub/api/internal/domain/common"
 	"github.com/mediahub/api/internal/domain/media"
+	"github.com/mediahub/api/internal/opensubtitles"
 	"github.com/mediahub/api/internal/repository"
 	"github.com/mediahub/api/internal/scanner"
 	"github.com/mediahub/api/internal/scraper"
@@ -33,11 +34,12 @@ type ScrapeCandidate struct {
 type ScrapeMatchService struct {
 	media   *repository.MediaRepo
 	tmdb    *scraper.TMDBClient
+	osIdent *opensubtitles.Client
 	catalog *CatalogService
 }
 
-func NewScrapeMatchService(media *repository.MediaRepo, tmdb *scraper.TMDBClient, catalog *CatalogService) *ScrapeMatchService {
-	return &ScrapeMatchService{media: media, tmdb: tmdb, catalog: catalog}
+func NewScrapeMatchService(media *repository.MediaRepo, tmdb *scraper.TMDBClient, osIdent *opensubtitles.Client, catalog *CatalogService) *ScrapeMatchService {
+	return &ScrapeMatchService{media: media, tmdb: tmdb, osIdent: osIdent, catalog: catalog}
 }
 
 // ListCandidates 列出 TMDB 搜索候选（内嵌元数据 + 路径 + 时长消歧）
@@ -87,6 +89,22 @@ func (s *ScrapeMatchService) ListCandidates(ctx context.Context, mediaID string)
 			}
 			for _, e := range found.TVResults {
 				add(s.candidateFromTVEntry(ctx, e, 95))
+			}
+		}
+	}
+
+	if s.osIdent != nil && s.osIdent.Enabled() {
+		if match, err := s.osIdent.IdentifyFile(ctx, probePath); err == nil && match != nil && match.IMDBID != "" {
+			if found, err := s.tmdb.FindByIMDBID(ctx, match.IMDBID); err == nil && found != nil {
+				preferTV := m.IsTV() || match.IsTV
+				if preferTV {
+					for _, e := range found.TVResults {
+						add(s.candidateFromTVEntry(ctx, e, 98))
+					}
+				}
+				for _, e := range found.MovieResults {
+					add(s.candidateFromMovieEntry(ctx, e, durationSec, 98))
+				}
 			}
 		}
 	}

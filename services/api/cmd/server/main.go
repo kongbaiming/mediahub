@@ -25,6 +25,7 @@ import (
 	"github.com/mediahub/api/internal/repository"
 	"github.com/mediahub/api/internal/scanner"
 	"github.com/mediahub/api/internal/scraper"
+	"github.com/mediahub/api/internal/opensubtitles"
 	"github.com/mediahub/api/internal/subtitle"
 	"github.com/mediahub/api/internal/transcoder"
 	"github.com/mediahub/api/internal/service"
@@ -115,9 +116,23 @@ func main() {
 		cfg.TMDB.Timeout,
 		cfg.TMDB.ImageBase,
 	)
+	osClient := opensubtitles.New(opensubtitles.Config{
+		APIKey:     cfg.OpenSubtitles.APIKey,
+		Username:   cfg.OpenSubtitles.Username,
+		Password:   cfg.OpenSubtitles.Password,
+		UserAgent:  cfg.OpenSubtitles.UserAgent,
+		RESTBase:   cfg.OpenSubtitles.RESTBase,
+		XMLRPCBase: cfg.OpenSubtitles.XMLRPCBase,
+		TimeoutSec: cfg.OpenSubtitles.Timeout,
+	})
+	if osClient.Enabled() {
+		logger.Info("OpenSubtitles OSHash 识别已启用")
+	} else {
+		logger.Warn("OpenSubtitles 未配置（OPENSUBTITLES_API_KEY），刮削将跳过 OSHash 识片")
+	}
 	trans := transcoder.NewTranscoder("ffmpeg", "qsv")
 	catalogSvc := service.NewCatalogService(catalogRepo, mediaRepo, tmdbClient)
-	handlers := worker.NewHandlers(tmdbClient, trans, mediaRepo, q, "/data/thumbnails", catalogSvc)
+	handlers := worker.NewHandlers(tmdbClient, osClient, trans, mediaRepo, q, "/data/thumbnails", catalogSvc)
 	mux := asynq.NewServeMux()
 	handlers.Register(mux)
 	logger.Info("Asynq worker 已注册", "handlers", []string{"scrape", "thumb", "scan"})
@@ -142,7 +157,7 @@ func main() {
 	}
 
 	mediaSvc := service.NewMediaService(mediaRepo, q)
-	scrapeMatchSvc := service.NewScrapeMatchService(mediaRepo, tmdbClient, catalogSvc)
+	scrapeMatchSvc := service.NewScrapeMatchService(mediaRepo, tmdbClient, osClient, catalogSvc)
 	layoutSvc := service.NewLayoutService(layoutRepo)
 	historySvc := service.NewHistoryService(historyRepo, userRepo)
 	librarySvc := service.NewLibraryService(historySvc, mediaRepo)

@@ -10,6 +10,8 @@ import (
 
 	"github.com/mediahub/api/internal/domain/common"
 	"github.com/mediahub/api/internal/domain/media"
+	"github.com/mediahub/api/internal/mediafile"
+	"github.com/mediahub/api/internal/opensubtitles"
 	"github.com/mediahub/api/internal/queue"
 	"github.com/mediahub/api/internal/repository"
 	"github.com/mediahub/api/internal/scanner"
@@ -29,6 +31,7 @@ type CatalogEnricher interface {
 // Handlers 聚合所有任务处理器
 type Handlers struct {
 	tmdb            *scraper.TMDBClient
+	osIdent         *opensubtitles.Client
 	transcoder      *transcoder.Transcoder
 	mediaRepo       *repository.MediaRepo
 	queue           *queue.Queue
@@ -53,6 +56,7 @@ func (h *Handlers) invalidateFeedAfterScrape(ctx context.Context) {
 // NewHandlers 构造
 func NewHandlers(
 	tmdb *scraper.TMDBClient,
+	osIdent *opensubtitles.Client,
 	t *transcoder.Transcoder,
 	repo *repository.MediaRepo,
 	q *queue.Queue,
@@ -61,6 +65,7 @@ func NewHandlers(
 ) *Handlers {
 	return &Handlers{
 		tmdb:       tmdb,
+		osIdent:    osIdent,
 		transcoder: t,
 		mediaRepo:  repo,
 		queue:      q,
@@ -131,6 +136,16 @@ func (h *Handlers) HandleScrape(ctx context.Context, t *asynq.Task) error {
 	if emb.IMDBID != "" {
 		if info, imdbErr := h.scrapeByIMDB(ctx, emb.IMDBID, m.IsTV()); imdbErr == nil {
 			tmdbInfo = info
+		}
+	}
+	if tmdbInfo == nil {
+		if match, osErr := h.identifyByOSHash(ctx, probePath); osErr == nil && match != nil {
+			preferTV := m.IsTV() || match.IsTV
+			if info, imdbErr := h.scrapeByIMDB(ctx, match.IMDBID, preferTV); imdbErr == nil {
+				tmdbInfo = info
+				logger.Info("OpenSubtitles OSHash 识别成功",
+					"media_id", mid, "imdb", match.IMDBID, "hash", match.Hash, "title", match.Title)
+			}
 		}
 	}
 	if tmdbInfo == nil && manualTitle && m.TMDBID != nil && *m.TMDBID > 0 {
@@ -302,6 +317,24 @@ func (h *Handlers) probePathForMedia(ctx context.Context, mediaID string, m *med
 		}
 	}
 	return probePath
+}
+
+func (h *Handlers) identifyByOSHash(ctx context.Context, probePath string) (*opensubtitles.Match, error) {
+	if h.osIdent == nil || !h.osIdent.Enabled() {
+		return nil, nil
+	}
+	if ok, _ := mediafile.IsPlayable(probePath); !ok {
+		return nil, nil
+	}
+	match, err := h.osIdent.IdentifyFile(ctx, probePath)
+	if err != nil {
+		logger.Debug("OpenSubtitles 识别跳过", "path", probePath, "err", err)
+		return nil, err
+	}
+	if match == nil || match.IMDBID == "" {
+		return nil, nil
+	}
+	return match, nil
 }
 
 func (h *Handlers) scrapeByIMDB(ctx context.Context, imdbID string, preferTV bool) (*scraperResult, error) {
