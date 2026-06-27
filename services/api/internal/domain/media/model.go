@@ -30,6 +30,11 @@ type Media struct {
 	TMDBID  *int    `gorm:"column:tmdb_id;uniqueIndex:idx_media_tmdb_unique,priority:2" json:"tmdb_id,omitempty"`
 	DoubanID *string `gorm:"type:varchar(50);uniqueIndex:idx_media_douban_unique,priority:2" json:"douban_id,omitempty"`
 
+	// 同系列（来自 TMDB Collection）
+	CollectionID        *int   `gorm:"column:collection_id;index" json:"collection_id,omitempty"`
+	CollectionName      string `gorm:"type:varchar(500)" json:"collection_name,omitempty"`
+	CollectionPosterURL string `gorm:"type:text" json:"collection_poster_url,omitempty"`
+
 	// 标签（Postgres text[]）
 	Genres StringArray `gorm:"type:text[];default:'{}'" json:"genres"`
 	Tags   StringArray `gorm:"type:text[];default:'{}'" json:"tags"`

@@ -149,6 +149,7 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 		v1.GET("/persons/by-tmdb/:tmdb_id", h.Catalog.GetPersonByTMDB)
 		v1.GET("/persons/:id", h.Catalog.GetPerson)
 		v1.GET("/persons/:id/works", h.Catalog.PersonWorks)
+		v1.GET("/works/:id/collection", h.Catalog.Collection)
 		v1.GET("/categories", h.Catalog.ListCategories)
 		v1.GET("/categories/:slug/works", h.Catalog.CategoryWorks)
 		v1.GET("/tags/:slug/works", h.Catalog.TagWorks)

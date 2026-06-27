@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -222,6 +223,8 @@ type TMDBMediaDetailDTO struct {
 	Runtime      int                 `json:"runtime,omitempty"`
 	Genres       []string            `json:"genres"`
 	Credits      []TMDBCastCreditDTO `json:"credits,omitempty"`
+	// 同系列
+	Collection *CollectionInfo `json:"collection,omitempty"`
 }
 
 func (s *CatalogService) EnsurePersonByTMDB(ctx context.Context, tmdbPersonID int) (*catalog.Person, error) {
@@ -278,6 +281,24 @@ func (s *CatalogService) TMDBMediaDetail(ctx context.Context, mediaType string, 
 		}
 		if cr, err := s.tmdb.GetMovieCredits(ctx, tmdbID); err == nil && cr != nil {
 			out.Credits = s.tmdbCastCredits(ctx, cr.Cast)
+		}
+		// 同系列
+		if m.BelongsToCollection != nil {
+			out.Collection = &CollectionInfo{
+				ID:   m.BelongsToCollection.ID,
+				Name: m.BelongsToCollection.Name,
+			}
+			if col, err := s.tmdb.GetCollection(ctx, m.BelongsToCollection.ID); err == nil && col != nil {
+				out.Collection.PosterURL = s.tmdb.PosterURL(col.PosterPath, "w500")
+				for _, p := range col.Parts {
+					out.Collection.Parts = append(out.Collection.Parts, CollectionPart{
+						TMDBID:    p.ID,
+						Title:     p.Title,
+						PosterURL: s.tmdb.PosterURL(p.PosterPath, "w500"),
+						Rating:    p.VoteAverage,
+					})
+				}
+			}
 		}
 	case "tvshow", "tv":
 		out.Type = common.MediaTypeTVShow
@@ -365,6 +386,76 @@ func (s *CatalogService) TMDBSimilar(ctx context.Context, mediaType string, tmdb
 		return nil, apperr.Validation(map[string]string{"type": "unsupported media type"})
 	}
 	return s.tmdbEntriesToWorks(ctx, entries, tmdbID, limit), nil
+}
+
+// Collection 获取同系列信息
+func (s *CatalogService) Collection(ctx context.Context, mediaID string) (*CollectionInfo, error) {
+	m, err := s.media.GetByID(ctx, mediaID)
+	if err != nil {
+		return nil, err
+	}
+	if m.CollectionID == nil || *m.CollectionID == 0 {
+		return nil, nil // 无同系列
+	}
+
+	// 1. 查询库内同系列媒体
+	localParts, err := s.media.ListByCollectionID(ctx, *m.CollectionID, m.ID.String())
+	if err != nil {
+		return nil, err
+	}
+
+	info := &CollectionInfo{
+		ID:        *m.CollectionID,
+		Name:      m.CollectionName,
+		PosterURL: m.CollectionPosterURL,
+		Parts:     make([]CollectionPart, 0, len(localParts)+8),
+	}
+	existingTMDBIDs := map[int]bool{}
+	for _, p := range localParts {
+		if p.TMDBID == nil {
+			continue
+		}
+		info.Parts = append(info.Parts, CollectionPart{
+			TMDBID:    *p.TMDBID,
+			Title:     p.Title,
+			Year:      p.Year,
+			PosterURL: p.PosterURL,
+			Rating:    p.Rating,
+		})
+		existingTMDBIDs[*p.TMDBID] = true
+	}
+
+	// 2. 从 TMDB 补充库内没有的部分
+	if s.tmdb != nil && len(info.Parts) > 0 {
+		col, err := s.tmdb.GetCollection(ctx, *m.CollectionID)
+		if err == nil && col != nil {
+			for _, part := range col.Parts {
+				if existingTMDBIDs[part.ID] {
+					continue
+				}
+				info.Parts = append(info.Parts, CollectionPart{
+					TMDBID:    part.ID,
+					Title:     part.Title,
+					PosterURL: s.tmdb.PosterURL(part.PosterPath, "w500"),
+					Rating:    part.VoteAverage,
+				})
+			}
+		}
+	}
+
+	// 3. 按年份倒序排列
+	sort.Slice(info.Parts, func(i, j int) bool {
+		di, dj := 0, 0
+		if info.Parts[i].Year != nil {
+			di = *info.Parts[i].Year
+		}
+		if info.Parts[j].Year != nil {
+			dj = *info.Parts[j].Year
+		}
+		return di > dj
+	})
+
+	return info, nil
 }
 
 func (s *CatalogService) tmdbEntriesToWorks(ctx context.Context, entries []scraper.SearchEntry, excludeTMDBID, limit int) []PersonWorkItem {

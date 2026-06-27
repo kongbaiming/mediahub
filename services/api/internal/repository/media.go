@@ -435,6 +435,10 @@ func (r *MediaRepo) ApplyScrapeResult(ctx context.Context, m *media.Media) error
 		"resolution":     m.Resolution,
 		"has_subtitle":   m.HasSubtitle,
 		"is_adult":       m.IsAdult,
+		// 同系列
+		"collection_id":         m.CollectionID,
+		"collection_name":       m.CollectionName,
+		"collection_poster_url": m.CollectionPosterURL,
 	}
 	if m.PosterURL != "" {
 		updates["poster_url"] = m.PosterURL
@@ -464,6 +468,19 @@ func (r *MediaRepo) ResetStuckScraping(ctx context.Context) (int64, error) {
 		return 0, apperr.Wrap(res.Error, apperr.CodeInternal, "重置刮削状态失败")
 	}
 	return res.RowsAffected, nil
+}
+
+// ListByCollectionID 按 collection_id 查询系列中的其他媒资
+func (r *MediaRepo) ListByCollectionID(ctx context.Context, collectionID int, excludeMediaID string) ([]media.Media, error) {
+	var items []media.Media
+	q := r.db.WithContext(ctx).Where("collection_id = ?", collectionID)
+	if excludeMediaID != "" {
+		q = q.Where("id != ?", excludeMediaID)
+	}
+	if err := q.Order("year ASC").Find(&items).Error; err != nil {
+		return nil, apperr.Wrap(err, apperr.CodeInternal, "查询同系列失败")
+	}
+	return items, nil
 }
 
 // Update 更新（按主键，不触碰 seasons/episodes 关联）

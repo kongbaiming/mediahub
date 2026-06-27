@@ -297,16 +297,20 @@ func (h *Handlers) HandleScrape(ctx context.Context, t *asynq.Task) error {
 
 // scraperResult 内部中间结构
 type scraperResult struct {
-	TMDBID     int
-	Title      string
-	Overview   string
-	PosterURL  string
+	TMDBID      int
+	Title       string
+	Overview    string
+	PosterURL   string
 	BackdropURL string
-	Rating     float64
-	VoteCount  int
-	Genres     []string
-	Year       *int
-	Runtime    *int
+	Rating      float64
+	VoteCount   int
+	Genres      []string
+	Year        *int
+	Runtime     *int
+	// 同系列（来自 TMDB Collection）
+	CollectionID        int
+	CollectionName      string
+	CollectionPosterURL string
 }
 
 func (h *Handlers) probePathForMedia(ctx context.Context, mediaID string, m *media.Media) string {
@@ -354,7 +358,7 @@ func (h *Handlers) scrapeByIMDB(ctx context.Context, imdbID string, preferTV boo
 		if err != nil {
 			return nil, err
 		}
-		return h.movieToResult(m), nil
+		return h.movieToResult(ctx, m), nil
 	}
 	if len(found.TVResults) > 0 {
 		t, err := h.tmdb.GetTVShow(ctx, found.TVResults[0].ID)
@@ -383,7 +387,7 @@ func (h *Handlers) scrapeByTMDBID(ctx context.Context, tmdbID int, preferTV bool
 	if err != nil {
 		return nil, err
 	}
-	return h.movieToResult(m), nil
+	return h.movieToResult(ctx, m), nil
 }
 
 func (h *Handlers) searchMovie(ctx context.Context, title string, year *int, durationSec int) (*scraperResult, error) {
@@ -399,7 +403,7 @@ func (h *Handlers) searchMovie(ctx context.Context, title string, year *int, dur
 	if err != nil {
 		return nil, err
 	}
-	return h.movieToResult(m), nil
+	return h.movieToResult(ctx, m), nil
 }
 
 func (h *Handlers) pickMovieResult(ctx context.Context, results []scraper.SearchEntry, durationSec int) int {
@@ -496,7 +500,7 @@ func (h *Handlers) searchTVShow(ctx context.Context, title string, year *int, se
 	return h.tvToResultNoSeason(t), nil
 }
 
-func (h *Handlers) movieToResult(m *scraper.TMDBMovie) *scraperResult {
+func (h *Handlers) movieToResult(ctx context.Context, m *scraper.TMDBMovie) *scraperResult {
 	r := &scraperResult{
 		TMDBID:      m.ID,
 		Title:       m.Title,
@@ -513,6 +517,15 @@ func (h *Handlers) movieToResult(m *scraper.TMDBMovie) *scraperResult {
 	if m.Runtime > 0 {
 		rt := m.Runtime
 		r.Runtime = &rt
+	}
+	// 同系列（TMDB Collection）
+	if m.BelongsToCollection != nil {
+		r.CollectionID = m.BelongsToCollection.ID
+		r.CollectionName = m.BelongsToCollection.Name
+		// 调用 GetCollection 获取 Collection 海报
+		if col, err := h.tmdb.GetCollection(ctx, m.BelongsToCollection.ID); err == nil && col != nil {
+			r.CollectionPosterURL = h.tmdb.PosterURL(col.PosterPath, "w500")
+		}
 	}
 	return r
 }
@@ -602,6 +615,12 @@ func (h *Handlers) applyTMDB(m *media.Media, info *scraperResult) {
 	}
 	if info.Runtime != nil && m.Runtime == nil {
 		m.Runtime = info.Runtime
+	}
+	// 同系列（TMDB Collection）
+	if info.CollectionID > 0 {
+		m.CollectionID = &info.CollectionID
+		m.CollectionName = info.CollectionName
+		m.CollectionPosterURL = info.CollectionPosterURL
 	}
 }
 

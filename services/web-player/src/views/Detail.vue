@@ -92,6 +92,30 @@
         </div>
       </div>
 
+      <!-- 同系列 -->
+      <div v-if="collection" class="section">
+        <h2 class="section-title">同系列</h2>
+        <div class="similar-row">
+          <button
+            v-for="part in collection.parts"
+            :key="part.tmdb_id"
+            type="button"
+            class="similar-card"
+            :class="{ 'similar-card--current': part.tmdb_id === media.tmdb_id }"
+            @click="openCollectionPart(part)"
+          >
+            <div class="poster-card">
+              <img v-if="part.poster_url" :src="part.poster_url" :alt="part.title" loading="lazy" />
+              <span v-else>{{ part.title.slice(0, 2) }}</span>
+              <div v-if="part.rating > 0" class="rating">⭐ {{ part.rating.toFixed(1) }}</div>
+              <div v-if="part.tmdb_id === media.tmdb_id" class="current-badge">当前</div>
+            </div>
+            <div class="card-title">{{ part.title }}</div>
+            <div class="card-meta">{{ part.year || '—' }}</div>
+          </button>
+        </div>
+      </div>
+
       <!-- 相似推荐（紧跟演职员） -->
       <div class="section">
         <h2 class="section-title">相似推荐</h2>
@@ -200,6 +224,8 @@ import {
   type MediaCredit,
   type MediaExtra,
   type PersonWork,
+  type CollectionInfo,
+  type CollectionPart,
 } from '@/api'
 
 const route = useRoute()
@@ -210,6 +236,7 @@ const favorited = ref(false)
 const wantListed = ref(false)
 const similar = ref<PersonWork[]>([])
 const castCredits = ref<MediaCredit[]>([])
+const collection = ref<CollectionInfo | null>(null)
 const contentRating = ref('')
 const trailers = ref<MediaExtra[]>([])
 
@@ -264,13 +291,14 @@ async function loadLocal(id: string) {
   const data = await mediaApi.get(id)
   media.value = data
 
-  const [simRes, credits, ratings, extras, wants, favs] = await Promise.all([
+  const [simRes, credits, ratings, extras, wants, favs, coll] = await Promise.all([
     fetchLocalSimilar(id),
     catalogApi.credits(id, 'actor').catch(() => [] as MediaCredit[]),
     catalogApi.ratings(id).catch(() => []),
     catalogApi.extras(id, 'trailer').catch(() => [] as MediaExtra[]),
     libraryApi.wantList().catch(() => []),
     libraryApi.favoritesList().catch(() => []),
+    catalogApi.collection(id).catch(() => null),
   ])
 
   similar.value = simRes
@@ -279,6 +307,7 @@ async function loadLocal(id: string) {
   trailers.value = extras
   wantListed.value = wants.some((w) => w.media_id === id)
   favorited.value = favs.some((f) => f.media_id === id)
+  collection.value = coll
 }
 
 async function loadTmdb(type: string, tmdbId: number) {
@@ -310,6 +339,7 @@ async function loadTmdb(type: string, tmdbId: number) {
   contentRating.value = ''
   trailers.value = []
   favorited.value = false
+  collection.value = data.collection || null
   await refreshWantState()
 }
 
@@ -429,6 +459,12 @@ function openSimilarItem(m: PersonWork) {
 function openSimilar(mediaId: string) {
   if (mediaId === route.params.id) return
   router.push(`/media/${mediaId}`)
+}
+
+function openCollectionPart(part: CollectionPart) {
+  if (part.tmdb_id) {
+    router.push(`/media/tmdb/movie/${part.tmdb_id}`)
+  }
 }
 
 function profileImage(path: string) {
@@ -894,6 +930,23 @@ onMounted(load)
 
 .similar-card--external {
   opacity: 0.85;
+}
+
+.similar-card--current .poster-card {
+  outline: 2px solid var(--mh-primary, #6366f1);
+  outline-offset: 2px;
+}
+
+.current-badge {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  background: var(--mh-primary, #6366f1);
+  color: #fff;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
 }
 
 .season-block {

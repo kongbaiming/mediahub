@@ -73,7 +73,27 @@ type TMDBMovie struct {
 		ID   int    `json:"id"`
 		Name string `json:"name"`
 	} `json:"genres"`
-	IMDBID string `json:"imdb_id"`
+	IMDBID                string  `json:"imdb_id"`
+	BelongsToCollection   *struct {
+		ID   int    `json:"id"`
+		Name string `json:"name"`
+	} `json:"belongs_to_collection"`
+}
+
+// TMDBCollection TMDB Collection 详情
+type TMDBCollection struct {
+	ID           int    `json:"id"`
+	Name         string `json:"name"`
+	Overview     string `json:"overview"`
+	PosterPath   string `json:"poster_path"`
+	BackdropPath string `json:"backdrop_path"`
+	Parts        []struct {
+		ID          int     `json:"id"`
+		Title       string  `json:"title"`
+		ReleaseDate string  `json:"release_date"`
+		PosterPath  string  `json:"poster_path"`
+		VoteAverage float64 `json:"vote_average"`
+	} `json:"parts"`
 }
 
 // TMDBTVShow 剧集详情
@@ -263,6 +283,17 @@ func (c *TMDBClient) GetTVRecommendations(ctx context.Context, tvID int) (*Searc
 		return nil, err
 	}
 	return &r, nil
+}
+
+// GetCollection 获取 TMDB Collection 详情
+func (c *TMDBClient) GetCollection(ctx context.Context, id int) (*TMDBCollection, error) {
+	q := url.Values{}
+	q.Set("language", c.language)
+	var col TMDBCollection
+	if err := c.get(ctx, fmt.Sprintf("/collection/%d", id), q, &col); err != nil {
+		return nil, err
+	}
+	return &col, nil
 }
 
 // PosterURL 海报 URL

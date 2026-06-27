@@ -137,6 +137,15 @@ func (h *CatalogHandler) TMDBSimilar(c *gin.Context) {
 	c.JSON(200, gin.H{"data": items})
 }
 
+func (h *CatalogHandler) Collection(c *gin.Context) {
+	items, err := h.svc.Collection(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"data": items})
+}
+
 func (h *CatalogHandler) PersonWorks(c *gin.Context) {
 	items, err := h.svc.PersonWorks(c.Request.Context(), c.Param("id"), c.Query("exclude_media_id"), atoi(c.Query("limit"), 40))
 	if err != nil {

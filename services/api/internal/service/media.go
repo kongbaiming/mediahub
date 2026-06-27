@@ -206,6 +206,25 @@ func toSummary(m *media.Media) MediaSummary {
 type MediaDetail struct {
 	*media.Media
 	Seasons []SeasonDetail `json:"seasons,omitempty"`
+	// 同系列（仅电影有值）
+	Collection *CollectionInfo `json:"collection,omitempty"`
+}
+
+// CollectionInfo 同系列信息
+type CollectionInfo struct {
+	ID        int              `json:"id"`
+	Name      string           `json:"name"`
+	PosterURL string           `json:"poster_url"`
+	Parts     []CollectionPart `json:"parts,omitempty"`
+}
+
+// CollectionPart 同系列中的单部电影
+type CollectionPart struct {
+	TMDBID    int     `json:"tmdb_id"`
+	Title     string  `json:"title"`
+	Year      *int    `json:"year,omitempty"`
+	PosterURL string  `json:"poster_url,omitempty"`
+	Rating    float64 `json:"rating"`
 }
 
 // SeasonDetail 季详情

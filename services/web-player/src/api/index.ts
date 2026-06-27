@@ -102,6 +102,23 @@ export interface MediaDetail {
   seasons?: SeasonDetail[]
   external?: boolean
   tmdb_id?: number
+  // 同系列
+  collection?: CollectionInfo
+}
+
+export interface CollectionInfo {
+  id: number
+  name: string
+  poster_url?: string
+  parts: CollectionPart[]
+}
+
+export interface CollectionPart {
+  tmdb_id: number
+  title: string
+  year?: number
+  poster_url?: string
+  rating: number
 }
 
 export interface MediaSummary {
@@ -175,6 +192,7 @@ export interface TMDBMediaDetail {
   runtime?: number
   genres: string[]
   credits?: MediaCredit[]
+  collection?: CollectionInfo
 }
 
 export interface ContentRating {
@@ -428,6 +446,13 @@ export const catalogApi = {
       },
     })) as { data: PersonWork[] }
     return body.data || []
+  },
+
+  async collection(mediaId: string): Promise<CollectionInfo | null> {
+    const body = (await http.get<unknown>(`/api/v1/works/${mediaId}/collection`)) as {
+      data: CollectionInfo | null
+    }
+    return body.data ?? null
   },
 }
 
