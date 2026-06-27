@@ -1,20 +1,63 @@
 <template>
-  <section v-if="row.type === 'divider'" class="feed-divider">
+  <section v-if="row.type === 'hero-banner'" class="feed-hero" :style="heroBg">
+    <div class="feed-hero__overlay" />
+    <div v-if="heroItem" class="feed-hero__content">
+      <p v-if="row.title" class="feed-hero__eyebrow">{{ row.title }}</p>
+      <h1 class="feed-hero__title">{{ heroItem.title }}</h1>
+      <div class="feed-hero__meta">
+        <span v-if="heroItem.year">{{ heroItem.year }}</span>
+        <span v-if="heroItem.rating">⭐ {{ heroItem.rating.toFixed(1) }}</span>
+        <span v-for="g in heroItem.genres?.slice(0, 3)" :key="g">{{ g }}</span>
+      </div>
+      <p v-if="heroItem.overview" class="feed-hero__overview">{{ heroItem.overview }}</p>
+      <div class="feed-hero__actions">
+        <button
+          v-if="heroItem.media_id && !heroItem.external"
+          class="btn mh-btn mh-btn--primary"
+          @click="$emit('play', heroItem)"
+        >
+          ▶ 播放
+        </button>
+        <button class="btn mh-btn mh-btn--secondary" @click="$emit('open', heroItem)">
+          ℹ 详情
+        </button>
+        <button
+          v-if="rowAction"
+          class="btn mh-btn mh-btn--secondary"
+          @click="onRowAction"
+        >
+          {{ actionCta }}
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section v-else-if="row.type === 'divider'" class="feed-divider">
     <span v-if="row.title" class="feed-divider__label">{{ row.title }}</span>
     <hr class="feed-divider__line" />
   </section>
 
   <section v-else-if="row.type === 'text-banner'" class="feed-text-banner">
-    <div class="feed-text-banner__inner">
+    <div
+      class="feed-text-banner__inner"
+      :class="{ 'feed-text-banner__inner--clickable': !!rowAction }"
+      @click="onRowAction"
+    >
       <h3 v-if="row.title">{{ row.title }}</h3>
       <p v-if="row.subtitle">{{ row.subtitle }}</p>
+      <span v-if="rowAction" class="feed-text-banner__cta">{{ actionCta }}</span>
     </div>
   </section>
 
   <section v-else class="feed-row" :class="`feed-row--${row.type}`">
-    <header v-if="row.title || row.subtitle" class="feed-row__header">
-      <h2 class="feed-row__title">{{ row.title }}</h2>
-      <span v-if="row.subtitle" class="feed-row__subtitle">{{ row.subtitle }}</span>
+    <header v-if="row.title || row.subtitle || rowAction" class="feed-row__header">
+      <div class="feed-row__titles">
+        <h2 v-if="row.title" class="feed-row__title">{{ row.title }}</h2>
+        <span v-if="row.subtitle" class="feed-row__subtitle">{{ row.subtitle }}</span>
+      </div>
+      <button v-if="rowAction" type="button" class="feed-row__link" @click="onRowAction">
+        {{ actionCta }}
+      </button>
     </header>
 
     <div
@@ -49,7 +92,13 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import type { FeedItem, FeedRow } from '@/api'
+import {
+  parseFeedAction,
+  actionLabel,
+  runFeedAction,
+} from '@/utils/feedAction'
 
 const props = defineProps<{
   row: FeedRow
@@ -57,13 +106,37 @@ const props = defineProps<{
 
 defineEmits<{
   open: [item: FeedItem]
+  play: [item: FeedItem]
 }>()
+
+const router = useRouter()
+
+const rowAction = computed(() => parseFeedAction(props.row.config))
+const actionCta = computed(() => actionLabel(rowAction.value, '查看更多 →'))
+
+const heroItem = computed<FeedItem | null>(() => {
+  const playable = (items: FeedItem[]) =>
+    items.find((i) => !i.external && i.media_id) || items[0]
+  if (props.row.type !== 'hero-banner' || !props.row.items?.length) return null
+  return playable(props.row.items)
+})
+
+const heroBg = computed(() => {
+  const url = heroItem.value?.backdrop_url || heroItem.value?.poster_url
+  return url ? { backgroundImage: `url(${url})` } : {}
+})
 
 const isGrid = computed(() => props.row.type === 'category-grid')
 
 const defaultCardStyle = computed(() =>
   props.row.type === 'topic' ? 'landscape' : 'poster',
 )
+
+function onRowAction() {
+  const action = rowAction.value
+  if (!action) return
+  runFeedAction(action, router)
+}
 
 function progressPct(item: FeedItem) {
   if (!item.progress || !item.duration) return 0
@@ -72,11 +145,86 @@ function progressPct(item: FeedItem) {
 </script>
 
 <style lang="scss" scoped>
+.feed-hero {
+  position: relative;
+  height: min(75vh, 820px);
+  min-height: 480px;
+  margin-top: var(--mh-topbar-height);
+  background-size: cover;
+  background-position: center top;
+  display: flex;
+  align-items: center;
+  padding: 0 clamp(var(--mh-space-6), 6vw, 80px);
+
+  &__overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      rgba(10, 10, 18, 0.96) 0%,
+      rgba(10, 10, 18, 0.55) 45%,
+      rgba(10, 10, 18, 0.15) 72%,
+      rgba(10, 10, 18, 0.5) 100%
+    );
+  }
+
+  &__content {
+    position: relative;
+    z-index: 1;
+    max-width: 640px;
+    color: var(--mh-text);
+  }
+
+  &__eyebrow {
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--mh-primary);
+  }
+
+  &__title {
+    font-size: clamp(36px, 5vw, 56px);
+    font-weight: 800;
+    font-family: var(--mh-font-display);
+    margin: 0 0 var(--mh-space-4);
+    line-height: 1.08;
+  }
+
+  &__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--mh-space-4);
+    font-size: 14px;
+    color: var(--mh-text-secondary);
+    margin-bottom: var(--mh-space-4);
+  }
+
+  &__overview {
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--mh-text-secondary);
+    margin-bottom: var(--mh-space-6);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--mh-space-3);
+  }
+}
+
 .feed-divider {
   display: flex;
   align-items: center;
   gap: var(--mh-space-4);
   margin: var(--mh-space-2) 0;
+  padding: 0 clamp(var(--mh-space-4), 4vw, var(--mh-space-6));
 
   &__label {
     font-size: 12px;
@@ -97,6 +245,7 @@ function progressPct(item: FeedItem) {
 
 .feed-text-banner {
   margin: var(--mh-space-2) 0;
+  padding: 0 clamp(var(--mh-space-4), 4vw, var(--mh-space-6));
 
   &__inner {
     padding: var(--mh-space-5) var(--mh-space-6);
@@ -117,6 +266,24 @@ function progressPct(item: FeedItem) {
       line-height: 1.5;
     }
   }
+
+  &__inner--clickable {
+    cursor: pointer;
+    transition: transform 0.2s, border-color 0.2s;
+
+    &:hover {
+      transform: translateY(-2px);
+      border-color: rgba(99, 102, 241, 0.55);
+    }
+  }
+
+  &__cta {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--mh-primary);
+  }
 }
 
 .feed-row {
@@ -125,9 +292,17 @@ function progressPct(item: FeedItem) {
   &__header {
     display: flex;
     align-items: baseline;
-    gap: var(--mh-space-3);
+    justify-content: space-between;
+    gap: var(--mh-space-4);
     margin-bottom: var(--mh-space-4);
     padding: 0 clamp(var(--mh-space-4), 4vw, var(--mh-space-6));
+  }
+
+  &__titles {
+    display: flex;
+    align-items: baseline;
+    gap: var(--mh-space-3);
+    min-width: 0;
   }
 
   &__title {
@@ -140,6 +315,21 @@ function progressPct(item: FeedItem) {
   &__subtitle {
     font-size: 14px;
     color: var(--mh-text-muted);
+  }
+
+  &__link {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: var(--mh-primary);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+
+    &:hover {
+      text-decoration: underline;
+    }
   }
 
   &__cards--scroll {

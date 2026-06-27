@@ -238,6 +238,52 @@
                 标题可选，作为分隔线左侧标签；播放端按编排顺序展示。
               </div>
             </el-form-item>
+
+            <template v-if="supportsRowAction(selectedRow.type)">
+              <el-divider content-position="left">跳转动作</el-divider>
+              <el-form-item label="动作类型">
+                <el-select
+                  v-model="selectedRow.config!.action!.type"
+                  :disabled="selectedRow._inherited"
+                  @change="onActionTypeChange"
+                  @focus="ensureRowEditable(selectedRowIndex)"
+                >
+                  <el-option
+                    v-for="p in ROW_ACTION_PRESETS"
+                    :key="p.value"
+                    :label="p.label"
+                    :value="p.value"
+                  />
+                </el-select>
+                <div class="field-hint-block mt-8">
+                  播放端点击公告横幅、行头「查看更多」或 Hero 附加按钮时执行。
+                  协议：route:/live、url:https://...、media:uuid、play:uuid、search:关键词
+                </div>
+              </el-form-item>
+              <el-form-item
+                v-if="actionNeedsTarget(selectedRow.config?.action?.type || 'none')"
+                label="跳转目标"
+              >
+                <el-input
+                  v-model="selectedRow.config!.action!.target"
+                  :placeholder="actionTargetPlaceholder(selectedRow.config?.action?.type || 'none')"
+                  :disabled="selectedRow._inherited"
+                  @focus="ensureRowEditable(selectedRowIndex)"
+                />
+              </el-form-item>
+              <el-form-item
+                v-if="selectedRow.config?.action?.type && selectedRow.config.action.type !== 'none'"
+                label="按钮文案"
+              >
+                <el-input
+                  v-model="selectedRow.config!.action!.label"
+                  placeholder="留空使用默认文案（如「进入直播 →」）"
+                  :disabled="selectedRow._inherited"
+                  @focus="ensureRowEditable(selectedRowIndex)"
+                />
+              </el-form-item>
+            </template>
+
             <el-form-item
               v-if="!['text-banner', 'divider'].includes(selectedRow.type)"
               label="数据源类型"
@@ -491,6 +537,13 @@ import { VueDraggable } from 'vue-draggable-plus'
 import { layoutApi, type Layout, type LayoutRow, type Publication, type DynamicRules, type FeedRow } from '@/api/layout'
 import { catalogApi, type Album, type Category } from '@/api/catalog'
 import type { Layout as LayoutType } from '@/api/types'
+import {
+  ROW_ACTION_PRESETS,
+  actionNeedsTarget,
+  actionTargetPlaceholder,
+  ensureRowActionConfig,
+  type LayoutRowAction,
+} from '@/utils/feedAction'
 
 const route = useRoute()
 const loading = ref(false)
@@ -663,6 +716,23 @@ function onRowTypeChange() {
   if (selectedRow.value?.type === 'hero-banner') {
     selectedRow.value.card_style = 'banner'
   }
+  if (selectedRow.value && supportsRowAction(selectedRow.value.type)) {
+    selectedRow.value.config = ensureRowActionConfig(selectedRow.value.config)
+  }
+}
+
+function supportsRowAction(type: string) {
+  return ['text-banner', 'hero-banner', 'shelf', 'category-grid', 'topic'].includes(type)
+}
+
+function onActionTypeChange(type: LayoutRowAction['type']) {
+  if (!selectedRow.value) return
+  if (!selectedRow.value.config) selectedRow.value.config = {}
+  const action: LayoutRowAction = { type }
+  if (actionNeedsTarget(type)) {
+    action.target = selectedRow.value.config.action?.target || ''
+  }
+  selectedRow.value.config.action = action
 }
 
 function onDataSourceParamsChange() {
@@ -787,6 +857,7 @@ async function load() {
       ...r,
       visible: r.visible !== false,
       source: r.source || { type: 'trending', params: {} },
+      config: supportsRowAction(r.type) ? ensureRowActionConfig(r.config) : r.config,
     }))
     templateLayouts.value = (t as { data?: LayoutType[] }).data ?? []
     await detectPreviewPlatform()
@@ -898,7 +969,7 @@ const rowPlayerHints: Record<string, string> = {
   shelf: '横向滚动卡片行，适合继续观看、热门推荐等',
   'category-grid': '网格布局展示，适合分类浏览（播放端为多列网格）',
   topic: '专题横滑行，默认横版卡片，突出系列内容',
-  'text-banner': '文字公告横幅，仅展示标题与副标题',
+  'text-banner': '文字公告横幅；可在下方配置跳转动作（如进入直播页）',
   divider: '区块分隔线，用于划分首页段落',
 }
 
@@ -928,6 +999,9 @@ watch(showPublications, (val) => {
 watch(selectedRow, (val) => {
   if (val) {
     ensureRowParams(val)
+    if (supportsRowAction(val.type)) {
+      val.config = ensureRowActionConfig(val.config)
+    }
     dataSourceParamsStr.value = JSON.stringify(val.source.params || {}, null, 2)
   }
 }, { immediate: false })

@@ -25,47 +25,24 @@
 
     <ProfileSwitcher v-model="showProfile" @switched="onProfileSwitched" />
 
-    <Transition name="hero-fade">
-      <div v-if="heroItem && !loading" class="hero" :style="heroBg" :key="heroItem.media_id">
-        <div class="hero-overlay"></div>
-        <div class="hero-content">
-          <h1 class="hero-title">{{ heroItem.title }}</h1>
-          <div class="hero-meta">
-            <span v-if="heroItem.year">{{ heroItem.year }}</span>
-            <span v-if="heroItem.rating">⭐ {{ heroItem.rating.toFixed(1) }}</span>
-            <span v-for="g in heroItem.genres?.slice(0, 3)" :key="g">{{ g }}</span>
-          </div>
-          <p v-if="heroItem.overview" class="hero-overview">{{ heroItem.overview }}</p>
-          <div class="hero-actions">
-            <button class="btn mh-btn mh-btn--primary" @click="playItem(heroItem)">
-              ▶ 播放
-            </button>
-            <button class="btn mh-btn mh-btn--secondary" @click="openDetail(heroItem)">
-              ℹ 详情
-            </button>
-          </div>
-        </div>
-      </div>
-    </Transition>
-
-    <main class="rows">
-      <section v-if="loading && rows.length === 0" class="row">
-        <h2 class="row-title">热门推荐</h2>
-        <div class="row-cards">
+    <main class="feed-main">
+      <section v-if="loading && rows.length === 0" class="feed-skeleton">
+        <h2 class="feed-skeleton__title">加载中...</h2>
+        <div class="feed-skeleton__cards">
           <SkeletonCard v-for="n in 6" :key="`skeleton-${n}`" />
         </div>
       </section>
 
       <FeedRowRenderer
-        v-for="row in contentRows"
+        v-for="row in visibleRows"
         :key="row.id"
         :row="row"
         @open="openDetail"
+        @play="playItem"
       />
 
-      <!-- Empty -->
       <EmptyState
-        v-if="!loading && contentRows.length === 0 && !heroItem"
+        v-if="!loading && visibleRows.length === 0"
         icon="🎬"
         title="暂无内容"
         description="CMS 里还没有发布布局或媒资。打开后台添加内容吧。"
@@ -97,41 +74,21 @@ const currentProfileId = ref('')
 
 const profiles = ref<LocalProfile[]>([])
 const currentProfile = computed(() =>
-  profiles.value.find((p) => p.id === currentProfileId.value)
+  profiles.value.find((p) => p.id === currentProfileId.value),
 )
 
-/** 内容区：按 CMS 编排顺序展示（Hero 单独渲染） */
-const contentRows = computed(() =>
+/** 按 CMS 编排顺序展示全部可见行（含 Hero、公告、分隔线等） */
+const visibleRows = computed(() =>
   rows.value.filter((r) => {
-    if (r.type === 'hero-banner') return false
+    if (r.type === 'hero-banner') {
+      return (r.items?.length ?? 0) > 0
+    }
     if (r.type === 'divider' || r.type === 'text-banner') {
       return !!(r.title || r.subtitle)
     }
     return (r.items?.length ?? 0) > 0
   }),
 )
-
-const heroItem = computed<FeedItem | null>(() => {
-  const playable = (items: FeedItem[]) =>
-    items.find((i) => !i.external && i.media_id)
-
-  for (const row of rows.value) {
-    if (row.type === 'hero-banner' && row.items?.length > 0) {
-      const item = playable(row.items)
-      if (item) return item
-    }
-  }
-  for (const row of rows.value) {
-    const item = playable(row.items || [])
-    if (item) return item
-  }
-  return null
-})
-
-const heroBg = computed(() => {
-  const url = heroItem.value?.backdrop_url || heroItem.value?.poster_url
-  return url ? { backgroundImage: `url(${url})` } : {}
-})
 
 function openCmsAdmin() {
   window.open('/admin', '_blank')
@@ -281,240 +238,28 @@ onMounted(async () => {
   }
 }
 
-.hero {
-  position: relative;
-  height: min(75vh, 820px);
-  min-height: 480px;
-  background-size: cover;
-  background-position: center top;
-  display: flex;
-  align-items: center;
-  padding: 0 clamp(var(--mh-space-6), 6vw, 80px);
-  margin-top: var(--mh-topbar-height);
-}
-
-.hero-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    rgba(10, 10, 18, 0.96) 0%,
-    rgba(10, 10, 18, 0.55) 45%,
-    rgba(10, 10, 18, 0.15) 72%,
-    rgba(10, 10, 18, 0.5) 100%
-  );
-}
-
-.hero-content {
-  position: relative;
-  z-index: 1;
-  max-width: 640px;
-  color: var(--mh-text);
-}
-
-.hero-title {
-  font-size: clamp(36px, 5vw, 56px);
-  font-weight: 800;
-  font-family: var(--mh-font-display);
-  margin: 0 0 var(--mh-space-4);
-  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
-  line-height: 1.08;
-  letter-spacing: -0.03em;
-}
-
-.hero-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--mh-space-4);
-  font-size: 14px;
-  color: var(--mh-text-secondary);
-  margin-bottom: var(--mh-space-4);
-}
-
-.hero-overview {
-  font-size: 15px;
-  line-height: 1.65;
-  color: var(--mh-text-secondary);
-  margin-bottom: var(--mh-space-6);
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--mh-space-3);
-}
-
-.rows {
-  padding: 0 clamp(var(--mh-space-4), 4vw, var(--mh-space-10)) 80px;
-  margin-top: -80px;
+.feed-main {
+  padding-bottom: 80px;
   position: relative;
   z-index: 2;
 }
 
-.row {
-  margin-bottom: var(--mh-space-12);
-}
+.feed-skeleton {
+  margin: calc(var(--mh-topbar-height) + var(--mh-space-6)) 0 var(--mh-space-12);
+  padding: 0 clamp(var(--mh-space-4), 4vw, var(--mh-space-10));
 
-.row-title {
-  font-size: clamp(18px, 2vw, 22px);
-  font-weight: 600;
-  font-family: var(--mh-font-display);
-  margin: 0 0 var(--mh-space-4);
-  color: var(--mh-text);
-  letter-spacing: -0.02em;
-}
-
-.row-subtitle {
-  font-size: 13px;
-  font-weight: 400;
-  color: var(--mh-text-muted);
-  margin-left: var(--mh-space-3);
-}
-
-.row-cards {
-  display: flex;
-  gap: var(--mh-space-4);
-  overflow-x: auto;
-  padding-bottom: var(--mh-space-4);
-  scroll-behavior: smooth;
-  scrollbar-width: thin;
-
-  &::-webkit-scrollbar {
-    height: 6px;
+  &__title {
+    font-size: clamp(18px, 2vw, 22px);
+    font-weight: 600;
+    margin: 0 0 var(--mh-space-4);
+    color: var(--mh-text-muted);
   }
 
-  &::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 3px;
+  &__cards {
+    display: flex;
+    gap: var(--mh-space-4);
+    overflow-x: auto;
+    padding-bottom: var(--mh-space-4);
   }
-}
-
-.card {
-  flex-shrink: 0;
-  cursor: pointer;
-  width: 200px;
-  transition: transform var(--mh-duration) var(--mh-ease-spring);
-
-  &:hover {
-    transform: scale(1.04);
-    z-index: 10;
-
-    .card-poster {
-      box-shadow: var(--mh-shadow-lg), var(--mh-shadow-glow);
-    }
-  }
-
-  &:active {
-    transform: scale(0.98);
-  }
-}
-
-.card-style-landscape .card {
-  width: 280px;
-}
-
-.card-style-landscape .card-poster {
-  aspect-ratio: 16/9;
-}
-
-.card-poster {
-  position: relative;
-  aspect-ratio: 2/3;
-  background: linear-gradient(145deg, var(--mh-surface-variant), var(--mh-bg));
-  border-radius: var(--mh-radius-md);
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.25);
-  font-size: 32px;
-  font-weight: 700;
-  transition: box-shadow var(--mh-duration) var(--mh-ease);
-  border: 1px solid var(--mh-outline);
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-}
-
-.external-badge {
-  position: absolute;
-  top: var(--mh-space-2);
-  right: var(--mh-space-2);
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: rgba(108, 99, 255, 0.92);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  backdrop-filter: blur(8px);
-}
-
-.card-external .card-poster {
-  outline: 1px dashed rgba(108, 99, 255, 0.45);
-}
-
-.progress-bar {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: rgba(0, 0, 0, 0.5);
-}
-
-.progress-fill {
-  height: 100%;
-  background: var(--mh-primary);
-}
-
-.rating {
-  position: absolute;
-  top: var(--mh-space-2);
-  left: var(--mh-space-2);
-  background: rgba(0, 0, 0, 0.72);
-  backdrop-filter: blur(8px);
-  color: var(--mh-warning);
-  padding: 2px 8px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.resume-badge {
-  position: absolute;
-  bottom: var(--mh-space-2);
-  left: var(--mh-space-2);
-  background: rgba(108, 99, 255, 0.92);
-  color: #fff;
-  padding: 2px 8px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.card-title {
-  margin-top: var(--mh-space-2);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--mh-text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.hero-fade-enter-active, .hero-fade-leave-active {
-  transition: opacity 0.6s var(--mh-ease);
-}
-
-.hero-fade-enter-from, .hero-fade-leave-to {
-  opacity: 0;
 }
 </style>

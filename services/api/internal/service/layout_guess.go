@@ -49,7 +49,7 @@ func (s *LayoutService) EnsureGuessYouLikeRows(ctx context.Context) error {
 		return err
 	}
 	for _, l := range all {
-		if layoutHasGuessYouLike(l) {
+		if layoutHasGuessYouLike(l) || layoutSchema(l) == "web-v2" {
 			continue
 		}
 		id := l.ID.String()
@@ -122,6 +122,14 @@ func layoutHasRowID(l layout.Layout, rowID string) bool {
 		}
 	}
 	return false
+}
+
+func layoutSchema(l layout.Layout) string {
+	if l.Config.Global == nil {
+		return ""
+	}
+	s, _ := l.Config.Global["layout_schema"].(string)
+	return s
 }
 
 func insertGuessYouLikeRow(rows []layout.Row, newRow layout.Row) []layout.Row {
