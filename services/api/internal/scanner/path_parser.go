@@ -1,6 +1,7 @@
 package scanner
 
 import (
+	"fmt"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -13,6 +14,9 @@ var (
 	episodeOnlyRe   = regexp.MustCompile(`(?i)^S?(?P<s>\d{1,2})E(?P<e>\d{1,2})$`)
 	episodeInNameRe = regexp.MustCompile(`(?i)(?:^|[.\s_-])S(?P<s>\d{1,2})E(?P<e>\d{1,2})(?:[.\s_-]|$)`)
 	episodeMarkerRe = regexp.MustCompile(`(?i)(?:^|[._-])E(?P<e>\d{1,3})(?:[._-]|$)`)
+	// [武林外传].01.集标题 — 国内常见 RMVB/DVD 命名
+	bracketDotEpRe = regexp.MustCompile(`(?i)\]\.(?P<e>\d{1,3})\.`)
+	leadingNumDotRe = regexp.MustCompile(`^(?P<e>\d{1,3})\.(?P<title>.+)$`)
 )
 
 // ParseFilePath 结合文件路径解析（电视剧专辑名优先取文件夹名）
@@ -31,6 +35,36 @@ func ParseFilePath(fullPath string) *ParsedFile {
 		if isSeriesAlbumDir(grandDir, seriesName) {
 			seriesName = filepath.Base(grandDir)
 		}
+	}
+
+	// [剧名].01.集标题 — 如 [武林外传].01.郭女侠....rmvb
+	if m := bracketDotEpRe.FindStringSubmatch(baseName); len(m) == 2 && isSeriesAlbumDir(parentDir, seriesName) {
+		p.Type = "episode"
+		p.Title = albumSeriesTitle(seriesName)
+		if ep, err := strconv.Atoi(m[1]); err == nil && ep > 0 {
+			p.Episode = &ep
+			p.OriginalName = episodeTitleAfterBracketDot(baseName, ep)
+		}
+		if p.Season == nil {
+			s := 1
+			p.Season = &s
+		}
+		return p
+	}
+
+	// 01.集标题.ext — 文件夹内纯数字前缀
+	if m := leadingNumDotRe.FindStringSubmatch(strings.TrimSpace(baseName)); len(m) == 3 && isSeriesAlbumDir(parentDir, seriesName) {
+		p.Type = "episode"
+		p.Title = albumSeriesTitle(seriesName)
+		if ep, err := strconv.Atoi(m[1]); err == nil && ep > 0 {
+			p.Episode = &ep
+			p.OriginalName = cleanTitle(m[2])
+		}
+		if p.Season == nil {
+			s := 1
+			p.Season = &s
+		}
+		return p
 	}
 
 	// 纯数字文件名 + 专辑文件夹 → 剧集单集（电影续集文件夹除外，如 冰河世纪4/053.mp4）
@@ -129,6 +163,14 @@ func seasonFromDir(dir string) *int {
 		}
 	}
 	return nil
+}
+
+func episodeTitleAfterBracketDot(baseName string, epNum int) string {
+	marker := fmt.Sprintf("].%d.", epNum)
+	if i := strings.Index(baseName, marker); i >= 0 {
+		return cleanTitle(baseName[i+len(marker):])
+	}
+	return cleanTitle(baseName)
 }
 
 func isWeakSeriesTitle(title string) bool {

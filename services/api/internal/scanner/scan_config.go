@@ -123,6 +123,12 @@ func (s *Service) StartWatcher(ctx context.Context) {
 		logger.Info("启动时已迁移误入库剧集单集", "count", n)
 	}
 
+	if n, err := s.RemigrateSeriesOrphanFiles(ctx); err != nil {
+		logger.Warn("剧集孤儿文件迁移失败", "err", err)
+	} else if n > 0 {
+		logger.Info("启动时已重建剧集季/集结构", "count", n)
+	}
+
 	if repo := s.configRepo(); repo != nil {
 		cfg, err := repo.Get(ctx)
 		if err == nil && cfg.Enabled {

@@ -3,6 +3,7 @@ package scanner
 import (
 	"context"
 	"path/filepath"
+	"strings"
 
 	"github.com/mediahub/api/internal/apperr"
 	"github.com/mediahub/api/internal/domain/common"
@@ -158,6 +159,9 @@ func ingestEpisodeFile(ctx context.Context, deps IngestDeps, filePath string, pa
 	epTitle := parsed.OriginalName
 	if parsed.Episode != nil && *parsed.Episode > 0 {
 		epNum = *parsed.Episode
+		if t := strings.TrimSpace(parsed.OriginalName); t != "" {
+			epTitle = t
+		}
 	} else if isCollectionAlbumDir(filepath.Base(seriesDir)) {
 		epNum, err = deps.MediaRepo.NextEpisodeNumber(ctx, series.ID, seasonNum)
 		if err != nil {

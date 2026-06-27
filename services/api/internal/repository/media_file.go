@@ -111,6 +111,20 @@ func (r *MediaRepo) ApplyProbeToFile(ctx context.Context, path string, info File
 	return r.syncLegacyFileFields(ctx, &refreshed)
 }
 
+// ListOrphanSeriesFilePaths 剧集作品下未关联 episode 的文件路径（需重建季/集结构）
+func (r *MediaRepo) ListOrphanSeriesFilePaths(ctx context.Context) ([]string, error) {
+	var paths []string
+	err := r.db.WithContext(ctx).
+		Table("media_files AS mf").
+		Joins("JOIN media AS m ON m.id = mf.media_id").
+		Where("mf.episode_id IS NULL AND m.kind = ?", media.MediaKindSeries).
+		Pluck("mf.path", &paths).Error
+	if err != nil {
+		return nil, apperr.Wrap(err, apperr.CodeInternal, "查询剧集孤儿文件失败")
+	}
+	return paths, nil
+}
+
 // syncLegacyFileFields 双写兼容列（v0.4 过渡）
 func (r *MediaRepo) syncLegacyFileFields(ctx context.Context, f *media.MediaFile) error {
 	if f.EpisodeID != nil {

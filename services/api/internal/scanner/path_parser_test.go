@@ -105,6 +105,25 @@ func TestParseFilePath_EpisodeMarkerInName(t *testing.T) {
 	}
 }
 
+func TestParseFilePath_BracketDotEpisode(t *testing.T) {
+	got := ParseFilePath("/media/武林外传全集/[武林外传].01.郭女侠怒砸同福店.佟掌柜妙点迷路人.rmvb")
+	if got.Type != "episode" {
+		t.Fatalf("Type = %q, want episode", got.Type)
+	}
+	if got.Episode == nil || *got.Episode != 1 {
+		t.Fatalf("Episode = %v, want 1", got.Episode)
+	}
+	if got.Title != "武林外传全集" {
+		t.Fatalf("Title = %q, want 武林外传全集", got.Title)
+	}
+	if !strings.Contains(got.OriginalName, "郭女侠") {
+		t.Fatalf("OriginalName = %q, want episode subtitle", got.OriginalName)
+	}
+	if !IsEpisodeFile(got, "tvshow") {
+		t.Fatal("expected tvshow episode file")
+	}
+}
+
 func TestParseFilePath_DetectiveChinatownUsesFolderTitle(t *testing.T) {
 	got := ParseFilePath("/media/唐人街探案3【合集】/唐人街探案2网剧/Detective.Chinatown.S02E01.2020.2160p.WEB-DL.mkv")
 	if got.Type != "episode" {
