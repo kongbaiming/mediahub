@@ -3,6 +3,10 @@
     <div class="page-header">
       <h2 class="page-h2">直播管理</h2>
       <div class="header-actions">
+        <el-button @click="openImportM3U">
+          <el-icon><Upload /></el-icon>
+          导入 M3U
+        </el-button>
         <el-button @click="openCreate('iptv')">
           <el-icon><Link /></el-icon>
           添加 IPTV
@@ -24,6 +28,7 @@
       <template #default>
         <p><strong>推流直播：</strong>创建后用 OBS 推流，Stream Key 填入串流密钥。</p>
         <p><strong>IPTV 拉流：</strong>填写外部 m3u8 地址，无需推流，创建后可直接播放。</p>
+        <p><strong>M3U 列表：</strong>支持导入 GitHub 等托管的 .m3u / .m3u8 频道列表，批量添加 IPTV 频道。</p>
       </template>
     </el-alert>
 
@@ -43,6 +48,11 @@
           <el-tag :type="row.room_type === 'iptv' ? 'success' : ''" size="small">
             {{ row.room_type === 'iptv' ? 'IPTV' : '推流' }}
           </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="分组" width="120" show-overflow-tooltip>
+        <template #default="{ row }">
+          {{ row.group_title || '-' }}
         </template>
       </el-table-column>
       <el-table-column label="状态" width="100">
@@ -89,7 +99,7 @@
             v-model="createForm.source_url"
             placeholder="https://example.com/live/channel.m3u8"
           />
-          <div class="field-hint">支持 http/https 的 HLS (m3u8) 直播源</div>
+          <div class="field-hint">单路 HLS 流地址；若是 M3U 频道列表请使用「导入 M3U」</div>
         </el-form-item>
         <el-form-item label="简介">
           <el-input v-model="createForm.description" type="textarea" :rows="3" placeholder="可选" />
@@ -101,6 +111,51 @@
       <template #footer>
         <el-button @click="createDialog = false">取消</el-button>
         <el-button type="primary" :loading="creating" @click="onCreate">创建</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- M3U 导入对话框 -->
+    <el-dialog v-model="importDialog" title="导入 M3U 频道列表" width="560">
+      <el-form label-position="top">
+        <el-form-item label="M3U 列表地址" required>
+          <el-input
+            v-model="importForm.playlist_url"
+            placeholder="https://raw.githubusercontent.com/.../cnTV_AutoUpdate.m3u8"
+          />
+          <div class="field-hint">支持 .m3u / .m3u8 格式的 IPTV 频道列表（含 #EXTM3U）</div>
+        </el-form-item>
+        <el-form-item>
+          <el-button :loading="previewing" @click="onPreviewM3U">解析预览</el-button>
+        </el-form-item>
+        <el-form-item v-if="preview" label="频道分组">
+          <el-select
+            v-model="importForm.groups"
+            multiple
+            collapse-tags
+            collapse-tags-tooltip
+            placeholder="不选则导入全部分组"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="g in preview.groups"
+              :key="g.name"
+              :label="`${g.name} (${g.count})`"
+              :value="g.name"
+            />
+          </el-select>
+          <div v-if="preview" class="field-hint">共 {{ preview.total }} 个频道</div>
+        </el-form-item>
+        <el-form-item>
+          <el-checkbox v-model="importForm.replace">
+            替换同源频道（删除此前从该 M3U 地址导入的频道后重新导入）
+          </el-checkbox>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="importDialog = false">取消</el-button>
+        <el-button type="primary" :loading="importing" :disabled="!preview" @click="onImportM3U">
+          开始导入
+        </el-button>
       </template>
     </el-dialog>
 
@@ -166,15 +221,19 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Link } from '@element-plus/icons-vue'
-import { liveApi, type LiveRoom, type LiveRoomType } from '@/api/live'
+import { Plus, Link, Upload } from '@element-plus/icons-vue'
+import { liveApi, type LiveRoom, type LiveRoomType, type M3UPreviewResult } from '@/api/live'
 import { copyToClipboard } from '@/utils/clipboard'
 
 const loading = ref(false)
 const creating = ref(false)
 const rooms = ref<LiveRoom[]>([])
 const createDialog = ref(false)
+const importDialog = ref(false)
 const streamDialog = ref(false)
+const previewing = ref(false)
+const importing = ref(false)
+const preview = ref<M3UPreviewResult | null>(null)
 const selectedRoom = ref<LiveRoom | null>(null)
 const createForm = ref({
   title: '',
@@ -182,6 +241,11 @@ const createForm = ref({
   cover_url: '',
   room_type: 'push' as LiveRoomType,
   source_url: '',
+})
+const importForm = ref({
+  playlist_url: 'https://raw.githubusercontent.com/hujingguang/ChinaIPTV/main/cnTV_AutoUpdate.m3u8',
+  groups: [] as string[],
+  replace: false,
 })
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -223,7 +287,7 @@ function formatTime(iso: string) {
 async function loadRooms() {
   loading.value = true
   try {
-    const resp = await liveApi.list({ page_size: 50 })
+    const resp = await liveApi.list({ page_size: 500 })
     rooms.value = resp.data
   } catch (e: any) {
     ElMessage.error(e?.message || '加载失败')
@@ -241,6 +305,55 @@ function openCreate(type: LiveRoomType) {
     source_url: '',
   }
   createDialog.value = true
+}
+
+function openImportM3U() {
+  preview.value = null
+  importForm.value.groups = []
+  importForm.value.replace = false
+  importDialog.value = true
+}
+
+async function onPreviewM3U() {
+  if (!importForm.value.playlist_url.trim()) {
+    ElMessage.warning('请填写 M3U 列表地址')
+    return
+  }
+  previewing.value = true
+  try {
+    const resp = await liveApi.previewM3U(importForm.value.playlist_url.trim())
+    preview.value = resp.data
+    importForm.value.playlist_url = resp.data.playlist_url
+    ElMessage.success(`解析成功，共 ${resp.data.total} 个频道`)
+  } catch (e: any) {
+    preview.value = null
+    ElMessage.error(e?.message || '解析失败')
+  } finally {
+    previewing.value = false
+  }
+}
+
+async function onImportM3U() {
+  if (!preview.value) {
+    ElMessage.warning('请先解析预览 M3U 列表')
+    return
+  }
+  importing.value = true
+  try {
+    const resp = await liveApi.importM3U({
+      playlist_url: importForm.value.playlist_url.trim(),
+      groups: importForm.value.groups.length ? importForm.value.groups : undefined,
+      replace: importForm.value.replace,
+    })
+    const r = resp.data
+    importDialog.value = false
+    ElMessage.success(`导入完成：新增 ${r.created}，跳过 ${r.skipped}，失败 ${r.failed}`)
+    await loadRooms()
+  } catch (e: any) {
+    ElMessage.error(e?.message || '导入失败')
+  } finally {
+    importing.value = false
+  }
 }
 
 async function onCreate() {

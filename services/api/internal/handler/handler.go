@@ -259,6 +259,8 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 			liveAdmin.Use(middleware.Auth(h.Auth.svc))
 			{
 				liveAdmin.POST("", h.Live.Create)
+				liveAdmin.POST("/m3u/preview", h.Live.PreviewM3U)
+				liveAdmin.POST("/m3u/import", h.Live.ImportM3U)
 				liveAdmin.PATCH("/:id", h.Live.Update)
 				liveAdmin.DELETE("/:id", h.Live.Delete)
 				liveAdmin.POST("/:id/stop", h.Live.Stop)

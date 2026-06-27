@@ -118,6 +118,46 @@ func (h *LiveHandler) Stop(c *gin.Context) {
 	c.JSON(200, gin.H{"data": room})
 }
 
+// PreviewM3U 预览 M3U 频道列表（CMS）
+func (h *LiveHandler) PreviewM3U(c *gin.Context) {
+	var req service.PreviewM3URequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, apperr.Validation(err.Error()))
+		return
+	}
+	result, err := h.svc.PreviewM3U(c.Request.Context(), req)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"data": result})
+}
+
+// ImportM3U 从 M3U 列表批量导入 IPTV 频道（CMS）
+func (h *LiveHandler) ImportM3U(c *gin.Context) {
+	var req service.ImportM3URequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, apperr.Validation(err.Error()))
+		return
+	}
+	userIDStr := middleware.GetUserID(c)
+	if userIDStr == "" {
+		respondError(c, apperr.Unauthorized("未登录"))
+		return
+	}
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		respondError(c, apperr.Unauthorized("无效用户"))
+		return
+	}
+	result, err := h.svc.ImportM3U(c.Request.Context(), req, userID)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"data": result})
+}
+
 // PublishHook MediaMTX 推流开始 webhook
 func (h *LiveHandler) PublishHook(c *gin.Context) {
 	path := c.Query("path")

@@ -34,6 +34,8 @@ type Room struct {
 	CoverURL    string     `gorm:"type:text" json:"cover_url,omitempty"`
 	RoomType    RoomType   `gorm:"type:varchar(20);not null;default:'push';index" json:"room_type"`
 	SourceURL   string     `gorm:"type:text" json:"source_url,omitempty"`
+	GroupTitle  string     `gorm:"type:varchar(100)" json:"group_title,omitempty"`
+	PlaylistURL string     `gorm:"type:text" json:"playlist_url,omitempty"`
 	Status      RoomStatus `gorm:"type:varchar(20);not null;default:'idle';index" json:"status"`
 	StreamKey   string     `gorm:"type:varchar(64);not null;uniqueIndex" json:"stream_key"`
 	ViewerCount int        `gorm:"default:0" json:"viewer_count"`

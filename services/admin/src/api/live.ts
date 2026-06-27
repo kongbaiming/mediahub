@@ -9,6 +9,8 @@ export interface LiveRoom {
   cover_url?: string
   room_type: LiveRoomType
   source_url?: string
+  group_title?: string
+  playlist_url?: string
   status: 'idle' | 'live' | 'ended'
   stream_key: string
   viewer_count: number
@@ -20,6 +22,24 @@ export interface LiveRoom {
   hls_url?: string
   play_url?: string
   stream_path?: string
+}
+
+export interface M3UGroupStat {
+  name: string
+  count: number
+}
+
+export interface M3UPreviewResult {
+  playlist_url: string
+  total: number
+  groups: M3UGroupStat[]
+}
+
+export interface M3UImportResult {
+  created: number
+  skipped: number
+  failed: number
+  errors?: string[]
 }
 
 export const liveApi = {
@@ -38,6 +58,12 @@ export const liveApi = {
     room_type?: LiveRoomType
     source_url?: string
   }) => http.post<{ data: LiveRoom }>('/api/v1/live/rooms', data),
+
+  previewM3U: (playlist_url: string) =>
+    http.post<{ data: M3UPreviewResult }>('/api/v1/live/rooms/m3u/preview', { playlist_url }),
+
+  importM3U: (data: { playlist_url: string; groups?: string[]; replace?: boolean }) =>
+    http.post<{ data: M3UImportResult }>('/api/v1/live/rooms/m3u/import', data),
 
   update: (id: string, data: {
     title?: string

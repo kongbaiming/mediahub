@@ -87,6 +87,9 @@ func (s *LiveService) Create(ctx context.Context, req CreateRoomRequest, userID 
 		if err != nil {
 			return nil, err
 		}
+		if err := s.detectAndRejectM3UPlaylist(ctx, sourceURL); err != nil {
+			return nil, err
+		}
 		room.SourceURL = sourceURL
 		room.Status = live.StatusLive
 		room.StartedAt = &now

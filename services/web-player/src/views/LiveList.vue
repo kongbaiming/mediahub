@@ -30,6 +30,7 @@
             <h3>{{ room.title }}</h3>
             <p v-if="room.description" class="desc">{{ room.description }}</p>
             <div class="meta">
+              <span v-if="room.group_title" class="group">{{ room.group_title }}</span>
               <span v-if="room.status === 'live' && room.started_at">
                 开播于 {{ formatTime(room.started_at) }}
               </span>
@@ -208,6 +209,15 @@ onBeforeUnmount(() => {
   .meta {
     font-size: 12px;
     color: var(--mh-text-muted);
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .group {
+    background: rgba(255,255,255,0.08);
+    padding: 1px 6px;
+    border-radius: 4px;
   }
 }
 </style>

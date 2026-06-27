@@ -88,3 +88,27 @@ func (r *LiveRepo) Delete(ctx context.Context, id string) error {
 	}
 	return nil
 }
+
+// DeleteIPTVByPlaylistURL 删除指定 M3U 来源的 IPTV 频道
+func (r *LiveRepo) DeleteIPTVByPlaylistURL(ctx context.Context, playlistURL string) (int64, error) {
+	res := r.db.WithContext(ctx).
+		Where("room_type = ? AND playlist_url = ?", live.RoomTypeIPTV, playlistURL).
+		Delete(&live.Room{})
+	if res.Error != nil {
+		return 0, wrapDBErr(res.Error, "删除 M3U 频道失败")
+	}
+	return res.RowsAffected, nil
+}
+
+// ListIPTVSourceURLs 列出已有 IPTV 源地址（去重用）
+func (r *LiveRepo) ListIPTVSourceURLs(ctx context.Context) ([]string, error) {
+	var urls []string
+	err := r.db.WithContext(ctx).Model(&live.Room{}).
+		Where("room_type = ?", live.RoomTypeIPTV).
+		Where("source_url <> ''").
+		Pluck("source_url", &urls).Error
+	if err != nil {
+		return nil, apperr.Wrap(err, apperr.CodeInternal, "查询 IPTV 源失败")
+	}
+	return urls, nil
+}
