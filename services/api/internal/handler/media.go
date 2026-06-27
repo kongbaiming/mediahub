@@ -1,8 +1,14 @@
 package handler
 
 import (
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/mediahub/api/internal/apperr"
 	"github.com/mediahub/api/internal/domain/common"
@@ -15,13 +21,26 @@ import (
 
 // MediaHandler 媒资 HTTP handler
 type MediaHandler struct {
-	svc   *service.MediaService
-	match *service.ScrapeMatchService
+	svc          *service.MediaService
+	match        *service.ScrapeMatchService
+	allowedRoots []string
+	pathAliases  []PathAlias
+	mediaRoot    string
 }
 
 // NewMediaHandler 构造
-func NewMediaHandler(svc *service.MediaService, match *service.ScrapeMatchService) *MediaHandler {
-	return &MediaHandler{svc: svc, match: match}
+func NewMediaHandler(svc *service.MediaService, match *service.ScrapeMatchService, mediaRoot, downloadRoot string, pathAliases []PathAlias) *MediaHandler {
+	roots := []string{mediaRoot}
+	if downloadRoot != "" && downloadRoot != mediaRoot {
+		roots = append(roots, downloadRoot)
+	}
+	return &MediaHandler{
+		svc:          svc,
+		match:        match,
+		allowedRoots: roots,
+		pathAliases:  pathAliases,
+		mediaRoot:    mediaRoot,
+	}
 }
 
 // List 列表
@@ -133,6 +152,19 @@ func (h *MediaHandler) Update(c *gin.Context) {
 	}
 	if v, ok := req["overview"].(string); ok {
 		existing.Overview = v
+	}
+	if v, ok := req["storage_path"].(string); ok {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			respondError(c, apperr.Validation("storage_path 不能为空"))
+			return
+		}
+		resolved, err := ValidateStoragePath(v, h.allowedRoots, h.pathAliases)
+		if err != nil {
+			respondError(c, err)
+			return
+		}
+		existing.StoragePath = resolved
 	}
 	if v, ok := req["poster_url"].(string); ok {
 		existing.PosterURL = v
@@ -307,4 +339,120 @@ func (h *MediaHandler) Search(c *gin.Context) {
 		"total": result.Total,
 		"q":     q,
 	})
+}
+
+const maxPosterBytes = 10 << 20 // 10MB
+
+var allowedPosterTypes = map[string]string{
+	"image/jpeg": ".jpg",
+	"image/png":  ".png",
+	"image/webp": ".webp",
+}
+
+func (h *MediaHandler) posterDir() string {
+	return filepath.Join(h.mediaRoot, ".mediahub", "posters")
+}
+
+func (h *MediaHandler) posterFilePath(mediaID, ext string) string {
+	return filepath.Join(h.posterDir(), mediaID+ext)
+}
+
+func (h *MediaHandler) findPosterFile(mediaID string) (string, bool) {
+	for _, ext := range allowedPosterTypes {
+		p := h.posterFilePath(mediaID, ext)
+		if _, err := os.Stat(p); err == nil {
+			return p, true
+		}
+	}
+	return "", false
+}
+
+// GetPoster 返回自定义上传的海报
+func (h *MediaHandler) GetPoster(c *gin.Context) {
+	id := c.Param("id")
+	path, ok := h.findPosterFile(id)
+	if !ok {
+		respondError(c, apperr.NotFound("poster not found"))
+		return
+	}
+	c.Header("Cache-Control", "public, max-age=86400")
+	c.File(path)
+}
+
+// UploadPoster 上传/替换自定义海报
+func (h *MediaHandler) UploadPoster(c *gin.Context) {
+	id := c.Param("id")
+	if _, err := h.svc.Detail(c.Request.Context(), id); err != nil {
+		respondError(c, err)
+		return
+	}
+
+	file, err := c.FormFile("poster")
+	if err != nil {
+		respondError(c, apperr.Validation("请上传 poster 字段的图片文件"))
+		return
+	}
+	if file.Size > maxPosterBytes {
+		respondError(c, apperr.Validation("海报文件不能超过 10MB"))
+		return
+	}
+
+	src, err := file.Open()
+	if err != nil {
+		respondError(c, apperr.Internal(err.Error()))
+		return
+	}
+	defer src.Close()
+
+	buf := make([]byte, 512)
+	n, _ := src.Read(buf)
+	contentType := http.DetectContentType(buf[:n])
+	ext, ok := allowedPosterTypes[contentType]
+	if !ok {
+		respondError(c, apperr.Validation("仅支持 JPEG、PNG、WebP 格式"))
+		return
+	}
+
+	if err := os.MkdirAll(h.posterDir(), 0o755); err != nil {
+		respondError(c, apperr.Internal(err.Error()))
+		return
+	}
+
+	destPath := h.posterFilePath(id, ext)
+	// 删除其他扩展名的旧文件
+	for _, otherExt := range allowedPosterTypes {
+		if otherExt == ext {
+			continue
+		}
+		_ = os.Remove(h.posterFilePath(id, otherExt))
+	}
+
+	dest, err := os.Create(destPath)
+	if err != nil {
+		respondError(c, apperr.Internal(err.Error()))
+		return
+	}
+	defer dest.Close()
+
+	if _, err := dest.Write(buf[:n]); err != nil {
+		respondError(c, apperr.Internal(err.Error()))
+		return
+	}
+	if _, err := io.Copy(dest, src); err != nil {
+		respondError(c, apperr.Internal(err.Error()))
+		return
+	}
+
+	posterURL := fmt.Sprintf("/api/v1/media/%s/poster?t=%d", id, time.Now().Unix())
+	m, err := h.svc.Detail(c.Request.Context(), id)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	m.PosterURL = posterURL
+	if err := h.svc.Update(c.Request.Context(), m.Media); err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"data": gin.H{"poster_url": posterURL}})
 }

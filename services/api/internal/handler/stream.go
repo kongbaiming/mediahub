@@ -32,16 +32,16 @@ type HLSTranscodeSettings struct {
 }
 
 // StreamHandler 流代理
-func StreamHandler(allowedRoots []string, hlsCacheRoot string, tc HLSTranscodeSettings, store *hlsstore.Store) gin.HandlerFunc {
+func StreamHandler(allowedRoots []string, pathAliases []PathAlias, hlsCacheRoot string, tc HLSTranscodeSettings, store *hlsstore.Store) gin.HandlerFunc {
 	roots := normalizeAllowedRoots(allowedRoots)
 	return func(c *gin.Context) {
 		p := c.Request.URL.Path
 		if strings.HasSuffix(p, "/direct") {
-			handleDirect(c, roots)
+			handleDirect(c, roots, pathAliases)
 			return
 		}
 		if strings.HasSuffix(p, "/hls") {
-			handleHLS(c, roots, hlsCacheRoot, tc, store)
+			handleHLS(c, roots, pathAliases, hlsCacheRoot, tc, store)
 			return
 		}
 		respondError(c, apperr.NotFound("unknown stream action: "+p))
@@ -73,14 +73,14 @@ func isPathUnderRoots(path string, roots []string) bool {
 }
 
 // handleDirect 直接 ServeFile
-func handleDirect(c *gin.Context, allowedRoots []string) {
+func handleDirect(c *gin.Context, allowedRoots []string, pathAliases []PathAlias) {
 	path := c.Query("path")
 	if path == "" {
 		respondError(c, apperr.BadRequest("missing path"))
 		return
 	}
 
-	cleanPath := filepath.Clean(path)
+	cleanPath := resolveStreamPath(path, pathAliases)
 	if !isPathUnderRoots(cleanPath, allowedRoots) {
 		respondError(c, apperr.Forbidden("path outside media root"))
 		return
@@ -272,7 +272,7 @@ func resolveHLSOptions(ctx context.Context, input string, tc HLSTranscodeSetting
 }
 
 // StreamProbeHandler 探测文件编码与推荐播放方式
-func StreamProbeHandler(allowedRoots []string) gin.HandlerFunc {
+func StreamProbeHandler(allowedRoots []string, pathAliases []PathAlias) gin.HandlerFunc {
 	roots := normalizeAllowedRoots(allowedRoots)
 	return func(c *gin.Context) {
 		path := c.Query("path")
@@ -280,7 +280,7 @@ func StreamProbeHandler(allowedRoots []string) gin.HandlerFunc {
 			respondError(c, apperr.BadRequest("missing path"))
 			return
 		}
-		cleanPath := filepath.Clean(path)
+		cleanPath := resolveStreamPath(path, pathAliases)
 		if !isPathUnderRoots(cleanPath, roots) {
 			respondError(c, apperr.Forbidden("path outside media root"))
 			return
@@ -358,7 +358,7 @@ func hlsPlaylistHasSegments(playlistPath string) bool {
 }
 
 // handleHLS 启动 HLS 转码（异步）
-func handleHLS(c *gin.Context, allowedRoots []string, cacheRoot string, tc HLSTranscodeSettings, store *hlsstore.Store) {
+func handleHLS(c *gin.Context, allowedRoots []string, pathAliases []PathAlias, cacheRoot string, tc HLSTranscodeSettings, store *hlsstore.Store) {
 	mediaID := c.Query("media_id")
 	path := c.Query("path")
 	if path == "" || mediaID == "" {
@@ -366,7 +366,7 @@ func handleHLS(c *gin.Context, allowedRoots []string, cacheRoot string, tc HLSTr
 		return
 	}
 
-	cleanPath := filepath.Clean(path)
+	cleanPath := resolveStreamPath(path, pathAliases)
 	if !isPathUnderRoots(cleanPath, allowedRoots) {
 		respondError(c, apperr.Forbidden("path outside media root"))
 		return

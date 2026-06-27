@@ -34,7 +34,7 @@
         </el-form-item>
 
         <el-form-item label="存储路径（NAS 路径）" required>
-          <el-input v-model="form.storage_path" placeholder="/volume1/media/movies/Inception (2010)/Inception.mkv" />
+          <el-input v-model="form.storage_path" placeholder="/media/movies/片名 (2010)/片名.mkv（容器内路径，勿填 /volume1/...）" />
         </el-form-item>
 
         <el-form-item>

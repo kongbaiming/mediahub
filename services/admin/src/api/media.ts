@@ -31,6 +31,15 @@ export const mediaApi = {
   update: (id: string, data: Partial<MediaDetail>) =>
     http.patch(`/api/v1/media/${id}`, data),
 
+  uploadPoster: (id: string, file: File) => {
+    const form = new FormData()
+    form.append('poster', file)
+    return http.post<{ data: { poster_url: string } }>(`/api/v1/media/${id}/poster`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000,
+    })
+  },
+
   delete: (id: string) => http.delete(`/api/v1/media/${id}`),
 
   rescan: (id: string) => http.post(`/api/v1/media/${id}/rescan`),

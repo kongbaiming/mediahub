@@ -65,8 +65,9 @@ func NewHandlers(
 	if hlsStore == nil {
 		hlsStore = hlsstore.New(nil)
 	}
+	pathAliases := BuildPathAliasesFromEnv(mediaRoot, downloadRoot)
 	h := &Handlers{
-		Media:         NewMediaHandler(media, scrapeMatch),
+		Media:         NewMediaHandler(media, scrapeMatch, mediaRoot, downloadRoot, pathAliases),
 		Catalog:       NewCatalogHandler(catalog),
 		Library:       NewLibraryHandler(library),
 		Layout:        NewLayoutHandler(layout, feed),
@@ -75,8 +76,8 @@ func NewHandlers(
 		History:       NewHistoryHandler(history),
 		Profile:       NewProfileHandler(profile),
 		Recommend:     NewRecommendHandler(recommend),
-		Stream:        StreamHandler(streamRoots, hlsCacheRoot, transcode, hlsStore),
-		StreamProbe:   StreamProbeHandler(streamRoots),
+		Stream:        StreamHandler(streamRoots, pathAliases, hlsCacheRoot, transcode, hlsStore),
+		StreamProbe:   StreamProbeHandler(streamRoots, pathAliases),
 		HLSPlaylist:   ServeHLSPlaylist(hlsCacheRoot),
 		HLSTaskStatus: GetHLSTaskStatus(hlsCacheRoot, hlsStore),
 		HLSCacheRoot:  hlsCacheRoot,
@@ -119,6 +120,8 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 		v1.GET("/media/tmdb/:type/:tmdb_id", h.Catalog.TMDBMediaDetail)
 		v1.GET("/media/tmdb/:type/:tmdb_id/similar", h.Catalog.TMDBSimilar)
 		v1.POST("/media/batch-rescan", middleware.Auth(h.Auth.svc), h.Media.BatchRescan)
+		v1.GET("/media/:id/poster", h.Media.GetPoster)
+		v1.POST("/media/:id/poster", middleware.Auth(h.Auth.svc), h.Media.UploadPoster)
 		v1.GET("/media/:id", h.Media.Get)
 		v1.POST("/media", middleware.Auth(h.Auth.svc), h.Media.Create)
 		v1.PATCH("/media/:id", middleware.Auth(h.Auth.svc), h.Media.Update)

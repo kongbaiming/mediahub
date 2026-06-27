@@ -432,6 +432,7 @@ func (r *MediaRepo) Update(ctx context.Context, m *media.Media) error {
 		"original_title": m.OriginalTitle,
 		"year":           m.Year,
 		"overview":       m.Overview,
+		"storage_path":   m.StoragePath,
 		"poster_url":     m.PosterURL,
 		"backdrop_url":   m.BackdropURL,
 		"rating":         m.Rating,

@@ -25,9 +25,21 @@
       <div class="detail-top">
         <div class="poster-section">
           <div class="poster-card poster-large">
-            <img v-if="media.poster_url" :src="media.poster_url" :alt="media.title" />
+            <img v-if="posterSrc" :src="posterSrc" :alt="media.title" />
             <span v-else>{{ media.title.slice(0, 2) }}</span>
           </div>
+          <el-upload
+            class="poster-upload"
+            :show-file-list="false"
+            accept="image/jpeg,image/png,image/webp"
+            :disabled="posterUploading"
+            :http-request="onPosterUpload"
+          >
+            <el-button size="small" :loading="posterUploading" style="width: 100%; margin-top: 12px">
+              <el-icon><Upload /></el-icon>
+              {{ posterUploading ? '上传中…' : '上传/替换海报' }}
+            </el-button>
+          </el-upload>
         </div>
 
         <div class="info-section">
@@ -123,6 +135,12 @@
             </el-form-item>
             <el-form-item label="简介">
               <el-input v-model="editForm.overview" type="textarea" :rows="5" />
+            </el-form-item>
+            <el-form-item label="存储路径">
+              <el-input
+                v-model="editForm.storage_path"
+                placeholder="/media/movies/片名 (2010)/片名.mkv（容器内路径，勿填 /volume1/...）"
+              />
             </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="onSave" :loading="saving">保存</el-button>
@@ -291,6 +309,16 @@ const selectedCredit = ref<MediaCredit | null>(null)
 const scrapeCandidates = ref<ScrapeCandidate[]>([])
 const candidatesLoading = ref(false)
 const applyingKey = ref('')
+const posterUploading = ref(false)
+const posterCacheBust = ref(0)
+
+const posterSrc = computed(() => {
+  const url = media.value?.poster_url
+  if (!url) return ''
+  if (url.includes('?')) return url
+  if (url.startsWith('/api/')) return `${url}${posterCacheBust.value ? `?t=${posterCacheBust.value}` : ''}`
+  return url
+})
 
 const showScrapeMatch = computed(() => {
   const s = media.value?.scrape_status
@@ -303,6 +331,7 @@ const editForm = reactive({
   rating: 0,
   genresStr: '',
   overview: '',
+  storage_path: '',
 })
 
 function creditAvatar(c: MediaCredit) {
@@ -345,6 +374,7 @@ async function load() {
       rating: res.data.rating,
       genresStr: (res.data.genres || []).join(', '),
       overview: res.data.overview || '',
+      storage_path: res.data.storage_path || '',
     })
     if (showScrapeMatch.value) {
       loadCandidates()
@@ -361,6 +391,10 @@ async function onSave() {
     ElMessage.warning('标题不能为空')
     return
   }
+  if (!editForm.storage_path?.trim()) {
+    ElMessage.warning('存储路径不能为空')
+    return
+  }
   saving.value = true
   try {
     const id = media.value!.id
@@ -371,6 +405,7 @@ async function onSave() {
       rating: editForm.rating,
       genres: editForm.genresStr.split(',').map((s) => s.trim()).filter(Boolean),
       overview: editForm.overview,
+      storage_path: editForm.storage_path.trim(),
     } as any)
     ElMessage.success('保存成功，重新刮削不会覆盖已修改的标题')
     editing.value = false
@@ -379,6 +414,33 @@ async function onSave() {
     // 错误由 axios 拦截器提示
   } finally {
     saving.value = false
+  }
+}
+
+async function onPosterUpload(options: { file: File }) {
+  if (!media.value) return
+  const file = options.file
+  if (!file.type.startsWith('image/')) {
+    ElMessage.warning('请选择图片文件')
+    return
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    ElMessage.warning('海报不能超过 10MB')
+    return
+  }
+  posterUploading.value = true
+  try {
+    const res = await mediaApi.uploadPoster(media.value.id, file)
+    posterCacheBust.value = Date.now()
+    if (media.value && res.data?.poster_url) {
+      media.value.poster_url = res.data.poster_url
+    }
+    ElMessage.success('海报已更新')
+    await load()
+  } catch {
+    // 错误由 axios 拦截器提示
+  } finally {
+    posterUploading.value = false
   }
 }
 
