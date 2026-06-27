@@ -155,9 +155,18 @@ func (h *LiveHandler) ProxySegment(c *gin.Context) {
 
 func (h *LiveHandler) proxyMedia(c *gin.Context, file string) {
 	id := c.Param("id")
-	room, err := h.svc.Get(c.Request.Context(), id)
+	room, err := h.svc.GetRoomRaw(c.Request.Context(), id)
 	if err != nil {
 		respondError(c, err)
+		return
+	}
+
+	fileName := strings.SplitN(file, "?", 2)[0]
+	if fileName == "index.m3u8" && !h.svc.IsPathOnline(c.Request.Context(), room.StreamKey) {
+		c.JSON(503, gin.H{
+			"error":   "not_streaming",
+			"message": "主播尚未推流，请在 OBS 中点击「开始直播」",
+		})
 		return
 	}
 
@@ -177,11 +186,21 @@ func (h *LiveHandler) proxyMedia(c *gin.Context, file string) {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
+		bodyStr := string(body)
 		msg := "推流尚未就绪"
-		if resp.StatusCode == http.StatusUnauthorized || strings.Contains(string(body), "authentication") {
+		errCode := "upstream_error"
+		switch {
+		case resp.StatusCode == http.StatusUnauthorized || strings.Contains(bodyStr, "authentication"):
 			msg = "推流服务鉴权失败，请检查 mediamtx.yml 中 authInternalUsers 配置"
+		case strings.Contains(bodyStr, "no stream is available"):
+			msg = "主播尚未推流或推流已中断，请确认 OBS 正在直播"
+			errCode = "not_streaming"
 		}
-		c.JSON(resp.StatusCode, gin.H{"error": "upstream_error", "message": msg, "detail": string(body)})
+		status := resp.StatusCode
+		if errCode == "not_streaming" {
+			status = http.StatusServiceUnavailable
+		}
+		c.JSON(status, gin.H{"error": errCode, "message": msg, "detail": bodyStr})
 		return
 	}
 

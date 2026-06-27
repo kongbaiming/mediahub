@@ -102,3 +102,28 @@ func (s *LiveService) fetchMediaMTXOnlinePaths(ctx context.Context) (map[string]
 	}
 	return out, nil
 }
+
+// IsPathOnline 查询 MediaMTX 上指定 stream key 是否正在推流
+func (s *LiveService) IsPathOnline(ctx context.Context, streamKey string) bool {
+	if streamKey == "" || s.config.MediaMTXAPIURL == "" {
+		return false
+	}
+	online, err := s.fetchMediaMTXOnlinePaths(ctx)
+	if err != nil {
+		return false
+	}
+	if online[streamKey] {
+		return true
+	}
+	for name, v := range online {
+		if v && extractStreamKey(name) == streamKey {
+			return true
+		}
+	}
+	return false
+}
+
+// GetRoomRaw 按 ID 读取直播间（不做 MediaMTX 同步，供 HLS 代理高频调用）
+func (s *LiveService) GetRoomRaw(ctx context.Context, id string) (*live.Room, error) {
+	return s.repo.GetByID(ctx, id)
+}

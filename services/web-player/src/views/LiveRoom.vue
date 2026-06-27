@@ -77,9 +77,9 @@ function attachHls(playlistUrl: string) {
   if (Hls.isSupported()) {
     const instance = new Hls({
       enableWorker: true,
-      lowLatencyMode: true,
+      lowLatencyMode: false,
       liveSyncDurationCount: 3,
-      liveMaxLatencyDurationCount: 6,
+      liveMaxLatencyDurationCount: 10,
     })
     hls.value = instance
     instance.loadSource(playlistUrl)
@@ -121,25 +121,31 @@ async function startPlay() {
   const id = route.params.id as string
   const playlistUrl = liveApi.playlistUrl(id)
 
-  // 轮询直到 playlist 可用
-  for (let i = 0; i < 120; i++) {
+  // 轮询直到 playlist 可用（OBS 推流后自动开始播放）
+  for (let i = 0; i < 600; i++) {
     try {
+      await refreshStatus()
       const resp = await fetch(playlistUrl)
       if (resp.ok) {
         attachHls(playlistUrl)
         return
       }
+      const data = await resp.json().catch(() => null)
+      if (data?.error === 'not_streaming' || data?.message?.includes('推流')) {
+        waitMessage.value = '等待主播推流中…（请确认 OBS 已点击「开始直播」）'
+      } else {
+        waitMessage.value = room.value?.status === 'live'
+          ? '正在缓冲直播流…'
+          : '等待主播开始推流…'
+      }
     } catch {
-      // retry
+      waitMessage.value = '正在连接直播流…'
     }
-    waitMessage.value = room.value?.status === 'idle'
-      ? '等待主播开始推流…'
-      : '正在连接直播流…'
     await new Promise((r) => setTimeout(r, 2000))
   }
 
   waiting.value = false
-  error.value = '暂无直播信号，请稍后再试'
+  error.value = '暂无直播信号。请确认 OBS 正在推流，且 Stream Key 与 CMS 一致'
 }
 
 async function refreshStatus() {
