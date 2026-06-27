@@ -3,6 +3,7 @@ package history
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/mediahub/api/internal/domain/common"
@@ -122,10 +123,19 @@ func (u *UUIDArray) Scan(src any) error {
 
 // Value 实现 driver.Valuer
 func (u UUIDArray) Value() (any, error) {
-	if u == nil {
+	if len(u) == 0 {
 		return "{}", nil
 	}
-	return u, nil
+	var b strings.Builder
+	b.WriteByte('{')
+	for i, id := range u {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(`"` + id.String() + `"`)
+	}
+	b.WriteByte('}')
+	return b.String(), nil
 }
 
 // MarshalJSON JSON 序列化（避免 stack overflow）
