@@ -16,6 +16,9 @@ import (
 	"github.com/google/uuid"
 )
 
+// feedRowSourceTimeout 单行数据源解析超时，避免 TMDB 等外网调用拖垮整页 Feed
+const feedRowSourceTimeout = 10 * time.Second
+
 // FeedService Feed 数据填充业务（核心：把布局 + 数据合并成 Feed）
 type FeedService struct {
 	media     *repository.MediaRepo
@@ -124,7 +127,9 @@ func (s *FeedService) BuildFeedFromLayout(ctx context.Context, l *layout.Layout,
 			Config:    row.Config,
 		}
 
-		items, err := s.resolveDataSource(ctx, row.Source, profileID, isKid)
+		rowCtx, cancel := context.WithTimeout(ctx, feedRowSourceTimeout)
+		items, err := s.resolveDataSource(rowCtx, row.Source, profileID, isKid)
+		cancel()
 		if err != nil {
 			continue
 		}

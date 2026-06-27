@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"context"
+	"time"
+
 	"github.com/mediahub/api/internal/apperr"
 	"github.com/mediahub/api/internal/domain/common"
 	"github.com/mediahub/api/internal/middleware"
@@ -8,6 +11,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+const feedBuildTimeout = 25 * time.Second
 
 // FeedHandler Feed HTTP handler
 type FeedHandler struct {
@@ -39,7 +44,9 @@ func (h *FeedHandler) Get(c *gin.Context) {
 		profileID = "anonymous"
 	}
 
-	feed, err := h.svc.BuildFeed(c.Request.Context(), platform, profileID)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), feedBuildTimeout)
+	defer cancel()
+	feed, err := h.svc.BuildFeed(ctx, platform, profileID)
 	if err != nil {
 		respondError(c, err)
 		return
