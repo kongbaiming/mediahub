@@ -4,6 +4,20 @@
 logLevel: info
 logDestinations: [stdout]
 
+# MediaMTX 1.x 默认启用鉴权，内网家庭场景需显式放行推流与拉流
+authMethod: internal
+authInternalUsers:
+  - user: any
+    pass:
+    ips: []
+    permissions:
+      - action: publish
+        path:
+      - action: read
+        path:
+      - action: playback
+        path:
+
 # RTMP 推流入口（OBS / FFmpeg）
 rtmp: yes
 rtmpAddress: :1935

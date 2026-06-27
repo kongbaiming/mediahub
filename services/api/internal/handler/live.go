@@ -161,7 +161,12 @@ func (h *LiveHandler) ProxyPlaylist(c *gin.Context) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		c.JSON(resp.StatusCode, gin.H{"error": "upstream_error", "message": "推流尚未就绪"})
+		body, _ := io.ReadAll(resp.Body)
+		msg := "推流尚未就绪"
+		if strings.Contains(string(body), "authentication") {
+			msg = "推流服务鉴权失败，请检查 mediamtx.yml 中 authInternalUsers 配置"
+		}
+		c.JSON(resp.StatusCode, gin.H{"error": "upstream_error", "message": msg, "detail": string(body)})
 		return
 	}
 

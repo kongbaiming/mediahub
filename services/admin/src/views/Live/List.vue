@@ -84,16 +84,22 @@
         <el-descriptions :column="1" border>
           <el-descriptions-item label="直播间 ID">{{ selectedRoom.id }}</el-descriptions-item>
           <el-descriptions-item label="RTMP 服务器">
-            <code>{{ rtmpServer }}</code>
-            <el-button link type="primary" @click="copy(rtmpServer)">复制</el-button>
+            <div class="copy-field">
+              <el-input :model-value="rtmpServer" readonly />
+              <el-button @click="copy(rtmpServer, 'RTMP 服务器')">复制</el-button>
+            </div>
           </el-descriptions-item>
           <el-descriptions-item label="Stream Key">
-            <code>{{ selectedRoom.stream_key }}</code>
-            <el-button link type="primary" @click="copy(selectedRoom.stream_key)">复制</el-button>
+            <div class="copy-field">
+              <el-input :model-value="selectedRoom.stream_key" readonly />
+              <el-button @click="copy(selectedRoom.stream_key, 'Stream Key')">复制</el-button>
+            </div>
           </el-descriptions-item>
           <el-descriptions-item label="完整 RTMP 地址">
-            <code class="break-all">{{ selectedRoom.rtmp_url }}</code>
-            <el-button link type="primary" @click="copy(selectedRoom.rtmp_url || '')">复制</el-button>
+            <div class="copy-field">
+              <el-input :model-value="selectedRoom.rtmp_url || ''" readonly />
+              <el-button @click="copy(selectedRoom.rtmp_url || '', 'RTMP 地址')">复制</el-button>
+            </div>
           </el-descriptions-item>
         </el-descriptions>
         <div class="obs-tip">
@@ -113,6 +119,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { liveApi, type LiveRoom } from '@/api/live'
+import { copyToClipboard } from '@/utils/clipboard'
 
 const loading = ref(false)
 const creating = ref(false)
@@ -179,9 +186,15 @@ async function onCreate() {
   }
 }
 
-function showStreamInfo(room: LiveRoom) {
-  selectedRoom.value = room
+async function showStreamInfo(room: LiveRoom) {
   streamDialog.value = true
+  selectedRoom.value = room
+  try {
+    const resp = await liveApi.get(room.id)
+    selectedRoom.value = resp.data
+  } catch {
+    // 列表数据兜底
+  }
 }
 
 async function onStop(room: LiveRoom) {
@@ -206,11 +219,17 @@ async function onDelete(room: LiveRoom) {
   }
 }
 
-function copy(text: string) {
-  navigator.clipboard.writeText(text).then(
-    () => ElMessage.success('已复制'),
-    () => ElMessage.error('复制失败'),
-  )
+async function copy(text: string, label = '内容') {
+  if (!text?.trim()) {
+    ElMessage.warning(`${label} 为空，请检查 LIVE_RTMP_HOST 环境变量是否已配置`)
+    return
+  }
+  const ok = await copyToClipboard(text)
+  if (ok) {
+    ElMessage.success(`${label} 已复制`)
+  } else {
+    ElMessage.warning(`${label} 自动复制失败，请手动选中输入框内容复制`)
+  }
 }
 
 onMounted(() => {
@@ -264,6 +283,16 @@ code {
 
 .break-all {
   word-break: break-all;
+}
+
+.copy-field {
+  display: flex;
+  gap: var(--mh-space-2);
+  width: 100%;
+
+  .el-input {
+    flex: 1;
+  }
 }
 
 .obs-tip {
