@@ -104,6 +104,7 @@ func main() {
 	historyRepo := repository.NewHistoryRepo(database.DB)
 	recommendRepo := repository.NewRecommendRepo(database.DB)
 	catalogRepo := repository.NewCatalogRepo(database.DB)
+	liveRepo := repository.NewLiveRepo(database.DB)
 
 	// 启动 Asynq worker（注册具体的 handler）
 	tmdbClient := scraper.NewTMDBClient(
@@ -245,6 +246,16 @@ func main() {
 	// 字幕服务
 	subtitleSvc := subtitle.NewService(mediaRepo)
 
+	// 直播服务
+	liveSvc := service.NewLiveService(liveRepo, service.LiveConfig{
+		Enabled:     cfg.Live.Enabled,
+		RTMPHost:    cfg.Live.RTMPHost,
+		MediaMTXURL: cfg.Live.MediaMTXURL,
+	})
+	if cfg.Live.Enabled {
+		logger.Info("直播功能已启用", "rtmp", cfg.Live.RTMPHost, "mediamtx", cfg.Live.MediaMTXURL)
+	}
+
 	// ---------- 8. Health checkers ----------
 	handler.SetHealthCheckers(
 		func(ctx context.Context) string {
@@ -268,7 +279,7 @@ func main() {
 		hlsCache = "/data/hls-cache"
 	}
 	hlsTaskStore := hlsstore.New(rdb)
-	h := handler.NewHandlers(mediaSvc, scrapeMatchSvc, layoutSvc, authSvc, feedSvc, historySvc, librarySvc, catalogSvc, profileSvc, recommendSvc, downloaderSvc, indexerSvc, scannerSvc, subtitleSvc, cfg.Media.Root, cfg.Media.DownloadRoot, hlsCache, handler.HLSTranscodeSettings{
+	h := handler.NewHandlers(mediaSvc, scrapeMatchSvc, layoutSvc, authSvc, feedSvc, historySvc, librarySvc, catalogSvc, profileSvc, recommendSvc, downloaderSvc, indexerSvc, scannerSvc, subtitleSvc, liveSvc, cfg.Media.Root, cfg.Media.DownloadRoot, hlsCache, handler.HLSTranscodeSettings{
 		HWAccel:     cfg.Transcode.HWAccel,
 		MaxBitrate:  cfg.Transcode.MaxBitrate,
 		MaxHeight:   cfg.Transcode.MaxHeight,

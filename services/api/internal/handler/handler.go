@@ -29,6 +29,7 @@ type Handlers struct {
 	Indexer        *IndexerHandler
 	Scanner        *ScannerHandler
 	Subtitle       *SubtitleHandler
+	Live           *LiveHandler
 	Stream         gin.HandlerFunc
 	StreamProbe    gin.HandlerFunc
 	HLSPlaylist    gin.HandlerFunc
@@ -52,6 +53,7 @@ func NewHandlers(
 	idx *indexer.Service,
 	scannerSvc *scanner.Service,
 	subSvc *subtitle.Service,
+	liveSvc *service.LiveService,
 	mediaRoot string,
 	downloadRoot string,
 	hlsCacheRoot string,
@@ -93,6 +95,9 @@ func NewHandlers(
 	}
 	if subSvc != nil {
 		h.Subtitle = NewSubtitleHandler(subSvc)
+	}
+	if liveSvc != nil {
+		h.Live = NewLiveHandler(liveSvc)
 	}
 	return h
 }
@@ -238,6 +243,25 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 		if h.Subtitle != nil {
 			v1.POST("/subtitle/search", h.Subtitle.Search)
 			v1.POST("/subtitle/:id/download", h.Subtitle.Download)
+		}
+
+		// 直播
+		if h.Live != nil {
+			v1.GET("/live/rooms", h.Live.List)
+			v1.GET("/live/rooms/:id", h.Live.Get)
+			v1.GET("/live/rooms/:id/playlist.m3u8", h.Live.ProxyPlaylist)
+			v1.GET("/live/rooms/:id/:file", h.Live.ProxySegment)
+			v1.POST("/live/hooks/publish", h.Live.PublishHook)
+			v1.POST("/live/hooks/unpublish", h.Live.UnpublishHook)
+
+			liveAdmin := v1.Group("/live/rooms")
+			liveAdmin.Use(middleware.Auth(h.Auth.svc))
+			{
+				liveAdmin.POST("", h.Live.Create)
+				liveAdmin.PATCH("/:id", h.Live.Update)
+				liveAdmin.DELETE("/:id", h.Live.Delete)
+				liveAdmin.POST("/:id/stop", h.Live.Stop)
+			}
 		}
 
 		// 播放进度 / 续播 / 收藏（播放端：仅需 X-Profile-ID，无需 JWT）

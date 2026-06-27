@@ -27,6 +27,7 @@ type Config struct {
 	Transcode TranscodeConfig
 	Downloader DownloaderConfig
 	Indexer    IndexerConfig
+	Live       LiveConfig
 }
 
 type DownloaderConfig struct {
@@ -82,6 +83,12 @@ type TranscodeConfig struct {
 type IndexerConfig struct {
 	URL    string
 	APIKey string
+}
+
+type LiveConfig struct {
+	Enabled     bool
+	RTMPHost    string // 对外 RTMP 地址 host:port
+	MediaMTXURL string // 内部 HLS 源 http://mediamtx:8888
 }
 
 // Load 加载配置（先尝试读 .env，再读环境变量）
@@ -141,6 +148,11 @@ func Load() (*Config, error) {
 		Indexer: IndexerConfig{
 			URL:    getEnv("INDEXER_URL", ""),
 			APIKey: getEnv("INDEXER_API_KEY", ""),
+		},
+		Live: LiveConfig{
+			Enabled:     getEnv("LIVE_ENABLED", "true") == "true",
+			RTMPHost:    getEnv("LIVE_RTMP_HOST", "localhost:1935"),
+			MediaMTXURL: getEnv("LIVE_MEDIAMTX_URL", "http://mediamtx:8888"),
 		},
 	}
 

@@ -36,6 +36,10 @@
           <el-icon><Download /></el-icon>
           <template #title>下载管理</template>
         </el-menu-item>
+        <el-menu-item index="/live">
+          <el-icon><VideoCamera /></el-icon>
+          <template #title>直播管理</template>
+        </el-menu-item>
         <el-menu-item index="/want-to-watch">
           <el-icon><Star /></el-icon>
           <template #title>播放端想看</template>

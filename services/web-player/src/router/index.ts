@@ -43,6 +43,16 @@ const router = createRouter({
       name: 'play',
       component: () => import('@/views/Player.vue'),
     },
+    {
+      path: '/live',
+      name: 'live-list',
+      component: () => import('@/views/LiveList.vue'),
+    },
+    {
+      path: '/live/:id',
+      name: 'live-room',
+      component: () => import('@/views/LiveRoom.vue'),
+    },
   ],
 })
 

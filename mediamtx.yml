@@ -1,0 +1,29 @@
+# MediaHub 直播推流配置（MediaMTX）
+# 文档：https://github.com/bluenviron/mediamtx
+
+logLevel: info
+logDestinations: [stdout]
+
+# RTMP 推流入口（OBS / FFmpeg）
+rtmp: yes
+rtmpAddress: :1935
+
+# HLS 输出（播放端拉流）
+hls: yes
+hlsAddress: :8888
+hlsAlwaysRemux: yes
+hlsVariant: lowLatency
+hlsSegmentCount: 7
+hlsSegmentDuration: 1s
+hlsPartDuration: 200ms
+
+# 所有路径默认为推流发布者模式
+pathDefaults:
+  source: publisher
+  # 推流开始/结束时通知 API 更新直播间状态
+  runOnReady: curl -sf -X POST "http://api:3000/api/v1/live/hooks/publish?path=$MTX_PATH"
+  runOnNotReady: curl -sf -X POST "http://api:3000/api/v1/live/hooks/unpublish?path=$MTX_PATH"
+
+paths:
+  all_others:
+    source: publisher

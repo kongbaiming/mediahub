@@ -62,6 +62,12 @@ const routes = [
         meta: { title: '下载管理' },
       },
       {
+        path: 'live',
+        name: 'live',
+        component: () => import('@/views/Live/List.vue'),
+        meta: { title: '直播管理' },
+      },
+      {
         path: 'want-to-watch',
         name: 'want-to-watch',
         component: () => import('@/views/WantToWatch.vue'),

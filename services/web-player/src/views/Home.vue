@@ -15,6 +15,7 @@
       </div>
       <div class="user-area">
         <button class="icon-btn" @click="$router.push('/library')" title="我的片库">📚</button>
+        <button class="icon-btn" @click="$router.push('/live')" title="直播间">📡</button>
         <button class="icon-btn" @click="showProfile = true" :title="currentProfile?.name">
           {{ currentProfile?.name?.slice(0, 1) || '?' }}
         </button>

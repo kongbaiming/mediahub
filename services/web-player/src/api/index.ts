@@ -475,6 +475,41 @@ export const libraryApi = {
   },
 }
 
+// ─── 直播 ───
+
+export interface LiveRoom {
+  id: string
+  title: string
+  description?: string
+  cover_url?: string
+  status: 'idle' | 'live' | 'ended'
+  stream_key: string
+  viewer_count: number
+  started_at?: string
+  ended_at?: string
+  created_at: string
+  updated_at: string
+  play_url?: string
+}
+
+export const liveApi = {
+  async list(params?: { status?: string }): Promise<LiveRoom[]> {
+    const body = (await http.get<unknown>('/api/v1/live/rooms', { params })) as {
+      data: LiveRoom[]
+    }
+    return body.data || []
+  },
+
+  async get(id: string): Promise<LiveRoom> {
+    const body = (await http.get<unknown>(`/api/v1/live/rooms/${id}`)) as { data: LiveRoom }
+    return body.data
+  },
+
+  playlistUrl(id: string): string {
+    return `/api/v1/live/rooms/${id}/playlist.m3u8`
+  },
+}
+
 function normalizeWantItem(raw: Record<string, unknown>): LibraryItem {
   const media = raw.media as MediaSummary | undefined
   const mediaId = (raw.media_id as string) || media?.id

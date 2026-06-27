@@ -94,6 +94,9 @@ services:
       QBIT_PASSWORD: ${QBIT_PASSWORD}
       QBIT_TLS: ${QBIT_TLS:-false}
       HLS_CACHE_ROOT: ${HLS_CACHE_ROOT:-/data/hls-cache}
+      LIVE_ENABLED: ${LIVE_ENABLED:-true}
+      LIVE_RTMP_HOST: ${LIVE_RTMP_HOST:-localhost:1935}
+      LIVE_MEDIAMTX_URL: ${LIVE_MEDIAMTX_URL:-http://mediamtx:8888}
     volumes:
       - ${NAS_MEDIA_HOST}:${MEDIA_ROOT}
       - ${NAS_DOWNLOADS_HOST}:${DOWNLOAD_ROOT}
@@ -142,6 +145,22 @@ services:
     restart: unless-stopped
     ports:
       - "${WEB_PORT}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - mediahub-net
+
+  # ---------- MediaMTX 直播推流网关 ----------
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: mediahub-mediamtx
+    restart: unless-stopped
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+    ports:
+      - "${LIVE_RTMP_PORT:-1935}:1935"
+      - "${LIVE_HLS_PORT:-8888}:8888"
     depends_on:
       api:
         condition: service_healthy
