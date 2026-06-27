@@ -126,5 +126,8 @@ export const liveApi = {
 
   delete: (id: string) => http.delete<{ status: string }>(`/api/v1/live/rooms/${id}`),
 
+  batchDelete: (ids: string[]) =>
+    http.post<{ deleted: number }>('/api/v1/live/rooms/batch-delete', { ids }),
+
   stop: (id: string) => http.post<{ data: LiveRoom }>(`/api/v1/live/rooms/${id}/stop`),
 }

@@ -159,6 +159,18 @@ func (r *LiveRepo) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
+// DeleteByIDs 批量软删除
+func (r *LiveRepo) DeleteByIDs(ctx context.Context, ids []string) (int64, error) {
+	if len(ids) == 0 {
+		return 0, apperr.Validation("请选择要删除的直播间")
+	}
+	res := r.db.WithContext(ctx).Where("id IN ?", ids).Delete(&live.Room{})
+	if res.Error != nil {
+		return 0, wrapDBErr(res.Error, "批量删除直播间失败")
+	}
+	return res.RowsAffected, nil
+}
+
 // DeleteIPTVByPlaylistURL 删除指定 M3U 来源的 IPTV 频道
 func (r *LiveRepo) DeleteIPTVByPlaylistURL(ctx context.Context, playlistURL string) (int64, error) {
 	res := r.db.WithContext(ctx).

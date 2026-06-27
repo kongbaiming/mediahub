@@ -126,6 +126,21 @@ func (h *LiveHandler) Delete(c *gin.Context) {
 	c.JSON(200, gin.H{"status": "deleted"})
 }
 
+// BatchDelete 批量删除直播间（CMS）
+func (h *LiveHandler) BatchDelete(c *gin.Context) {
+	var req service.BatchDeleteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, apperr.Validation(err.Error()))
+		return
+	}
+	deleted, err := h.svc.BatchDelete(c.Request.Context(), req.IDs)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"deleted": deleted})
+}
+
 // Stop 结束直播（CMS 手动标记）
 func (h *LiveHandler) Stop(c *gin.Context) {
 	id := c.Param("id")

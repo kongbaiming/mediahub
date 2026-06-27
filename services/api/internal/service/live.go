@@ -233,6 +233,32 @@ func (s *LiveService) Delete(ctx context.Context, id string) error {
 	return s.repo.Delete(ctx, id)
 }
 
+// BatchDeleteRequest 批量删除直播间
+type BatchDeleteRequest struct {
+	IDs []string `json:"ids" binding:"required,min=1,max=200"`
+}
+
+// BatchDelete 批量删除直播间
+func (s *LiveService) BatchDelete(ctx context.Context, ids []string) (int64, error) {
+	parsed := make([]string, 0, len(ids))
+	seen := map[string]bool{}
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" || seen[id] {
+			continue
+		}
+		if _, err := uuid.Parse(id); err != nil {
+			return 0, apperr.Validation("无效的直播间 ID: " + id)
+		}
+		seen[id] = true
+		parsed = append(parsed, id)
+	}
+	if len(parsed) == 0 {
+		return 0, apperr.Validation("请选择要删除的直播间")
+	}
+	return s.repo.DeleteByIDs(ctx, parsed)
+}
+
 func (s *LiveService) Stop(ctx context.Context, id string) (*live.RoomView, error) {
 	room, err := s.repo.GetByID(ctx, id)
 	if err != nil {

@@ -115,9 +115,23 @@
         <el-option label="已结束" value="ended" />
       </el-select>
       <el-button @click="loadRooms">查询</el-button>
+      <el-button
+        v-if="selectedIds.length > 0"
+        type="danger"
+        :loading="batchDeleting"
+        @click="onBatchDelete"
+      >
+        批量删除 ({{ selectedIds.length }})
+      </el-button>
     </div>
 
-    <el-table v-loading="loading" :data="rooms" stripe>
+    <el-table
+      v-loading="loading"
+      :data="rooms"
+      stripe
+      @selection-change="onSelectionChange"
+    >
+      <el-table-column type="selection" width="48" />
       <el-table-column label="标题" min-width="200">
         <template #default="{ row }">
           <div class="title-cell">
@@ -339,6 +353,8 @@ import { copyToClipboard } from '@/utils/clipboard'
 
 const loading = ref(false)
 const creating = ref(false)
+const batchDeleting = ref(false)
+const selectedIds = ref<string[]>([])
 const syncingUrl = ref('')
 const rooms = ref<LiveRoom[]>([])
 const playlists = ref<LivePlaylistStat[]>([])
@@ -618,6 +634,31 @@ async function onDelete(room: LiveRoom) {
     await loadRooms()
   } catch (e: any) {
     ElMessage.error(e?.message || '删除失败')
+  }
+}
+
+function onSelectionChange(rows: LiveRoom[]) {
+  selectedIds.value = rows.map((r) => r.id)
+}
+
+async function onBatchDelete() {
+  const n = selectedIds.value.length
+  if (n === 0) return
+  await ElMessageBox.confirm(
+    `确定删除选中的 ${n} 个直播源？此操作不可恢复。`,
+    '批量删除',
+    { type: 'warning' },
+  )
+  batchDeleting.value = true
+  try {
+    const resp = await liveApi.batchDelete(selectedIds.value)
+    selectedIds.value = []
+    ElMessage.success(`已删除 ${resp.deleted} 个直播源`)
+    await Promise.all([loadRooms(), loadMeta()])
+  } catch (e: any) {
+    ElMessage.error(e?.message || '批量删除失败')
+  } finally {
+    batchDeleting.value = false
   }
 }
 
