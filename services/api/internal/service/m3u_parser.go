@@ -1,13 +1,14 @@
 package service
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 
 	"github.com/mediahub/api/internal/apperr"
 )
 
-const maxM3UEntries = 1000
+const maxM3UEntries = 3000
 
 // M3UEntry M3U 频道条目
 type M3UEntry struct {
@@ -74,7 +75,7 @@ func ParseM3U(content, baseURL string) ([]M3UEntry, error) {
 	}
 
 	if len(out) > maxM3UEntries {
-		return nil, apperr.Validation("M3U 频道数量超过上限（1000）")
+		return nil, apperr.BadRequest(fmt.Sprintf("M3U 频道数量超过上限（%d），请按分组筛选后分批导入", maxM3UEntries))
 	}
 	if len(out) == 0 {
 		return nil, apperr.Validation("M3U 列表中未找到有效频道")
@@ -159,5 +160,38 @@ func validateM3UPlaylistURL(raw string) (string, error) {
 	if !IsSafePublicURL(u) {
 		return "", apperr.Validation("M3U 列表地址不允许访问内网地址")
 	}
-	return u.String(), nil
+	return normalizeM3UPlaylistURL(u.String())
+}
+
+// knownM3UHomepages 常见 IPTV 聚合站首页 → M3U 路径
+var knownM3UHomepages = map[string]string{
+	"live.zhi35.com": "/iptv.m3u",
+}
+
+// normalizeM3UPlaylistURL 将聚合站首页等地址解析为实际 M3U 文件地址
+func normalizeM3UPlaylistURL(raw string) (string, error) {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return raw, nil
+	}
+	path := strings.TrimSuffix(parsed.Path, "/")
+	lower := strings.ToLower(path)
+	if path != "" && (strings.HasSuffix(lower, ".m3u") || strings.HasSuffix(lower, ".m3u8")) {
+		return parsed.String(), nil
+	}
+	host := strings.ToLower(parsed.Hostname())
+	if suffix, ok := knownM3UHomepages[host]; ok {
+		parsed.Path = suffix
+		parsed.RawQuery = ""
+		parsed.Fragment = ""
+		return parsed.String(), nil
+	}
+	// 常见约定：站点根路径下提供 iptv.m3u
+	if path == "" {
+		parsed.Path = "/iptv.m3u"
+		parsed.RawQuery = ""
+		parsed.Fragment = ""
+		return parsed.String(), nil
+	}
+	return parsed.String(), nil
 }

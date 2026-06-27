@@ -28,7 +28,7 @@
       <template #default>
         <p><strong>推流直播：</strong>创建后用 OBS 推流，Stream Key 填入串流密钥。</p>
         <p><strong>IPTV 拉流：</strong>填写外部 m3u8 地址，无需推流，创建后可直接播放。</p>
-        <p><strong>M3U 列表：</strong>支持导入 GitHub 等托管的 .m3u / .m3u8 频道列表，批量添加 IPTV 频道。</p>
+        <p><strong>M3U 列表：</strong>支持导入 GitHub、live.zhi35.com 等托管的 M3U 频道列表（首页地址会自动解析）。</p>
       </template>
     </el-alert>
 
@@ -229,9 +229,11 @@
         <el-form-item label="M3U 列表地址">
           <el-input
             v-model="importForm.playlist_url"
-            placeholder="https://raw.githubusercontent.com/.../cnTV_AutoUpdate.m3u8"
+            placeholder="https://live.zhi35.com/ 或 https://example.com/playlist.m3u8"
           />
-          <div class="field-hint">填写 URL 或直接粘贴下方内容（二选一）</div>
+          <div class="field-hint">
+            支持聚合站首页（如 live.zhi35.com 会自动解析为 /iptv.m3u），也可填写 URL 或直接粘贴下方内容
+          </div>
         </el-form-item>
         <el-form-item label="或粘贴 M3U 内容">
           <el-input
