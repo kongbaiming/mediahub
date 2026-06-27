@@ -257,15 +257,15 @@
         </div>
       </el-dialog>
 
-      <el-card v-if="media.seasons?.length" shadow="never" class="seasons-card">
+      <el-card v-if="sortedSeasons.length" shadow="never" class="seasons-card">
         <template #header><span>季 / 集</span></template>
         <el-collapse>
           <el-collapse-item
-            v-for="s in media.seasons"
+            v-for="s in sortedSeasons"
             :key="s.id"
             :title="`第 ${s.season_number} 季${s.title ? '：' + s.title : ''} (${s.episodes?.length || 0} 集)`"
           >
-            <el-table :data="s.episodes || []" size="small">
+            <el-table :data="s.episodes || []" size="small" :default-sort="{ prop: 'episode_number', order: 'ascending' }">
               <el-table-column label="集" prop="episode_number" width="80" />
               <el-table-column label="标题" prop="title" />
               <el-table-column label="时长" width="120">
@@ -324,6 +324,17 @@ const showScrapeMatch = computed(() => {
   const s = media.value?.scrape_status
   return s === 'failed' || s === 'pending'
 })
+
+const sortedSeasons = computed(() => {
+  if (!media.value?.seasons?.length) return []
+  return [...media.value.seasons]
+    .sort((a, b) => a.season_number - b.season_number)
+    .map((s) => ({
+      ...s,
+      episodes: [...(s.episodes || [])].sort((a, b) => a.episode_number - b.episode_number),
+    }))
+})
+
 const editForm = reactive({
   title: '',
   original_title: '',

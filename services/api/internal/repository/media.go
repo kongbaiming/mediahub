@@ -118,8 +118,13 @@ func (r *MediaRepo) List(ctx context.Context, f MediaFilter, limit, offset int) 
 func (r *MediaRepo) GetByID(ctx context.Context, id string) (*media.Media, error) {
 	var m media.Media
 	if err := r.db.WithContext(ctx).
+		Preload("Seasons", func(db *gorm.DB) *gorm.DB {
+			return db.Order("season_number ASC")
+		}).
+		Preload("Seasons.Episodes", func(db *gorm.DB) *gorm.DB {
+			return db.Order("episode_number ASC")
+		}).
 		Preload("Seasons.Episodes.Files").
-		Preload("Seasons.Episodes").
 		Preload("Files").
 		First(&m, "id = ?", id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

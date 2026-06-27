@@ -8,6 +8,7 @@ package service
 
 import (
 	"context"
+	"sort"
 
 	"github.com/mediahub/api/internal/apperr"
 	"github.com/mediahub/api/internal/domain/common"
@@ -223,7 +224,11 @@ func toDetail(m *media.Media) *MediaDetail {
 		m.StoragePath = m.PlayablePath()
 	}
 	d := &MediaDetail{Media: m}
-	for _, s := range m.Seasons {
+	seasons := append([]media.Season(nil), m.Seasons...)
+	sort.Slice(seasons, func(i, j int) bool {
+		return seasons[i].SeasonNumber < seasons[j].SeasonNumber
+	})
+	for _, s := range seasons {
 		sd := SeasonDetail{
 			ID:           s.ID,
 			SeasonNumber: s.SeasonNumber,
@@ -235,7 +240,11 @@ func toDetail(m *media.Media) *MediaDetail {
 		if s.AirDate != nil {
 			sd.AirDate = s.AirDate.Format("2006-01-02")
 		}
-		for _, e := range s.Episodes {
+		eps := append([]media.Episode(nil), s.Episodes...)
+		sort.Slice(eps, func(i, j int) bool {
+			return eps[i].EpisodeNumber < eps[j].EpisodeNumber
+		})
+		for _, e := range eps {
 			sd.Episodes = append(sd.Episodes, EpisodeDetail{
 				ID:            e.ID,
 				EpisodeNumber: e.EpisodeNumber,
