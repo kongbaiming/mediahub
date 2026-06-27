@@ -14,6 +14,7 @@ import (
 	"github.com/mediahub/api/internal/domain/common"
 	"github.com/mediahub/api/internal/domain/media"
 	"github.com/mediahub/api/internal/repository"
+	"github.com/mediahub/api/internal/scanner"
 	"github.com/mediahub/api/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -86,6 +87,48 @@ func (h *MediaHandler) Get(c *gin.Context) {
 		return
 	}
 	c.JSON(200, gin.H{"data": result})
+}
+
+// Probe 媒资 ffprobe 详情（v0.4 A3）
+func (h *MediaHandler) Probe(c *gin.Context) {
+	id := c.Param("id")
+	detail, err := h.svc.Detail(c.Request.Context(), id)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+
+	probePath := detail.StoragePath
+	if detail.Type == common.MediaTypeTVShow || detail.Type == common.MediaTypeAnime {
+		for _, season := range detail.Seasons {
+			for _, ep := range season.Episodes {
+				if ep.FilePath != "" {
+					probePath = ep.FilePath
+					break
+				}
+			}
+			if probePath != detail.StoragePath {
+				break
+			}
+		}
+	}
+
+	cleanPath := resolveStreamPath(probePath, h.pathAliases)
+	if !isPathUnderRoots(cleanPath, h.allowedRoots) {
+		respondError(c, apperr.Forbidden("path outside media root"))
+		return
+	}
+	if info, err := os.Stat(cleanPath); err != nil || info.IsDir() {
+		respondError(c, apperr.NotFound("file not found"))
+		return
+	}
+
+	result, err := scanner.Probe(c.Request.Context(), "", cleanPath)
+	if err != nil {
+		respondError(c, apperr.Internal("probe failed: "+err.Error()))
+		return
+	}
+	c.JSON(200, gin.H{"data": result.ToMediaProbe(cleanPath)})
 }
 
 // Create 手动创建

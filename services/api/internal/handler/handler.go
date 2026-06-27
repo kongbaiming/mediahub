@@ -127,6 +127,7 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 		v1.POST("/media/batch-rescan", middleware.Auth(h.Auth.svc), h.Media.BatchRescan)
 		v1.GET("/media/:id/poster", h.Media.GetPoster)
 		v1.POST("/media/:id/poster", middleware.Auth(h.Auth.svc), h.Media.UploadPoster)
+		v1.GET("/media/:id/probe", h.Media.Probe)
 		v1.GET("/media/:id", h.Media.Get)
 		v1.POST("/media", middleware.Auth(h.Auth.svc), h.Media.Create)
 		v1.PATCH("/media/:id", middleware.Auth(h.Auth.svc), h.Media.Update)
@@ -184,6 +185,7 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 		v1.DELETE("/layouts/publications/:pub_id", middleware.Auth(h.Auth.svc), middleware.RequireAdmin(), h.Layout.DisablePublication)
 
 		// 播放端 Feed（无需登录）
+		v1.GET("/feed/version", h.Feed.Version)
 		v1.GET("/feed/:platform", h.Feed.Get)
 
 		// 媒资搜索（无需登录）
@@ -229,6 +231,7 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 		cms.Use(middleware.Auth(h.Auth.svc))
 		{
 			cms.GET("/admin/want-to-watch", h.Library.AdminWantToWatch)
+			cms.GET("/admin/recommendations/library-missing", h.Recommend.LibraryMissing)
 			if h.Indexer != nil {
 				cms.GET("/indexer/search", h.Indexer.Search)
 			}

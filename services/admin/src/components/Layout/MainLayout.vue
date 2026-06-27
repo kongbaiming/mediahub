@@ -44,6 +44,10 @@
           <el-icon><Star /></el-icon>
           <template #title>播放端想看</template>
         </el-menu-item>
+        <el-menu-item index="/recommendations/library-missing">
+          <el-icon><MagicStick /></el-icon>
+          <template #title>库外推荐</template>
+        </el-menu-item>
         <el-menu-item index="/settings">
           <el-icon><Setting /></el-icon>
           <template #title>设置</template>

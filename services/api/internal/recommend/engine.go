@@ -27,11 +27,16 @@ type Engine struct {
 	mediaRepo *repository.MediaRepo
 	histRepo  *repository.HistoryRepo
 	tmdb      *scraper.TMDBClient
+	recCache  *repository.RecommendRepo
 }
 
 // NewEngine 构造
-func NewEngine(m *repository.MediaRepo, h *repository.HistoryRepo, tmdb *scraper.TMDBClient) *Engine {
-	return &Engine{mediaRepo: m, histRepo: h, tmdb: tmdb}
+func NewEngine(m *repository.MediaRepo, h *repository.HistoryRepo, tmdb *scraper.TMDBClient, rec ...*repository.RecommendRepo) *Engine {
+	e := &Engine{mediaRepo: m, histRepo: h, tmdb: tmdb}
+	if len(rec) > 0 {
+		e.recCache = rec[0]
+	}
+	return e
 }
 
 // ---- Content-based ----
@@ -343,23 +348,19 @@ func pickSeedMediasFromProfile(ctx context.Context, histRepo *repository.History
 
 // CacheRecommendation 缓存推荐结果
 func (e *Engine) CacheRecommendation(ctx context.Context, algo string, profileID string, mediaIDs []uuid.UUID, ttl time.Duration) error {
+	if e.recCache == nil {
+		return nil
+	}
 	if ttl <= 0 {
 		ttl = 24 * time.Hour
 	}
-	rec := struct {
-		algo      string
-		profileID string
-		mediaIDs  []uuid.UUID
-		expiresAt time.Time
-	}{
-		algo:      algo,
-		profileID: profileID,
-		mediaIDs:  mediaIDs,
-		expiresAt: time.Now().Add(ttl),
+	var pid *uuid.UUID
+	if profileID != "" && profileID != "anonymous" {
+		if p, err := uuid.Parse(profileID); err == nil {
+			pid = &p
+		}
 	}
-	_ = rec
-	// TODO W3.D5: 写库到 recommendations 表
-	return nil
+	return e.recCache.Save(ctx, pid, algo, mediaIDs, time.Now().Add(ttl))
 }
 
 // ptrF float64 helper (in service.go)

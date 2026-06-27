@@ -28,12 +28,26 @@ type CatalogEnricher interface {
 
 // Handlers 聚合所有任务处理器
 type Handlers struct {
-	tmdb       *scraper.TMDBClient
-	transcoder *transcoder.Transcoder
-	mediaRepo  *repository.MediaRepo
-	queue      *queue.Queue
-	thumbDir   string
-	enricher   CatalogEnricher
+	tmdb            *scraper.TMDBClient
+	transcoder      *transcoder.Transcoder
+	mediaRepo       *repository.MediaRepo
+	queue           *queue.Queue
+	thumbDir        string
+	enricher        CatalogEnricher
+	feedInvalidator func(ctx context.Context, platform string) error
+}
+
+// SetFeedInvalidator 刮削完成后失效 Feed 缓存（v0.4 A6）
+func (h *Handlers) SetFeedInvalidator(fn func(ctx context.Context, platform string) error) {
+	h.feedInvalidator = fn
+}
+
+func (h *Handlers) invalidateFeedAfterScrape(ctx context.Context) {
+	if h.feedInvalidator == nil {
+		return
+	}
+	_ = h.feedInvalidator(ctx, "web")
+	_ = h.feedInvalidator(ctx, "android-tv")
 }
 
 // NewHandlers 构造
@@ -262,6 +276,7 @@ func (h *Handlers) HandleScrape(ctx context.Context, t *asynq.Task) error {
 	}
 
 	logger.Info("刮削成功", "media_id", mid, "title", m.Title)
+	h.invalidateFeedAfterScrape(ctx)
 	return nil
 }
 

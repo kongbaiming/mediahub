@@ -22,7 +22,7 @@
       ></video>
 
       <div v-if="transcodeLoading" class="transcode-overlay">
-        <LoadingState :message="transcodeMessage" background />
+        <LoadingState :message="transcodeMessage" :progress="transcodeProgress" background />
       </div>
 
       <!-- 顶部快捷键提示 -->
@@ -72,6 +72,7 @@ const playablePath = ref('')
 const nextEpisodePrompt = ref<EpisodeNext | null>(null)
 const transcodeLoading = ref(false)
 const transcodeMessage = ref('正在准备播放流…')
+const transcodeProgress = ref<number | undefined>()
 
 const lastReportAt = ref(0)
 const REPORT_INTERVAL = 10
@@ -129,7 +130,7 @@ async function loadMedia() {
 
     const playback = resolvePlayback(data, queryEpisode || resumeEpisode)
     currentEpisodeId.value = playback.episodeId
-    playablePath.value = playback.filePath
+    playablePath.value = playback.filePath || ''
 
     await setupVideo()
   } catch (e: any) {
@@ -272,6 +273,9 @@ async function pollAndPlayHLS(streamId: string, playlistUrl: string, alreadyAtta
       transcodeMessage.value = st.copy_video
         ? '正在准备 4K 流…'
         : `正在转码${st.height ? `（${st.height}p）` : ''}，请稍候…`
+    }
+    if (typeof st.progress === 'number' && st.progress > 0) {
+      transcodeProgress.value = st.progress
     }
     if (st.status === 'failed') {
       throw new Error(st.error || 'HLS 转码失败')

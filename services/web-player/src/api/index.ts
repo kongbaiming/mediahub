@@ -212,6 +212,11 @@ export const feedApi = {
     }
     return body as Feed
   },
+
+  async version(): Promise<number> {
+    const body = (await http.get<unknown>('/api/v1/feed/version')) as { version?: number }
+    return body.version ?? 0
+  },
 }
 
 export const mediaApi = {
@@ -464,7 +469,7 @@ export const libraryApi = {
   },
 
   async toggleFavorite(mediaId: string): Promise<{ added: boolean }> {
-    const body = (await http.post<unknown>(`/api/v1/library/favorites/${mediaId}`)) as {
+    const body = (await http.post(`/api/v1/library/favorites/${mediaId}`)) as unknown as {
       added: boolean
     }
     return { added: !!body.added }

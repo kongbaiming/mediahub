@@ -78,7 +78,7 @@
           <el-button v-if="row.state === 'paused'" size="small" type="success" @click.stop="resume(row.hash)">
             继续
           </el-button>
-          <el-button size="small" type="danger" @click.stop="remove(row)">删除</el-button>
+          <el-button size="small" type="danger" @click.stop="remove(row as Download)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>

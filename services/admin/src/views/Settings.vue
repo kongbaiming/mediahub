@@ -28,7 +28,7 @@
             打开 API 文档
           </el-link>
         </el-descriptions-item>
-        <el-descriptions-item label="版本">0.1.0</el-descriptions-item>
+        <el-descriptions-item label="版本">0.4.0</el-descriptions-item>
         <el-descriptions-item label="构建">dev</el-descriptions-item>
       </el-descriptions>
     </el-card>

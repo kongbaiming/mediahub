@@ -118,3 +118,96 @@ func (p *ProbeResult) Extract() MediaInfo {
 	}
 	return info
 }
+
+// VideoSize 首个视频流宽高
+func (p *ProbeResult) VideoSize() (width, height int) {
+	for _, s := range p.Streams {
+		if s.CodecType == "video" && s.Height > 0 {
+			return s.Width, s.Height
+		}
+	}
+	return 0, 0
+}
+
+// MediaProbeDetail 媒资 probe API 响应（v0.4 A3）
+type MediaProbeDetail struct {
+	FileSize       int64  `json:"file_size"`
+	Duration       int    `json:"duration"`
+	BitRate        int64  `json:"bitrate"`
+	VideoCodec     string `json:"video_codec"`
+	VideoProfile   string `json:"video_profile,omitempty"`
+	VideoLevel     string `json:"video_level,omitempty"`
+	AudioCodec     string `json:"audio_codec"`
+	AudioChannels  int    `json:"audio_channels"`
+	AudioLanguage  string `json:"audio_language,omitempty"`
+	Width          int    `json:"width"`
+	Height         int    `json:"height"`
+	HDR            string `json:"hdr"` // sdr | hdr10 | hlg
+	Container      string `json:"container,omitempty"`
+	HasSubtitle    bool   `json:"has_subtitle"`
+	Recommended    string `json:"recommended,omitempty"`
+	DirectPlayable bool   `json:"direct_playable"`
+	HLSCopyable    bool   `json:"hls_copyable"`
+}
+
+// ToMediaProbe 从 ffprobe 结果构建媒资 probe 详情
+func (p *ProbeResult) ToMediaProbe(filePath string) MediaProbeDetail {
+	info := p.Extract()
+	w, h := p.VideoSize()
+	out := MediaProbeDetail{
+		Duration:    info.Duration,
+		BitRate:     info.BitRate,
+		VideoCodec:  info.VideoCodec,
+		AudioCodec:  info.AudioCodec,
+		Width:       w,
+		Height:      h,
+		HDR:         detectHDR(p),
+		Container:   p.Format.FormatName,
+		HasSubtitle: info.HasSubtitle,
+	}
+	if br, err := strconv.ParseInt(p.Format.Size, 10, 64); err == nil && br > 0 {
+		out.FileSize = br
+	} else if info.BitRate > 0 && info.Duration > 0 {
+		out.FileSize = info.BitRate * int64(info.Duration) / 8
+	}
+	for _, s := range p.Streams {
+		if s.CodecType != "video" {
+			if s.CodecType == "audio" && out.AudioChannels == 0 {
+				out.AudioChannels = s.Channels
+				if s.Tags != nil {
+					out.AudioLanguage = s.Tags["language"]
+				}
+			}
+			continue
+		}
+		if out.VideoProfile == "" {
+			out.VideoProfile = s.Tags["profile"]
+		}
+		if out.VideoLevel == "" {
+			out.VideoLevel = s.Tags["level"]
+		}
+		break
+	}
+	hint := p.PlaybackHint(filePath)
+	out.Recommended = string(hint.Recommended)
+	out.DirectPlayable = hint.DirectPlayable
+	out.HLSCopyable = hint.HLSCopyable
+	return out
+}
+
+func detectHDR(p *ProbeResult) string {
+	for _, s := range p.Streams {
+		if s.CodecType != "video" {
+			continue
+		}
+		transfer := strings.ToLower(s.Tags["color_transfer"])
+		primaries := strings.ToLower(s.Tags["color_primaries"])
+		switch {
+		case strings.Contains(transfer, "2084"), strings.Contains(primaries, "2020"):
+			return "hdr10"
+		case strings.Contains(transfer, "hlg"):
+			return "hlg"
+		}
+	}
+	return "sdr"
+}

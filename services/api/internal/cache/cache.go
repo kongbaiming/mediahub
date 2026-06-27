@@ -126,6 +126,22 @@ func (c *Cache) Invalidate(ctx context.Context, pattern string) error {
 	return c.rdb.Del(ctx, keys...).Err()
 }
 
+// Incr 原子递增计数器（Feed 版本号等）
+func (c *Cache) Incr(ctx context.Context, key string) (int64, error) {
+	if !c.enabled {
+		return 0, nil
+	}
+	return c.rdb.Incr(ctx, c.fullKey(key)).Result()
+}
+
+// GetInt64 读取整数 key
+func (c *Cache) GetInt64(ctx context.Context, key string) (int64, error) {
+	if !c.enabled {
+		return 0, redis.Nil
+	}
+	return c.rdb.Get(ctx, c.fullKey(key)).Int64()
+}
+
 // Set 手动写入（一般用于 invalidate 后重新预热）
 func (c *Cache) Set(ctx context.Context, key string, value any, ttl time.Duration) error {
 	if !c.enabled {

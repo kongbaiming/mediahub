@@ -74,6 +74,12 @@ const routes = [
         meta: { title: '播放端想看' },
       },
       {
+        path: 'recommendations/library-missing',
+        name: 'library-missing',
+        component: () => import('@/views/LibraryMissing.vue'),
+        meta: { title: '库外推荐' },
+      },
+      {
         path: 'settings',
         name: 'settings',
         component: () => import('@/views/Settings.vue'),

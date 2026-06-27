@@ -4,7 +4,20 @@ import { ElMessage } from 'element-plus'
 
 const baseURL = import.meta.env.VITE_API_BASE_URL || ''
 
-export const http: AxiosInstance = axios.create({
+/** 响应拦截器已解包 res.data，此处修正 TS 返回类型 */
+type UnwrappedHttp = Omit<
+  AxiosInstance,
+  'get' | 'post' | 'put' | 'patch' | 'delete' | 'request'
+> & {
+  get<T = unknown>(url: string, config?: object): Promise<T>
+  post<T = unknown>(url: string, data?: unknown, config?: object): Promise<T>
+  put<T = unknown>(url: string, data?: unknown, config?: object): Promise<T>
+  patch<T = unknown>(url: string, data?: unknown, config?: object): Promise<T>
+  delete<T = unknown>(url: string, config?: object): Promise<T>
+  request<T = unknown>(config: object): Promise<T>
+}
+
+export const http: UnwrappedHttp = axios.create({
   baseURL,
   timeout: 30000,
   headers: {
@@ -92,6 +105,27 @@ export interface IndexerRelease {
   peers: number
   indexer: string
   publish_date?: string
+}
+
+export interface LibraryMissingItem {
+  tmdb_id?: number
+  title: string
+  poster_url?: string
+  backdrop_url?: string
+  media_type?: string
+  rating?: number
+  year?: number
+  overview?: string
+  genres?: string[]
+  external?: boolean
+}
+
+export const libraryMissingApi = {
+  list: (params: { limit?: number; discover_limit?: number; profile_id?: string } = {}) =>
+    http.get<{ data: LibraryMissingItem[]; total: number }>(
+      '/api/v1/admin/recommendations/library-missing',
+      { params },
+    ),
 }
 
 export const adminWantApi = {

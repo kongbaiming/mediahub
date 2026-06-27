@@ -318,6 +318,11 @@ func hlsStatusResponse(c *gin.Context, t *hlsTask) {
 	if t.Error != "" {
 		resp["error"] = t.Error
 	}
+	outDir := t.OutputDir
+	if outDir == "" && t.Input != "" {
+		outDir = filepath.Dir(t.Input)
+	}
+	enrichHLSProgress(resp, outDir, t.Input, 6)
 	enrichHLSPlayable(resp, t.OutputDir, t.MediaID)
 	if t.Status == "done" {
 		resp["playlist"] = hlsPlaylistURL(t.MediaID)
@@ -355,6 +360,66 @@ func hlsPlaylistHasSegments(playlistPath string) bool {
 		return false
 	}
 	return strings.Contains(string(data), "#EXTINF:")
+}
+
+func countHLSSegments(outDir string) int {
+	entries, err := os.ReadDir(outDir)
+	if err != nil {
+		return 0
+	}
+	n := 0
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".ts") {
+			n++
+		}
+	}
+	return n
+}
+
+func hlsTranscodeProgress(outDir, inputPath string, segmentSec int) int {
+	if segmentSec <= 0 {
+		segmentSec = 6
+	}
+	duration := 0
+	if result, err := scanner.Probe(context.Background(), "", inputPath); err == nil {
+		duration = result.Extract().Duration
+	}
+	segments := countHLSSegments(outDir)
+	if duration <= 0 {
+		if segments == 0 {
+			return 0
+		}
+		return minInt(95, segments*8)
+	}
+	expected := (duration + segmentSec - 1) / segmentSec
+	if expected <= 0 {
+		return 0
+	}
+	pct := segments * 100 / expected
+	if pct > 99 {
+		playlistPath := filepath.Join(outDir, "playlist.m3u8")
+		if !isHLSPlaylistComplete(playlistPath) {
+			pct = 99
+		}
+	}
+	return pct
+}
+
+func enrichHLSProgress(resp gin.H, outDir, inputPath string, segmentSec int) {
+	if resp["status"] == "done" {
+		resp["progress"] = 100
+		return
+	}
+	if p := hlsTranscodeProgress(outDir, inputPath, segmentSec); p > 0 {
+		resp["progress"] = p
+	}
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // handleHLS 启动 HLS 转码（异步）
@@ -521,6 +586,7 @@ func GetHLSTaskStatus(cacheRoot string, store *hlsstore.Store) gin.HandlerFunc {
 			if t.OutputDir == "" {
 				t.OutputDir = outDir
 			}
+			enrichHLSProgress(resp, t.OutputDir, t.Input, 6)
 			enrichHLSPlayable(resp, t.OutputDir, t.MediaID)
 			if resp["status"] == "done" || t.Status == "done" {
 				resp["playlist"] = hlsPlaylistURL(t.MediaID)
@@ -535,17 +601,20 @@ func GetHLSTaskStatus(cacheRoot string, store *hlsstore.Store) gin.HandlerFunc {
 				c.JSON(200, gin.H{
 					"media_id": mediaID,
 					"status":   "done",
+					"progress": 100,
 					"playlist": hlsPlaylistURL(mediaID),
 				})
 				return
 			}
 			if hlsPlaylistHasSegments(playlistPath) {
-				c.JSON(200, gin.H{
+				resp := gin.H{
 					"media_id": mediaID,
 					"status":   "running",
 					"playable": true,
 					"playlist": hlsPlaylistURL(mediaID),
-				})
+				}
+				enrichHLSProgress(resp, outDir, "", 6)
+				c.JSON(200, resp)
 				return
 			}
 			_ = os.RemoveAll(outDir)

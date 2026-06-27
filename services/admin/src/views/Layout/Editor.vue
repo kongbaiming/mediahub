@@ -588,7 +588,7 @@
               v-if="row.enabled"
               size="small"
               type="danger"
-              @click="onDisablePub(row)"
+              @click="onDisablePub(row as Publication)"
             >禁用</el-button>
           </template>
         </el-table-column>
@@ -868,7 +868,7 @@ function applyLayoutPreset(preset: LayoutPreset) {
       if (layout.value) {
         layout.value.config = {
           ...layout.value.config,
-          theme: preset.theme,
+          theme: preset.theme as 'dark' | 'light',
           global: layoutGlobal.value,
         }
       }

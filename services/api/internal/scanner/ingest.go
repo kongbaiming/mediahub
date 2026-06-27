@@ -64,6 +64,7 @@ func ingestMovieFile(ctx context.Context, deps IngestDeps, filePath string, pars
 	if albumDir != "" {
 		if album, _ := deps.MediaRepo.FindMovieInFolder(ctx, albumDir); album != nil {
 			_, _ = deps.MediaRepo.UpsertMediaFile(ctx, scanMediaFile(album.ID, nil, filePath))
+			probeIngestFileAsync(deps.MediaRepo, filePath)
 			res.Skipped = true
 			enqueueScrape(ctx, deps.Queue, album.ID.String(), album.ScrapeStatus != common.ScrapeStatusDone)
 			return res, nil
@@ -97,6 +98,7 @@ func ingestMovieFile(ctx context.Context, deps IngestDeps, filePath string, pars
 		return res, err
 	}
 	_, _ = deps.MediaRepo.UpsertMediaFile(ctx, scanMediaFile(m.ID, nil, filePath))
+	probeIngestFileAsync(deps.MediaRepo, filePath)
 	res.Added = true
 	enqueueScrape(ctx, deps.Queue, m.ID.String(), true)
 	if deps.Catalog != nil {
@@ -176,6 +178,7 @@ func ingestEpisodeFile(ctx context.Context, deps IngestDeps, filePath string, pa
 	ep, err := deps.MediaRepo.GetEpisodeByFilePath(ctx, filePath)
 	if err == nil && ep != nil {
 		_, _ = deps.MediaRepo.UpsertMediaFile(ctx, scanMediaFile(series.ID, &ep.ID, filePath))
+		probeIngestFileAsync(deps.MediaRepo, filePath)
 	}
 
 	if isNewSeries || migrated {

@@ -19,6 +19,8 @@ import (
 // feedRowSourceTimeout 单行数据源解析超时，避免 TMDB 等外网调用拖垮整页 Feed
 const feedRowSourceTimeout = 10 * time.Second
 
+const feedVersionKey = "feed:version"
+
 // FeedService Feed 数据填充业务（核心：把布局 + 数据合并成 Feed）
 type FeedService struct {
 	media     *repository.MediaRepo
@@ -171,19 +173,44 @@ func (s *FeedService) resolveLayoutInheritance(ctx context.Context, l *layout.La
 
 // InvalidateFeed 失效 Feed 缓存（布局发布 / 媒资变更时调用）
 func (s *FeedService) InvalidateFeed(ctx context.Context, platform string) error {
-	if s.cache == nil {
-		return nil
+	if s.cache != nil {
+		// 通配符删除该 platform 的所有 profile 缓存
+		if err := s.cache.Invalidate(ctx, "feed:"+platform+":*"); err != nil {
+			return err
+		}
 	}
-	// 通配符删除该 platform 的所有 profile 缓存
-	return s.cache.Invalidate(ctx, "feed:"+platform+":*")
+	s.bumpFeedVersion(ctx)
+	return nil
+}
+
+// GetFeedVersion 返回 Feed 全局版本号（客户端轮询对比）
+func (s *FeedService) GetFeedVersion(ctx context.Context) int64 {
+	if s.cache == nil {
+		return time.Now().Unix() / 30
+	}
+	v, err := s.cache.GetInt64(ctx, feedVersionKey)
+	if err != nil {
+		return 0
+	}
+	return v
+}
+
+func (s *FeedService) bumpFeedVersion(ctx context.Context) {
+	if s.cache == nil {
+		return
+	}
+	_, _ = s.cache.Incr(ctx, feedVersionKey)
 }
 
 // InvalidateAll 失效全部 Feed（重大变更时使用）
 func (s *FeedService) InvalidateAll(ctx context.Context) error {
-	if s.cache == nil {
-		return nil
+	if s.cache != nil {
+		if err := s.cache.Invalidate(ctx, "feed:*"); err != nil {
+			return err
+		}
 	}
-	return s.cache.Invalidate(ctx, "feed:*")
+	s.bumpFeedVersion(ctx)
+	return nil
 }
 
 // checkIsKid 检查当前 Profile 是否是儿童

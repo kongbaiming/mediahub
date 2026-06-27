@@ -22,8 +22,8 @@ function row(
   return {
     visible: true,
     card_style: 'poster',
-    source: { type: 'trending', params: { limit: 20 } },
     ...partial,
+    source: partial.source ?? { type: 'trending', params: { limit: 20 } },
   }
 }
 

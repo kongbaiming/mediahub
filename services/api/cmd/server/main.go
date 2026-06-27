@@ -149,7 +149,7 @@ func main() {
 	profileSvc := service.NewProfileService(userRepo)
 
 	// 推荐引擎
-	recommendEngine := recommend.NewEngine(mediaRepo, historyRepo, tmdbClient)
+	recommendEngine := recommend.NewEngine(mediaRepo, historyRepo, tmdbClient, recommendRepo)
 	recommendSvc := recommend.NewService(recommendEngine, recommendRepo)
 
 	// Feed Service 需要推荐接口（接口注入避免循环依赖）
@@ -168,10 +168,12 @@ func main() {
 		logger.Warn("Redis 不可用，Feed 缓存已禁用")
 	}
 
-	// 注入 Feed 缓存失效回调（layoutSvc → feedSvc）
-	layoutSvc.SetFeedInvalidator(func(ctx context.Context, platform string) error {
+	// 注入 Feed 缓存失效回调（layoutSvc / worker 刮削完成 → feedSvc）
+	invalidateFeed := func(ctx context.Context, platform string) error {
 		return feedSvc.InvalidateFeed(ctx, platform)
-	})
+	}
+	layoutSvc.SetFeedInvalidator(invalidateFeed)
+	handlers.SetFeedInvalidator(invalidateFeed)
 
 	if err := layoutSvc.EnsureGuessYouLikeRows(context.Background()); err != nil {
 		logger.Warn("补全猜你喜欢布局行失败", "err", err)

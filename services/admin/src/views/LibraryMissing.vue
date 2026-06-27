@@ -1,7 +1,7 @@
 <template>
-  <div class="want-page">
+  <div class="library-missing-page">
     <div class="page-header">
-      <h2 class="page-h2">播放端想看</h2>
+      <h2 class="page-h2">猜你喜欢 · 库外推荐</h2>
       <div class="header-actions">
         <el-button @click="load" :loading="loading">
           <el-icon><Refresh /></el-icon>
@@ -11,77 +11,43 @@
     </div>
 
     <el-alert
-      v-if="indexerStatus === 'unavailable'"
-      type="warning"
+      type="info"
       show-icon
       :closable="false"
       class="tip-alert"
-      title="索引器未配置"
-      description="请在 API 环境变量中设置 INDEXER_URL 与 INDEXER_API_KEY（Prowlarr），才能在线搜索资源。"
+      title="入库向导"
+      description="以下条目来自「猜你喜欢」中的 TMDB 推荐，尚未加入媒体库。可一键搜索资源并添加到 qBittorrent 下载队列。"
     />
 
     <el-table v-loading="loading" :data="items" stripe>
       <el-table-column label="封面" width="80">
         <template #default="{ row }">
-          <el-image
-            v-if="row.poster_url"
-            :src="row.poster_url"
-            fit="cover"
-            class="poster-thumb"
-          />
+          <el-image v-if="row.poster_url" :src="row.poster_url" fit="cover" class="poster-thumb" />
           <div v-else class="poster-placeholder">{{ row.title?.slice(0, 1) || '?' }}</div>
         </template>
       </el-table-column>
-      <el-table-column label="标题" min-width="200">
+      <el-table-column label="标题" min-width="220">
         <template #default="{ row }">
           <div class="title-cell">
             <span>{{ row.title }}</span>
-            <el-tag v-if="row.external" size="small" type="warning">未入库</el-tag>
-            <el-tag v-else-if="row.in_library" size="small" type="success">已入库</el-tag>
+            <el-tag size="small" type="warning">未入库</el-tag>
           </div>
-          <div class="sub-meta">{{ row.year || '—' }} · {{ typeLabel(row.media_type) }}</div>
+          <div class="sub-meta">
+            {{ row.year || '—' }} · {{ typeLabel(row.media_type) }}
+            <span v-if="row.rating"> · ⭐ {{ row.rating.toFixed(1) }}</span>
+          </div>
         </template>
       </el-table-column>
-      <el-table-column label="成员" prop="profile_name" width="120" />
-      <el-table-column label="TMDB" width="100">
+      <el-table-column label="TMDB" width="90" prop="tmdb_id" />
+      <el-table-column label="简介" min-width="280" show-overflow-tooltip prop="overview" />
+      <el-table-column label="操作" width="140" fixed="right">
         <template #default="{ row }">
-          {{ row.tmdb_id || '—' }}
-        </template>
-      </el-table-column>
-      <el-table-column label="标记时间" width="170">
-        <template #default="{ row }">
-          {{ formatTime(row.created_at) }}
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="220" fixed="right">
-        <template #default="{ row }">
-          <el-button
-            v-if="row.local_media_id"
-            size="small"
-            @click="openMedia(row.local_media_id)"
-          >
-            查看媒资
-          </el-button>
-          <el-button
-            v-if="!row.in_library"
-            size="small"
-            type="primary"
-            @click="openSearch(row as AdminWantItem)"
-          >
-            搜索入库
-          </el-button>
+          <el-button size="small" type="primary" @click="openSearch(row as LibraryMissingItem)">搜索入库</el-button>
         </template>
       </el-table-column>
     </el-table>
 
-    <el-empty
-      v-if="!loading && items.length === 0"
-      description="暂无播放端标记的想看"
-    >
-      <template #default>
-        <p class="empty-hint">在 Web 播放端打开库外影片详情，点击「加入想看」后，会出现在此列表。</p>
-      </template>
-    </el-empty>
+    <el-empty v-if="!loading && items.length === 0" description="暂无库外推荐，或 TMDB 未配置" />
 
     <el-dialog v-model="searchDialog" :title="`搜索资源：${activeItem?.title || ''}`" width="720">
       <div class="search-bar">
@@ -105,7 +71,12 @@
         <el-table-column label="做种" width="70" prop="seeders" />
         <el-table-column label="操作" width="100" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" type="primary" :loading="downloadingHash === row.link" @click="downloadRelease(row as IndexerRelease)">
+            <el-button
+              size="small"
+              type="primary"
+              :loading="downloadingHash === row.link"
+              @click="downloadRelease(row as IndexerRelease)"
+            >
               下载
             </el-button>
           </template>
@@ -117,17 +88,20 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { adminWantApi, indexerApi, downloaderApi, type AdminWantItem, type IndexerRelease } from '@/api/client'
+import {
+  libraryMissingApi,
+  indexerApi,
+  downloaderApi,
+  type LibraryMissingItem,
+  type IndexerRelease,
+} from '@/api/client'
 
-const router = useRouter()
 const loading = ref(false)
-const items = ref<AdminWantItem[]>([])
-const indexerStatus = ref('')
+const items = ref<LibraryMissingItem[]>([])
 
 const searchDialog = ref(false)
-const activeItem = ref<AdminWantItem | null>(null)
+const activeItem = ref<LibraryMissingItem | null>(null)
 const searchQuery = ref('')
 const searching = ref(false)
 const releases = ref<IndexerRelease[]>([])
@@ -138,18 +112,16 @@ const downloadingHash = ref('')
 async function load() {
   loading.value = true
   try {
-    const res = await adminWantApi.list()
+    const res = await libraryMissingApi.list({ limit: 50, discover_limit: 16 })
     items.value = res.data || []
+  } catch (e: any) {
+    ElMessage.error(e?.message || '加载失败')
   } finally {
     loading.value = false
   }
 }
 
-function openMedia(id: string) {
-  router.push(`/media/${id}`)
-}
-
-function openSearch(row: AdminWantItem) {
+function openSearch(row: LibraryMissingItem) {
   activeItem.value = row
   searchQuery.value = [row.title, row.year].filter(Boolean).join(' ')
   searchDialog.value = true
@@ -179,7 +151,6 @@ async function runSearch() {
         : res.status === 'error'
           ? res.message || '搜索失败'
           : `找到 ${releases.value.length} 条结果`
-    indexerStatus.value = res.status
   } finally {
     searching.value = false
   }
@@ -189,8 +160,7 @@ async function downloadRelease(row: IndexerRelease) {
   if (!row.link) return
   downloadingHash.value = row.link
   try {
-    const category = mapCategory(activeItem.value?.media_type)
-    await downloaderApi.add({ url: row.link, category })
+    await downloaderApi.add({ url: row.link, category: mapCategory(activeItem.value?.media_type) })
     ElMessage.success('已添加到下载队列，完成后将自动入库')
   } catch {
     ElMessage.error('添加下载失败')
@@ -214,42 +184,28 @@ function typeLabel(type?: string) {
 
 function formatSize(bytes: number) {
   if (!bytes) return '—'
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  let n = bytes
-  let i = 0
-  while (n >= 1024 && i < units.length - 1) {
-    n /= 1024
-    i++
-  }
-  return `${n.toFixed(i > 0 ? 1 : 0)} ${units[i]}`
-}
-
-function formatTime(iso?: string) {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleString('zh-CN')
+  const gb = bytes / 1024 / 1024 / 1024
+  if (gb >= 1) return `${gb.toFixed(1)} GB`
+  return `${(bytes / 1024 / 1024).toFixed(0)} MB`
 }
 
 onMounted(load)
 </script>
 
-<style lang="scss" scoped>
-.want-page {
-  .page-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: var(--mh-space-5);
-  }
+<style scoped lang="scss">
+.library-missing-page {
+  padding: 0 4px;
+}
 
-  .page-h2 {
-    margin: 0;
-    font-size: 22px;
-    font-weight: 600;
-  }
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
 }
 
 .tip-alert {
-  margin-bottom: var(--mh-space-4);
+  margin-bottom: 16px;
 }
 
 .poster-thumb {
@@ -262,10 +218,11 @@ onMounted(load)
   width: 48px;
   height: 72px;
   border-radius: 4px;
-  background: var(--mh-admin-surface-muted);
+  background: #334155;
   display: flex;
   align-items: center;
   justify-content: center;
+  color: #94a3b8;
   font-weight: 600;
 }
 
@@ -277,25 +234,17 @@ onMounted(load)
 
 .sub-meta {
   font-size: 12px;
-  color: var(--mh-text-muted);
+  color: #94a3b8;
   margin-top: 4px;
 }
 
 .search-bar {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   margin-bottom: 12px;
 }
 
 .search-alert {
   margin-bottom: 12px;
-}
-
-.empty-hint {
-  margin: 0;
-  font-size: 13px;
-  color: var(--mh-text-muted);
-  max-width: 420px;
-  line-height: 1.5;
 }
 </style>

@@ -72,3 +72,19 @@ func (h *RecommendHandler) GuessYouLike(c *gin.Context) {
 	}
 	c.JSON(200, gin.H{"data": items, "total": len(items)})
 }
+
+// LibraryMissing CMS：猜你喜欢库外推荐（v0.4 B1）
+func (h *RecommendHandler) LibraryMissing(c *gin.Context) {
+	profileID := c.Query("profile_id")
+	if profileID == "" {
+		profileID = middleware.GetProfileID(c)
+	}
+	limit := atoi(c.Query("limit"), 30)
+	discover := atoi(c.Query("discover_limit"), 12)
+	items, err := h.svc.LibraryMissing(c.Request.Context(), profileID, limit, discover)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"data": items, "total": len(items)})
+}

@@ -60,7 +60,7 @@
           v-for="item in favoriteItems"
           :key="item.media_id"
           class="card"
-          @click="openMedia(item.media_id)"
+          @click="item.media_id ? openMedia(item.media_id) : undefined"
         >
           <div class="poster">
             <img

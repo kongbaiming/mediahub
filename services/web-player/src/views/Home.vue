@@ -57,7 +57,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { feedApi, type FeedItem, type FeedRow } from '@/api'
 import FeedRowRenderer from '@/components/FeedRowRenderer.vue'
@@ -73,6 +73,8 @@ const feedGlobal = ref<Record<string, unknown>>({})
 const searchQuery = ref('')
 const showProfile = ref(false)
 const currentProfileId = ref('')
+const feedVersion = ref(0)
+let feedPollTimer: ReturnType<typeof setInterval> | null = null
 
 const profiles = ref<LocalProfile[]>([])
 const currentProfile = computed(() =>
@@ -152,6 +154,18 @@ async function onProfileSwitched(p: LocalProfile) {
   await loadFeed()
 }
 
+async function pollFeedVersion() {
+  try {
+    const v = await feedApi.version()
+    if (feedVersion.value > 0 && v !== feedVersion.value) {
+      await loadFeed()
+    }
+    feedVersion.value = v
+  } catch {
+    /* ignore */
+  }
+}
+
 async function loadProfiles() {
   profiles.value = await syncProfiles()
   currentProfileId.value = getActiveProfileId() || profiles.value[0]?.id || ''
@@ -160,6 +174,12 @@ async function loadProfiles() {
 onMounted(async () => {
   await loadProfiles()
   await loadFeed()
+  await pollFeedVersion()
+  feedPollTimer = setInterval(pollFeedVersion, 5000)
+})
+
+onBeforeUnmount(() => {
+  if (feedPollTimer) clearInterval(feedPollTimer)
 })
 </script>
 

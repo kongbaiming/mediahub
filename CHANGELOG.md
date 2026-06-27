@@ -10,6 +10,27 @@
 
 _暂无_
 
+## [0.4.0] - 2026-06-27
+
+### Added
+- **刮削中心**：CMS 看板按 scrape_status 分页、单条/批量重试（`/scrape`）
+- **媒资 Probe API**：`GET /api/v1/media/:id/probe` 返回 ffprobe 字段与播放策略建议
+- **Feed 版本轮询**：`GET /api/v1/feed/version`；Web 播放端每 5s 检测布局变更并刷新
+- **HLS 转码进度**：status 接口返回 `progress`；播放器展示进度条与「正在准备 4K 流…」
+- **库外推荐入库向导**：CMS `/recommendations/library-missing`，一键搜索 Prowlarr 并加入下载队列
+- **扫描入库 ffprobe**：新文件入库后异步探测并写入 `media_files`
+- **recommendations 落库**：推荐引擎 `CacheRecommendation` 写入缓存表
+- **CI**：Admin `vue-tsc --noEmit` 纳入 GitHub Actions
+
+### Fixed
+- **剧集选集**：识别 `[剧名].01.标题` 命名；选集按季号/集号升序
+- **RMVB 扫描**：扩展名白名单与 RealMedia 头识别
+- **Feed 一致性**：刮削完成后自动失效 Feed 缓存并 bump 版本号
+
+### Changed
+- Web Player 首页 Hero 多项自动轮播；沉浸式布局视觉升级
+- 播放端直播列表支持栏目筛选
+
 ## [0.3.0] - 2026-06-21
 
 ### Added

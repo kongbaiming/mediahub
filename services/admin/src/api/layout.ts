@@ -2,6 +2,8 @@
 import { http } from './client'
 import type { Layout, LayoutConfig } from './types'
 
+export type { Layout, LayoutConfig } from './types'
+
 export interface DynamicRules {
   hour_of_day?: { start: number; end: number }
   day_of_week?: number[]

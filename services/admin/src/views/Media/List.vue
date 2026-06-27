@@ -22,7 +22,7 @@
           <span class="label">自动扫描</span>
           <el-switch
             :model-value="scanConfig.enabled"
-            @change="(v: boolean) => saveScanConfig({ enabled: v })"
+            @change="(v) => saveScanConfig({ enabled: !!v })"
           />
         </div>
         <div class="scan-field">

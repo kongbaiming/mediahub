@@ -47,7 +47,7 @@
           <template #default="{ row }">
             <el-switch
               :model-value="row.sync_enabled"
-              @change="(v: boolean) => saveSyncConfig(row, { sync_enabled: v })"
+              @change="(v) => saveSyncConfig(row as LivePlaylistStat, { sync_enabled: !!v })"
             />
           </template>
         </el-table-column>
@@ -57,7 +57,7 @@
               :model-value="row.interval_minutes"
               size="small"
               :disabled="!row.sync_enabled"
-              @change="(v: number) => saveSyncConfig(row, { interval_minutes: v })"
+              @change="(v) => saveSyncConfig(row as LivePlaylistStat, { interval_minutes: Number(v) })"
             >
               <el-option v-for="o in syncIntervalOptions" :key="o.value" :label="o.label" :value="o.value" />
             </el-select>
@@ -144,7 +144,7 @@
       </el-table-column>
       <el-table-column label="类型" width="100">
         <template #default="{ row }">
-          <el-tag :type="row.room_type === 'iptv' ? 'success' : ''" size="small">
+          <el-tag :type="row.room_type === 'iptv' ? 'success' : 'info'" size="small">
             {{ row.room_type === 'iptv' ? 'IPTV' : '推流' }}
           </el-tag>
         </template>
@@ -171,18 +171,18 @@
       </el-table-column>
       <el-table-column label="操作" width="300" fixed="right">
         <template #default="{ row }">
-          <el-button size="small" @click="showStreamInfo(row)">
+          <el-button size="small" @click="showStreamInfo(row as LiveRoom)">
             {{ row.room_type === 'iptv' ? '源信息' : '推流信息' }}
           </el-button>
           <el-button
             v-if="row.status === 'live'"
             size="small"
             type="warning"
-            @click="onStop(row)"
+            @click="onStop(row as LiveRoom)"
           >
             结束
           </el-button>
-          <el-button size="small" type="danger" @click="onDelete(row)">删除</el-button>
+          <el-button size="small" type="danger" @click="onDelete(row as LiveRoom)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -422,8 +422,8 @@ function statusLabel(s: string) {
   return { idle: '待开播', live: '直播中', ended: '已结束' }[s] || s
 }
 
-function statusType(s: string) {
-  return { idle: 'info', live: 'danger', ended: '' }[s] || 'info'
+function statusType(s: string): 'primary' | 'success' | 'warning' | 'info' | 'danger' {
+  return ({ idle: 'info', live: 'danger', ended: 'info' } as const)[s as 'idle' | 'live' | 'ended'] || 'info'
 }
 
 function formatTime(iso: string) {

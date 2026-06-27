@@ -53,3 +53,10 @@ func (h *FeedHandler) Get(c *gin.Context) {
 	}
 	c.JSON(200, gin.H{"data": feed})
 }
+
+// Version 返回 Feed 全局版本号（客户端轮询，v0.4 A6）
+func (h *FeedHandler) Version(c *gin.Context) {
+	c.JSON(200, gin.H{
+		"version": h.svc.GetFeedVersion(c.Request.Context()),
+	})
+}

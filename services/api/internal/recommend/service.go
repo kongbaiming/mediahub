@@ -180,4 +180,28 @@ func (s *Service) fetchMediaByIDs(ctx context.Context, ids []uuid.UUID) ([]media
 	return out, nil
 }
 
+// LibraryMissing 猜你喜欢中库外 TMDB 推荐（v0.4 B1）
+func (s *Service) LibraryMissing(ctx context.Context, profileID string, limit, discoverLimit int) ([]Item, error) {
+	if limit <= 0 {
+		limit = 30
+	}
+	if discoverLimit <= 0 {
+		discoverLimit = 12
+	}
+	items, err := s.GuessYouLike(ctx, profileID, limit*3, discoverLimit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Item, 0, limit)
+	for _, it := range items {
+		if it.External {
+			out = append(out, it)
+			if len(out) >= limit {
+				break
+			}
+		}
+	}
+	return out, nil
+}
+
 func ptrF(v float64) *float64 { return &v }

@@ -54,9 +54,9 @@
       </el-table-column>
       <el-table-column label="操作" width="280" fixed="right">
         <template #default="{ row }">
-          <el-button size="small" @click.stop="onEdit(row)">编辑</el-button>
-          <el-button size="small" type="success" @click.stop="onPublish(row)">发布</el-button>
-          <el-button size="small" type="danger" @click.stop="onDelete(row)">删除</el-button>
+          <el-button size="small" @click.stop="onEdit(row as Layout)">编辑</el-button>
+          <el-button size="small" type="success" @click.stop="onPublish(row as Layout)">发布</el-button>
+          <el-button size="small" type="danger" @click.stop="onDelete(row as Layout)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -93,7 +93,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { layoutApi } from '@/api/layout'
-import type { Layout } from '@/api/types'
+import type { Layout, LayoutRow } from '@/api/types'
 import { LAYOUT_PRESETS } from '@/utils/layoutPresets'
 
 const router = useRouter()
@@ -131,9 +131,9 @@ async function onCreateFromPreset() {
       name,
       description: preset.description,
       config: {
-        theme: preset.theme,
+        theme: preset.theme as 'dark' | 'light',
         global: preset.global,
-        rows: preset.rows,
+        rows: preset.rows as LayoutRow[],
       },
     })
     ElMessage.success('创建成功')
