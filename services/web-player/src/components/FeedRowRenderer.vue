@@ -2,40 +2,82 @@
   <section
     v-if="row.type === 'hero-banner'"
     class="feed-hero"
-    :class="{ 'feed-hero--immersive': immersive }"
-    :style="heroBg"
+    :class="{ 'feed-hero--immersive': immersive, 'feed-hero--carousel': heroItems.length > 1 }"
+    @mouseenter="heroPaused = true"
+    @mouseleave="heroPaused = false"
   >
+    <div class="feed-hero__slides" aria-hidden="true">
+      <div
+        v-for="(item, idx) in heroItems"
+        :key="heroKey(item)"
+        class="feed-hero__slide"
+        :class="{ 'feed-hero__slide--active': idx === heroIndex }"
+        :style="heroSlideBg(item)"
+      />
+    </div>
     <div class="feed-hero__overlay" />
-    <div v-if="heroItem" class="feed-hero__content">
-      <p v-if="row.title" class="feed-hero__eyebrow">{{ row.title }}</p>
-      <h1 class="feed-hero__title">{{ heroItem.title }}</h1>
-      <div class="feed-hero__meta">
-        <span v-if="heroItem.year" class="feed-hero__chip">{{ heroItem.year }}</span>
-        <span v-if="heroItem.rating" class="feed-hero__chip feed-hero__chip--accent">
-          ⭐ {{ heroItem.rating.toFixed(1) }}
-        </span>
-        <span v-for="g in heroItem.genres?.slice(0, 3)" :key="g" class="feed-hero__chip">{{ g }}</span>
+
+    <Transition name="hero-fade" mode="out-in">
+      <div v-if="currentHeroItem" :key="heroKey(currentHeroItem)" class="feed-hero__content">
+        <p v-if="row.title" class="feed-hero__eyebrow">{{ row.title }}</p>
+        <h1 class="feed-hero__title">{{ currentHeroItem.title }}</h1>
+        <div class="feed-hero__meta">
+          <span v-if="currentHeroItem.year" class="feed-hero__chip">{{ currentHeroItem.year }}</span>
+          <span
+            v-if="currentHeroItem.rating"
+            class="feed-hero__chip feed-hero__chip--accent"
+          >
+            ⭐ {{ currentHeroItem.rating.toFixed(1) }}
+          </span>
+          <span
+            v-for="g in currentHeroItem.genres?.slice(0, 3)"
+            :key="g"
+            class="feed-hero__chip"
+          >{{ g }}</span>
+        </div>
+        <p v-if="currentHeroItem.overview" class="feed-hero__overview">{{ currentHeroItem.overview }}</p>
+        <div class="feed-hero__actions">
+          <button
+            v-if="currentHeroItem.media_id && !currentHeroItem.external"
+            class="btn mh-btn mh-btn--primary"
+            @click="$emit('play', currentHeroItem)"
+          >
+            ▶ 播放
+          </button>
+          <button class="btn mh-btn mh-btn--secondary" @click="$emit('open', currentHeroItem)">
+            ℹ 详情
+          </button>
+          <button
+            v-if="rowAction"
+            class="btn mh-btn mh-btn--secondary"
+            @click="onRowAction"
+          >
+            {{ actionCta }}
+          </button>
+        </div>
       </div>
-      <p v-if="heroItem.overview" class="feed-hero__overview">{{ heroItem.overview }}</p>
-      <div class="feed-hero__actions">
+    </Transition>
+
+    <div v-if="heroItems.length > 1" class="feed-hero__nav">
+      <button type="button" class="feed-hero__arrow" aria-label="上一张" @click="prevHero">
+        ‹
+      </button>
+      <div class="feed-hero__dots" role="tablist" :aria-label="row.title || '精选推荐'">
         <button
-          v-if="heroItem.media_id && !heroItem.external"
-          class="btn mh-btn mh-btn--primary"
-          @click="$emit('play', heroItem)"
-        >
-          ▶ 播放
-        </button>
-        <button class="btn mh-btn mh-btn--secondary" @click="$emit('open', heroItem)">
-          ℹ 详情
-        </button>
-        <button
-          v-if="rowAction"
-          class="btn mh-btn mh-btn--secondary"
-          @click="onRowAction"
-        >
-          {{ actionCta }}
-        </button>
+          v-for="(_, idx) in heroItems"
+          :key="idx"
+          type="button"
+          class="feed-hero__dot"
+          :class="{ 'feed-hero__dot--active': idx === heroIndex }"
+          :aria-label="`第 ${idx + 1} 张`"
+          :aria-selected="idx === heroIndex"
+          role="tab"
+          @click="goHero(idx)"
+        />
       </div>
+      <button type="button" class="feed-hero__arrow" aria-label="下一张" @click="nextHero">
+        ›
+      </button>
     </div>
   </section>
 
@@ -180,7 +222,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import type { FeedItem, FeedRow } from '@/api'
 import {
@@ -214,17 +256,84 @@ const topicImmersiveBg = computed(() => {
   return url ? { backgroundImage: `url(${url})` } : {}
 })
 
-const heroItem = computed<FeedItem | null>(() => {
-  const playable = (items: FeedItem[]) =>
-    items.find((i) => !i.external && i.media_id) || items[0]
-  if (props.row.type !== 'hero-banner' || !props.row.items?.length) return null
-  return playable(props.row.items)
+const heroIndex = ref(0)
+const heroPaused = ref(false)
+let heroTimer: ReturnType<typeof setInterval> | null = null
+
+const heroItems = computed<FeedItem[]>(() => {
+  if (props.row.type !== 'hero-banner' || !props.row.items?.length) return []
+  return props.row.items
 })
 
-const heroBg = computed(() => {
-  const url = heroItem.value?.backdrop_url || heroItem.value?.poster_url
-  return url ? { backgroundImage: `url(${url})` } : {}
+const currentHeroItem = computed(() => heroItems.value[heroIndex.value] ?? null)
+
+const heroAutoplayMs = computed(() => {
+  const raw = props.row.config?.autoplay_interval
+  if (typeof raw === 'number' && raw >= 3000) return raw
+  return 6000
 })
+
+function heroKey(item: FeedItem) {
+  return item.external ? `tmdb-${item.tmdb_id}` : String(item.media_id || item.title)
+}
+
+function heroSlideBg(item: FeedItem) {
+  const url = item.backdrop_url || item.poster_url
+  return url ? { backgroundImage: `url(${url})` } : {}
+}
+
+function nextHero() {
+  if (heroItems.value.length <= 1) return
+  heroIndex.value = (heroIndex.value + 1) % heroItems.value.length
+  resetHeroAutoplay()
+}
+
+function prevHero() {
+  if (heroItems.value.length <= 1) return
+  heroIndex.value = (heroIndex.value - 1 + heroItems.value.length) % heroItems.value.length
+  resetHeroAutoplay()
+}
+
+function goHero(idx: number) {
+  heroIndex.value = idx
+  resetHeroAutoplay()
+}
+
+function stopHeroAutoplay() {
+  if (heroTimer) {
+    clearInterval(heroTimer)
+    heroTimer = null
+  }
+}
+
+function startHeroAutoplay() {
+  stopHeroAutoplay()
+  if (heroItems.value.length <= 1 || heroPaused.value) return
+  if (props.row.config?.autoplay === false) return
+  heroTimer = setInterval(nextHero, heroAutoplayMs.value)
+}
+
+function resetHeroAutoplay() {
+  stopHeroAutoplay()
+  startHeroAutoplay()
+}
+
+watch(heroItems, (items) => {
+  heroIndex.value = 0
+  if (items.length > 1) startHeroAutoplay()
+  else stopHeroAutoplay()
+})
+
+watch(heroPaused, (paused) => {
+  if (paused) stopHeroAutoplay()
+  else startHeroAutoplay()
+})
+
+onMounted(() => {
+  if (heroItems.value.length > 1) startHeroAutoplay()
+})
+
+onUnmounted(() => stopHeroAutoplay())
 
 const isGrid = computed(() => props.row.type === 'category-grid')
 
@@ -313,15 +422,36 @@ function progressPct(item: FeedItem) {
   height: min(75vh, 820px);
   min-height: 480px;
   margin-top: var(--mh-topbar-height);
-  background-size: cover;
-  background-position: center top;
   display: flex;
   align-items: center;
   padding: 0 var(--mh-page-gutter);
+  overflow: hidden;
+
+  &__slides {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+  }
+
+  &__slide {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center top;
+    opacity: 0;
+    transform: scale(1.06);
+    transition: opacity 1.1s ease, transform 8s ease;
+
+    &--active {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
 
   &__overlay {
     position: absolute;
     inset: 0;
+    z-index: 1;
     background: linear-gradient(
       105deg,
       rgba(10, 10, 18, 0.97) 0%,
@@ -329,11 +459,12 @@ function progressPct(item: FeedItem) {
       rgba(10, 10, 18, 0.25) 68%,
       rgba(10, 10, 18, 0.55) 100%
     );
+    pointer-events: none;
   }
 
   &__content {
     position: relative;
-    z-index: 1;
+    z-index: 2;
     max-width: 580px;
     color: var(--mh-text);
   }
@@ -399,6 +530,72 @@ function progressPct(item: FeedItem) {
     gap: var(--mh-space-3);
   }
 
+  &__nav {
+    position: absolute;
+    z-index: 3;
+    right: var(--mh-page-gutter);
+    bottom: var(--mh-space-8);
+    display: flex;
+    align-items: center;
+    gap: var(--mh-space-3);
+  }
+
+  &__arrow {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--mh-radius-full);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--mh-outline-strong);
+    color: var(--mh-text);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(8px);
+    transition: background 0.2s, border-color 0.2s, transform 0.2s;
+
+    &:hover {
+      background: rgba(108, 99, 255, 0.25);
+      border-color: rgba(108, 99, 255, 0.45);
+      transform: scale(1.05);
+    }
+  }
+
+  &__dots {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__dot {
+    width: 8px;
+    height: 8px;
+    padding: 0;
+    border: none;
+    border-radius: var(--mh-radius-full);
+    background: rgba(255, 255, 255, 0.35);
+    cursor: pointer;
+    transition: width 0.25s ease, background 0.25s ease;
+
+    &--active {
+      width: 28px;
+      border-radius: 4px;
+      background: var(--mh-primary);
+    }
+
+    &:hover:not(&--active) {
+      background: rgba(255, 255, 255, 0.6);
+    }
+  }
+
+  &--carousel {
+    .feed-hero__content {
+      padding-bottom: var(--mh-space-10);
+    }
+  }
+
   &--immersive {
     height: min(92vh, 980px);
     min-height: 560px;
@@ -421,7 +618,26 @@ function progressPct(item: FeedItem) {
     .feed-hero__title {
       font-size: clamp(38px, 5.5vw, 60px);
     }
+
+    .feed-hero__nav {
+      bottom: clamp(var(--mh-space-10), 6vh, 64px);
+    }
   }
+}
+
+.hero-fade-enter-active,
+.hero-fade-leave-active {
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+
+.hero-fade-enter-from {
+  opacity: 0;
+  transform: translateY(16px);
+}
+
+.hero-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
 }
 
 // ── 分隔线 → 区块标题 ──

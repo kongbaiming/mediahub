@@ -1128,7 +1128,7 @@ function rowTypeLabel(t: string) {
 }
 
 const rowPlayerHints: Record<string, string> = {
-  'hero-banner': '全宽背景大图 + 播放/详情按钮（取行内首个可播媒资）',
+  'hero-banner': '全宽 Hero 轮播，自动切换多个推荐；数据源 limit 建议 5–8',
   ranking: '带序号的榜单列表，适合 TOP10 排行；数据源推荐「热门榜单」或「库筛选」',
   shelf: '卡片网格自动换行，适合继续观看、热门推荐等',
   'category-grid': '网格布局展示，适合分类浏览（播放端为多列网格）',
