@@ -234,9 +234,15 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 			}
 		}
 
-		// 库扫描
+		// 库扫描（CMS）
 		if h.Scanner != nil {
-			v1.POST("/scanner/scan", h.Scanner.Scan)
+			scannerAdmin := v1.Group("/scanner")
+			scannerAdmin.Use(middleware.Auth(h.Auth.svc))
+			{
+				scannerAdmin.GET("/config", h.Scanner.GetConfig)
+				scannerAdmin.PUT("/config", h.Scanner.UpdateConfig)
+				scannerAdmin.POST("/scan", h.Scanner.Scan)
+			}
 		}
 
 		// 字幕

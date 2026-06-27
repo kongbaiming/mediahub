@@ -8,6 +8,57 @@
       </el-button>
     </div>
 
+    <el-card v-if="scanConfig" shadow="never" class="scan-config-panel">
+      <template #header>
+        <div class="scan-header">
+          <span>自动入库扫描</span>
+          <el-button type="primary" size="small" :loading="scanning" @click="onScanNow">
+            立即扫描
+          </el-button>
+        </div>
+      </template>
+      <div class="scan-config-row">
+        <div class="scan-field">
+          <span class="label">自动扫描</span>
+          <el-switch
+            :model-value="scanConfig.enabled"
+            @change="(v: boolean) => saveScanConfig({ enabled: v })"
+          />
+        </div>
+        <div class="scan-field">
+          <span class="label">扫描频率</span>
+          <el-select
+            :model-value="scanConfig.interval_minutes"
+            size="small"
+            style="width: 140px"
+            :disabled="!scanConfig.enabled"
+            @change="(v: number) => saveScanConfig({ interval_minutes: v })"
+          >
+            <el-option v-for="o in scanIntervalOptions" :key="o.value" :label="o.label" :value="o.value" />
+          </el-select>
+        </div>
+        <div class="scan-field scan-roots">
+          <span class="label">扫描目录</span>
+          <span class="roots">{{ scanConfig.roots?.join('、') || '-' }}</span>
+        </div>
+        <div class="scan-field scan-last">
+          <span class="label">上次扫描</span>
+          <span v-if="scanConfig.last_scan_at">
+            {{ formatTime(scanConfig.last_scan_at) }}
+            <el-tag
+              size="small"
+              :type="scanConfig.last_scan_status === 'ok' ? 'success' : 'danger'"
+              class="status-tag"
+            >
+              {{ scanConfig.last_scan_status === 'ok' ? '成功' : '失败' }}
+            </el-tag>
+            <span v-if="scanConfig.last_scan_message" class="scan-msg">{{ scanConfig.last_scan_message }}</span>
+          </span>
+          <span v-else class="text-muted">尚未扫描</span>
+        </div>
+      </div>
+    </el-card>
+
     <el-card shadow="never" class="filter-card">
       <el-form inline :model="filter" @submit.prevent="reload">
         <el-form-item label="搜索">
@@ -111,12 +162,16 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { Search } from '@element-plus/icons-vue'
+import { Search, Plus } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { mediaApi, type MediaListParams } from '@/api/media'
+import { scannerApi, SCAN_INTERVAL_OPTIONS, type MediaScanConfig } from '@/api/client'
 import type { MediaSummary } from '@/api/types'
 
 const loading = ref(false)
+const scanning = ref(false)
+const scanConfig = ref<MediaScanConfig | null>(null)
+const scanIntervalOptions = SCAN_INTERVAL_OPTIONS
 const items = ref<MediaSummary[]>([])
 const total = ref(0)
 const pageSize = 24
@@ -164,7 +219,52 @@ function mediaTypeLabel(s: string) {
   return ({ movie: '电影', tvshow: '剧集', anime: '动画', documentary: '纪录片' } as any)[s] || s
 }
 
-onMounted(reload)
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleString('zh-CN')
+}
+
+async function loadScanConfig() {
+  try {
+    const resp = await scannerApi.getConfig()
+    scanConfig.value = resp.data
+  } catch {
+    // ignore
+  }
+}
+
+async function saveScanConfig(patch: Partial<{ enabled: boolean; interval_minutes: number }>) {
+  if (!scanConfig.value) return
+  const enabled = patch.enabled ?? scanConfig.value.enabled
+  const interval_minutes = patch.interval_minutes ?? scanConfig.value.interval_minutes
+  try {
+    const resp = await scannerApi.updateConfig({ enabled, interval_minutes })
+    scanConfig.value = resp.data
+    ElMessage.success('扫描配置已保存')
+  } catch (e: any) {
+    ElMessage.error(e?.message || '保存失败')
+    await loadScanConfig()
+  }
+}
+
+async function onScanNow() {
+  scanning.value = true
+  try {
+    const resp = await scannerApi.scan()
+    const r = resp.data
+    ElMessage.success(`扫描完成：新增 ${r.added}，共 ${r.total} 个文件`)
+    await Promise.all([loadScanConfig(), reload()])
+  } catch (e: any) {
+    ElMessage.error(e?.message || '扫描失败')
+    await loadScanConfig()
+  } finally {
+    scanning.value = false
+  }
+}
+
+onMounted(() => {
+  loadScanConfig()
+  reload()
+})
 </script>
 
 <style lang="scss" scoped>
@@ -184,6 +284,62 @@ onMounted(reload)
   font-size: 22px;
   font-weight: 600;
   color: #1e293b;
+}
+
+.scan-config-panel {
+  margin-bottom: 20px;
+  border-radius: 12px;
+}
+
+.scan-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.scan-config-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px 32px;
+  align-items: flex-start;
+}
+
+.scan-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+
+  .label {
+    color: #64748b;
+    font-size: 12px;
+  }
+}
+
+.scan-roots .roots {
+  color: #334155;
+  font-family: var(--mh-font-mono, monospace);
+  font-size: 12px;
+}
+
+.scan-last {
+  flex: 1;
+  min-width: 240px;
+}
+
+.status-tag {
+  margin-left: 8px;
+}
+
+.scan-msg {
+  display: block;
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.text-muted {
+  color: #94a3b8;
 }
 
 .filter-card {

@@ -230,7 +230,7 @@ func main() {
 	if cfg.Media.DownloadRoot != "" && cfg.Media.DownloadRoot != cfg.Media.Root {
 		roots = append(roots, cfg.Media.DownloadRoot)
 	}
-	scannerSvc := scanner.NewService(roots, mediaRepo, catalogRepo, q)
+	scannerSvc := scanner.NewService(roots, mediaRepo, catalogRepo, q, repository.NewMediaScanConfigRepo(database.DB))
 
 	go func() {
 		if n, err := mediaRepo.DedupeMoviesInFolder(context.Background()); err != nil {
@@ -240,9 +240,8 @@ func main() {
 		}
 	}()
 
-	// 启动库扫描 watcher（30 分钟一次）
-	go scannerSvc.StartWatcher(context.Background(), 30*time.Minute)
-	logger.Info("库扫描已启动", "roots", roots, "interval", "30m")
+	go scannerSvc.StartWatcher(context.Background())
+	logger.Info("库扫描已启动", "roots", roots)
 
 	// 字幕服务
 	subtitleSvc := subtitle.NewService(mediaRepo)

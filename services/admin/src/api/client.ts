@@ -125,7 +125,33 @@ export const downloaderApi = {
   health: () => http.get<{ status: string }>('/api/v1/downloader/health'),
 }
 
+export const SCAN_INTERVAL_OPTIONS = [
+  { value: 15, label: '每 15 分钟' },
+  { value: 30, label: '每 30 分钟' },
+  { value: 60, label: '每 1 小时' },
+  { value: 360, label: '每 6 小时' },
+  { value: 720, label: '每 12 小时' },
+  { value: 1440, label: '每 24 小时' },
+  { value: 10080, label: '每 7 天' },
+] as const
+
+export interface MediaScanConfig {
+  enabled: boolean
+  interval_minutes: number
+  roots: string[]
+  last_scan_at?: string
+  last_scan_status?: string
+  last_scan_message?: string
+  last_scan_added?: number
+  last_scan_total?: number
+}
+
 export const scannerApi = {
+  getConfig: () => http.get<{ data: MediaScanConfig }>('/api/v1/scanner/config'),
+
+  updateConfig: (data: { enabled: boolean; interval_minutes: number }) =>
+    http.put<{ data: MediaScanConfig }>('/api/v1/scanner/config', data),
+
   scan: (root?: string) =>
     http.post<{
       data: { total: number; added: number; skipped: number; failed: number }
