@@ -4,19 +4,20 @@ import (
 	"time"
 
 	"github.com/mediahub/api/internal/domain/common"
+	"github.com/mediahub/api/internal/domain/media"
 
 	"github.com/google/uuid"
 )
 
 // ContentRating 内容分级
 type ContentRating struct {
-	ID         uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()" json:"id"`
-	MediaID    uuid.UUID `gorm:"type:uuid;not null;index" json:"media_id"`
-	Country    string    `gorm:"type:varchar(8);not null;default:'US'" json:"country"`
-	System     string    `gorm:"type:varchar(32);not null;default:'tmdb'" json:"system"`
-	Rating     string    `gorm:"type:varchar(32);not null" json:"rating"`
-	Advisories []string  `gorm:"type:text[];default:'{}'" json:"advisories,omitempty"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID         uuid.UUID          `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()" json:"id"`
+	MediaID    uuid.UUID          `gorm:"type:uuid;not null;index" json:"media_id"`
+	Country    string             `gorm:"type:varchar(8);not null;default:'US'" json:"country"`
+	System     string             `gorm:"type:varchar(32);not null;default:'tmdb'" json:"system"`
+	Rating     string             `gorm:"type:varchar(32);not null" json:"rating"`
+	Advisories media.StringArray  `gorm:"type:text[];default:'{}'" json:"advisories,omitempty"`
+	CreatedAt  time.Time          `json:"created_at"`
 }
 
 func (ContentRating) TableName() string { return "content_ratings" }
