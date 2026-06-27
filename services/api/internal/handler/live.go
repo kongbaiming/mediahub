@@ -11,6 +11,7 @@ import (
 	"github.com/mediahub/api/internal/domain/live"
 	"github.com/mediahub/api/internal/middleware"
 	"github.com/mediahub/api/internal/service"
+	"github.com/mediahub/api/pkg/httpclient"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -403,7 +404,7 @@ func (h *LiveHandler) fetchAndProxyURL(c *gin.Context, room *live.Room, targetUR
 		return
 	}
 	req.Header.Set("User-Agent", "MediaHub-Live-Proxy/1.0")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpclient.External.Do(req)
 	if err != nil {
 		c.JSON(502, gin.H{"error": "upstream_error", "message": "无法连接 IPTV 源"})
 		return

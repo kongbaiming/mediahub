@@ -10,6 +10,7 @@ import (
 
 	"github.com/mediahub/api/internal/apperr"
 	"github.com/mediahub/api/internal/domain/live"
+	"github.com/mediahub/api/pkg/httpclient"
 )
 
 const iptvProbeTimeout = 8 * time.Second
@@ -85,7 +86,8 @@ func probeSourceURL(ctx context.Context, sourceURL string) bool {
 	if err != nil {
 		return false
 	}
-	resp, err := http.DefaultClient.Do(req)
+	req.Header.Set("User-Agent", "MediaHub-Live-Proxy/1.0")
+	resp, err := httpclient.External.Do(req)
 	if err != nil {
 		// 部分源不支持 HEAD，改用 GET 只读首字节
 		req, err = http.NewRequestWithContext(ctx, http.MethodGet, sourceURL, nil)
@@ -93,7 +95,8 @@ func probeSourceURL(ctx context.Context, sourceURL string) bool {
 			return false
 		}
 		req.Header.Set("Range", "bytes=0-0")
-		resp, err = http.DefaultClient.Do(req)
+		req.Header.Set("User-Agent", "MediaHub-Live-Proxy/1.0")
+		resp, err = httpclient.External.Do(req)
 		if err != nil {
 			return false
 		}

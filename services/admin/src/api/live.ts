@@ -89,11 +89,12 @@ export const liveApi = {
     source_url?: string
   }) => http.post<{ data: LiveRoom }>('/api/v1/live/rooms', data),
 
-  previewM3U: (playlist_url: string) =>
-    http.post<{ data: M3UPreviewResult }>('/api/v1/live/rooms/m3u/preview', { playlist_url }),
+  previewM3U: (data: { playlist_url?: string; playlist_content?: string }) =>
+    http.post<{ data: M3UPreviewResult }>('/api/v1/live/rooms/m3u/preview', data),
 
   importM3U: (data: {
-    playlist_url: string
+    playlist_url?: string
+    playlist_content?: string
     groups?: string[]
     replace?: boolean
     auto_sync?: boolean

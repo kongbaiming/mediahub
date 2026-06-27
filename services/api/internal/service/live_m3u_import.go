@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -9,15 +10,17 @@ import (
 
 	"github.com/mediahub/api/internal/apperr"
 	"github.com/mediahub/api/internal/domain/live"
+	"github.com/mediahub/api/pkg/httpclient"
 
 	"github.com/google/uuid"
 )
 
-const m3uFetchTimeout = 30 * time.Second
+const m3uFetchTimeout = 60 * time.Second
 
 // PreviewM3URequest 预览 M3U 列表
 type PreviewM3URequest struct {
-	PlaylistURL string `json:"playlist_url" binding:"required"`
+	PlaylistURL     string `json:"playlist_url"`
+	PlaylistContent string `json:"playlist_content"`
 }
 
 // PreviewM3UResult 预览结果
@@ -29,7 +32,8 @@ type PreviewM3UResult struct {
 
 // ImportM3URequest 导入 M3U 列表
 type ImportM3URequest struct {
-	PlaylistURL          string   `json:"playlist_url" binding:"required"`
+	PlaylistURL          string   `json:"playlist_url"`
+	PlaylistContent      string   `json:"playlist_content"`
 	Groups               []string `json:"groups"`
 	Replace              bool     `json:"replace"`
 	AutoSync             *bool    `json:"auto_sync"`
@@ -49,11 +53,7 @@ func (s *LiveService) PreviewM3U(ctx context.Context, req PreviewM3URequest) (*P
 	if !s.config.Enabled {
 		return nil, apperr.Validation("直播功能未启用")
 	}
-	playlistURL, err := validateM3UPlaylistURL(req.PlaylistURL)
-	if err != nil {
-		return nil, err
-	}
-	content, err := fetchRemoteText(ctx, playlistURL)
+	content, playlistURL, err := s.loadM3UContent(ctx, req.PlaylistURL, req.PlaylistContent)
 	if err != nil {
 		return nil, err
 	}
@@ -73,11 +73,7 @@ func (s *LiveService) ImportM3U(ctx context.Context, req ImportM3URequest, userI
 	if !s.config.Enabled {
 		return nil, apperr.Validation("直播功能未启用")
 	}
-	playlistURL, err := validateM3UPlaylistURL(req.PlaylistURL)
-	if err != nil {
-		return nil, err
-	}
-	content, err := fetchRemoteText(ctx, playlistURL)
+	content, playlistURL, err := s.loadM3UContent(ctx, req.PlaylistURL, req.PlaylistContent)
 	if err != nil {
 		return nil, err
 	}
@@ -183,17 +179,6 @@ func (s *LiveService) applyImportSyncConfig(ctx context.Context, playlistURL str
 	})
 }
 
-func buildIPTVDescription(groupTitle, playlistURL string) string {
-	parts := make([]string, 0, 2)
-	if groupTitle != "" {
-		parts = append(parts, "分组: "+groupTitle)
-	}
-	if playlistURL != "" {
-		parts = append(parts, "来源: "+playlistURL)
-	}
-	return strings.Join(parts, "\n")
-}
-
 func fetchRemoteText(ctx context.Context, rawURL string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, m3uFetchTimeout)
 	defer cancel()
@@ -204,9 +189,12 @@ func fetchRemoteText(ctx context.Context, rawURL string) (string, error) {
 	}
 	req.Header.Set("User-Agent", "MediaHub-M3U-Importer/1.0")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpclient.External.Do(req)
 	if err != nil {
-		return "", apperr.Validation("无法拉取 M3U 列表，请检查地址是否可访问")
+		return "", apperr.Validation(fmt.Sprintf(
+			"无法拉取 M3U 列表：%v。请确认 NAS 能访问该地址，或在 .env 中配置 HTTPS_PROXY 后重启 api 容器",
+			err,
+		))
 	}
 	defer resp.Body.Close()
 
@@ -221,7 +209,39 @@ func fetchRemoteText(ctx context.Context, rawURL string) (string, error) {
 	return string(body), nil
 }
 
-// detectAndRejectM3UPlaylist 若地址指向 M3U 列表则提示使用导入功能
+func (s *LiveService) loadM3UContent(ctx context.Context, rawURL, rawContent string) (content, playlistURL string, err error) {
+	rawContent = strings.TrimSpace(rawContent)
+	if rawContent != "" {
+		if !IsM3UPlaylist(rawContent) {
+			return "", "", apperr.Validation("粘贴的内容不是有效的 M3U 频道列表")
+		}
+		base := strings.TrimSpace(rawURL)
+		if base == "" {
+			base = "inline://m3u"
+		} else if u, e := validateM3UPlaylistURL(base); e == nil {
+			base = u
+		}
+		return rawContent, base, nil
+	}
+	playlistURL, err = validateM3UPlaylistURL(rawURL)
+	if err != nil {
+		return "", "", err
+	}
+	content, err = fetchRemoteText(ctx, playlistURL)
+	return content, playlistURL, err
+}
+
+func buildIPTVDescription(groupTitle, playlistURL string) string {
+	parts := make([]string, 0, 2)
+	if groupTitle != "" {
+		parts = append(parts, "分组: "+groupTitle)
+	}
+	if playlistURL != "" {
+		parts = append(parts, "来源: "+playlistURL)
+	}
+	return strings.Join(parts, "\n")
+}
+
 func (s *LiveService) detectAndRejectM3UPlaylist(ctx context.Context, sourceURL string) error {
 	content, err := fetchRemoteText(ctx, sourceURL)
 	if err != nil {

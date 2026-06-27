@@ -212,12 +212,21 @@
     <!-- M3U 导入对话框 -->
     <el-dialog v-model="importDialog" title="导入 M3U 频道列表" width="560">
       <el-form label-position="top">
-        <el-form-item label="M3U 列表地址" required>
+        <el-form-item label="M3U 列表地址">
           <el-input
             v-model="importForm.playlist_url"
             placeholder="https://raw.githubusercontent.com/.../cnTV_AutoUpdate.m3u8"
           />
-          <div class="field-hint">支持 .m3u / .m3u8 格式的 IPTV 频道列表（含 #EXTM3U）</div>
+          <div class="field-hint">填写 URL 或直接粘贴下方内容（二选一）</div>
+        </el-form-item>
+        <el-form-item label="或粘贴 M3U 内容">
+          <el-input
+            v-model="importForm.playlist_content"
+            type="textarea"
+            :rows="6"
+            placeholder="#EXTM3U&#10;#EXTINF:-1,频道名&#10;http://..."
+          />
+          <div class="field-hint">NAS 无法访问 GitHub 时，可在电脑浏览器打开链接复制内容粘贴到这里</div>
         </el-form-item>
         <el-form-item>
           <el-button :loading="previewing" @click="onPreviewM3U">解析预览</el-button>
@@ -360,6 +369,7 @@ const createForm = ref({
 })
 const importForm = ref({
   playlist_url: 'https://raw.githubusercontent.com/hujingguang/ChinaIPTV/main/cnTV_AutoUpdate.m3u8',
+  playlist_content: '',
   groups: [] as string[],
   replace: false,
   auto_sync: true,
@@ -499,6 +509,7 @@ function openCreate(type: LiveRoomType) {
 
 function openImportM3U() {
   preview.value = null
+  importForm.value.playlist_content = ''
   importForm.value.groups = []
   importForm.value.replace = false
   importForm.value.auto_sync = true
@@ -507,13 +518,16 @@ function openImportM3U() {
 }
 
 async function onPreviewM3U() {
-  if (!importForm.value.playlist_url.trim()) {
-    ElMessage.warning('请填写 M3U 列表地址')
+  if (!importForm.value.playlist_url.trim() && !importForm.value.playlist_content.trim()) {
+    ElMessage.warning('请填写 M3U 地址或粘贴内容')
     return
   }
   previewing.value = true
   try {
-    const resp = await liveApi.previewM3U(importForm.value.playlist_url.trim())
+    const resp = await liveApi.previewM3U({
+      playlist_url: importForm.value.playlist_url.trim() || undefined,
+      playlist_content: importForm.value.playlist_content.trim() || undefined,
+    })
     preview.value = resp.data
     importForm.value.playlist_url = resp.data.playlist_url
     ElMessage.success(`解析成功，共 ${resp.data.total} 个频道`)
@@ -533,7 +547,8 @@ async function onImportM3U() {
   importing.value = true
   try {
     const resp = await liveApi.importM3U({
-      playlist_url: importForm.value.playlist_url.trim(),
+      playlist_url: importForm.value.playlist_url.trim() || undefined,
+      playlist_content: importForm.value.playlist_content.trim() || undefined,
       groups: importForm.value.groups.length ? importForm.value.groups : undefined,
       replace: importForm.value.replace,
       auto_sync: importForm.value.auto_sync,
