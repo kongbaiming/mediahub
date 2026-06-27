@@ -2,6 +2,9 @@
   <div class="layout-list-page">
     <div class="page-header">
       <h2 class="page-h2">布局列表</h2>
+      <el-button @click="showCreatePreset = true">
+        从模版创建
+      </el-button>
       <el-button type="primary" @click="onCreate">
         <el-icon><Plus /></el-icon>
         新建布局
@@ -57,6 +60,31 @@
         </template>
       </el-table-column>
     </el-table>
+
+    <el-dialog v-model="showCreatePreset" title="从模版创建布局" width="480">
+      <el-form label-position="top">
+        <el-form-item label="布局名称">
+          <el-input v-model="presetLayoutName" placeholder="如：沉浸式首页" />
+        </el-form-item>
+        <el-form-item label="选择模版">
+          <el-radio-group v-model="selectedPresetKey" class="preset-radio-group">
+            <el-radio
+              v-for="p in LAYOUT_PRESETS"
+              :key="p.name"
+              :value="p.name"
+              class="preset-radio"
+            >
+              <strong>{{ p.name }}</strong>
+              <span class="preset-desc">{{ p.description }}</span>
+            </el-radio>
+          </el-radio-group>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showCreatePreset = false">取消</el-button>
+        <el-button type="primary" @click="onCreateFromPreset">创建</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -66,11 +94,15 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { layoutApi } from '@/api/layout'
 import type { Layout } from '@/api/types'
+import { LAYOUT_PRESETS } from '@/utils/layoutPresets'
 
 const router = useRouter()
 const loading = ref(false)
 const activeTab = ref('all')
 const items = ref<Layout[]>([])
+const showCreatePreset = ref(false)
+const presetLayoutName = ref('')
+const selectedPresetKey = ref(LAYOUT_PRESETS[0]?.name || '')
 
 async function reload() {
   loading.value = true
@@ -83,6 +115,33 @@ async function reload() {
     items.value = res.data
   } finally {
     loading.value = false
+  }
+}
+
+async function onCreateFromPreset() {
+  const name = presetLayoutName.value.trim()
+  if (!name) {
+    ElMessage.warning('请输入布局名称')
+    return
+  }
+  const preset = LAYOUT_PRESETS.find((p) => p.name === selectedPresetKey.value)
+  if (!preset) return
+  try {
+    const res = await layoutApi.create({
+      name,
+      description: preset.description,
+      config: {
+        theme: preset.theme,
+        global: preset.global,
+        rows: preset.rows,
+      },
+    })
+    ElMessage.success('创建成功')
+    showCreatePreset.value = false
+    presetLayoutName.value = ''
+    router.push(`/layouts/${(res as any).data.id}`)
+  } catch {
+    // handled by interceptor
   }
 }
 
@@ -168,5 +227,28 @@ onMounted(reload)
 
 .ml-2 {
   margin-left: 8px;
+}
+
+.preset-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.preset-radio {
+  display: flex;
+  align-items: flex-start;
+  height: auto;
+  margin-right: 0;
+  white-space: normal;
+
+  .preset-desc {
+    display: block;
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 400;
+    margin-top: 4px;
+  }
 }
 </style>

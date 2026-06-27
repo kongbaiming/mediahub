@@ -111,6 +111,8 @@ func (s *FeedService) BuildFeedFromLayout(ctx context.Context, l *layout.Layout,
 		Version:   l.Version,
 		Platform:  platform,
 		UpdatedAt: l.UpdatedAt,
+		Theme:     l.Config.Theme,
+		Global:    l.Config.Global,
 		Rows:      make([]layout.FeedRow, 0, len(l.Config.Rows)),
 	}
 
@@ -276,13 +278,24 @@ func (s *FeedService) fromLibrary(ctx context.Context, params map[string]any, is
 }
 
 func (s *FeedService) fromTrending(ctx context.Context, params map[string]any, isKid bool) ([]layout.FeedItem, error) {
+	sort := "rating"
+	if v, ok := params["sort"].(string); ok && v != "" {
+		sort = v
+	}
 	f := repository.MediaFilter{
-		Sort:         "rating",
+		Sort:         sort,
 		SortDesc:     true,
-		MinRating:    ptrF(7.0),
 		ExcludeAdult: isKid,
 	}
-	items, _, err := s.media.List(ctx, f, 20, 0)
+	if sort == "rating" {
+		f.MinRating = ptrF(7.0)
+	}
+	limit := 20
+	if v, ok := params["limit"].(float64); ok && v > 0 {
+		limit = int(v)
+	}
+
+	items, _, err := s.media.List(ctx, f, limit, 0)
 	if err != nil {
 		return nil, err
 	}

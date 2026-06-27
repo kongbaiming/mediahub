@@ -1,5 +1,10 @@
 <template>
-  <section v-if="row.type === 'hero-banner'" class="feed-hero" :style="heroBg">
+  <section
+    v-if="row.type === 'hero-banner'"
+    class="feed-hero"
+    :class="{ 'feed-hero--immersive': immersive }"
+    :style="heroBg"
+  >
     <div class="feed-hero__overlay" />
     <div v-if="heroItem" class="feed-hero__content">
       <p v-if="row.title" class="feed-hero__eyebrow">{{ row.title }}</p>
@@ -46,6 +51,74 @@
       <h3 v-if="row.title">{{ row.title }}</h3>
       <p v-if="row.subtitle">{{ row.subtitle }}</p>
       <span v-if="rowAction" class="feed-text-banner__cta">{{ actionCta }}</span>
+    </div>
+  </section>
+
+  <section v-else-if="row.type === 'ranking'" class="feed-ranking">
+    <header v-if="row.title || row.subtitle || rowAction" class="feed-ranking__header">
+      <div class="feed-ranking__titles">
+        <h2 v-if="row.title" class="feed-ranking__title">{{ row.title }}</h2>
+        <span v-if="row.subtitle" class="feed-ranking__subtitle">{{ row.subtitle }}</span>
+      </div>
+      <button v-if="rowAction" type="button" class="feed-ranking__link" @click="onRowAction">
+        {{ actionCta }}
+      </button>
+    </header>
+    <ol class="feed-ranking__list">
+      <li
+        v-for="(item, index) in row.items"
+        :key="item.external ? `tmdb-${item.tmdb_id}` : item.media_id"
+        class="feed-ranking__item"
+        @click="$emit('open', item)"
+      >
+        <span class="feed-ranking__rank" :class="{ 'feed-ranking__rank--top': index < 3 }">
+          {{ index + 1 }}
+        </span>
+        <div class="feed-ranking__poster">
+          <img v-if="item.poster_url" :src="item.poster_url" :alt="item.title" loading="lazy" />
+          <span v-else class="feed-card__placeholder">{{ item.title.slice(0, 2) }}</span>
+        </div>
+        <div class="feed-ranking__info">
+          <div class="feed-ranking__name">{{ item.title }}</div>
+          <div class="feed-ranking__meta">
+            <span v-if="item.year">{{ item.year }}</span>
+            <span v-if="item.rating > 0">⭐ {{ item.rating.toFixed(1) }}</span>
+            <span v-for="g in item.genres?.slice(0, 2)" :key="g">{{ g }}</span>
+          </div>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <section
+    v-else-if="row.type === 'topic' && isTopicImmersive"
+    class="feed-topic-immersive"
+    :style="topicImmersiveBg"
+  >
+    <div class="feed-topic-immersive__overlay" />
+    <div class="feed-topic-immersive__head">
+      <h2 v-if="row.title" class="feed-topic-immersive__title">{{ row.title }}</h2>
+      <p v-if="row.subtitle" class="feed-topic-immersive__subtitle">{{ row.subtitle }}</p>
+      <button v-if="rowAction" type="button" class="feed-topic-immersive__link" @click="onRowAction">
+        {{ actionCta }}
+      </button>
+    </div>
+    <div
+      class="feed-row__cards feed-row__cards--wrap card-style-landscape feed-topic-immersive__cards"
+    >
+      <article
+        v-for="item in row.items"
+        :key="item.external ? `tmdb-${item.tmdb_id}` : item.media_id"
+        class="feed-card"
+        @click="$emit('open', item)"
+      >
+        <div class="feed-card__poster">
+          <img v-if="item.poster_url" :src="item.poster_url" :alt="item.title" loading="lazy" />
+          <span v-else class="feed-card__placeholder">{{ item.title.slice(0, 2) }}</span>
+          <span v-if="item.rating > 0" class="feed-card__rating">⭐ {{ item.rating.toFixed(1) }}</span>
+        </div>
+        <div class="feed-card__title">{{ item.title }}</div>
+      </article>
     </div>
   </section>
 
@@ -102,6 +175,7 @@ import {
 
 const props = defineProps<{
   row: FeedRow
+  immersive?: boolean
 }>()
 
 defineEmits<{
@@ -113,6 +187,16 @@ const router = useRouter()
 
 const rowAction = computed(() => parseFeedAction(props.row.config))
 const actionCta = computed(() => actionLabel(rowAction.value, '查看更多 →'))
+
+const isTopicImmersive = computed(
+  () => props.row.type === 'topic' && props.row.config?.display === 'immersive',
+)
+
+const topicImmersiveBg = computed(() => {
+  const first = props.row.items?.[0]
+  const url = first?.backdrop_url || first?.poster_url
+  return url ? { backgroundImage: `url(${url})` } : {}
+})
 
 const heroItem = computed<FeedItem | null>(() => {
   const playable = (items: FeedItem[]) =>
@@ -216,6 +300,30 @@ function progressPct(item: FeedItem) {
     display: flex;
     flex-wrap: wrap;
     gap: var(--mh-space-3);
+  }
+
+  &--immersive {
+    height: min(88vh, 960px);
+    min-height: 560px;
+    align-items: flex-end;
+    padding-bottom: var(--mh-space-12);
+
+    .feed-hero__overlay {
+      background: linear-gradient(
+        180deg,
+        rgba(10, 10, 18, 0.2) 0%,
+        rgba(10, 10, 18, 0.55) 45%,
+        rgba(10, 10, 18, 0.98) 100%
+      );
+    }
+
+    .feed-hero__content {
+      max-width: 720px;
+    }
+
+    .feed-hero__title {
+      font-size: clamp(42px, 6vw, 64px);
+    }
   }
 }
 
@@ -470,5 +578,175 @@ function progressPct(item: FeedItem) {
 
 .feed-row--topic .feed-row__cards--wrap {
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.feed-ranking {
+  margin-bottom: var(--mh-space-6);
+  padding: 0 var(--mh-page-gutter);
+
+  &__header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--mh-space-4);
+    margin-bottom: var(--mh-space-4);
+  }
+
+  &__titles {
+    display: flex;
+    align-items: baseline;
+    gap: var(--mh-space-3);
+    min-width: 0;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: clamp(18px, 2vw, 22px);
+    font-weight: 700;
+    font-family: var(--mh-font-display);
+  }
+
+  &__subtitle {
+    font-size: 14px;
+    color: var(--mh-text-muted);
+    margin-left: var(--mh-space-3);
+  }
+
+  &__link {
+    background: none;
+    border: none;
+    color: var(--mh-primary);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  &__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--mh-space-2);
+  }
+
+  &__item {
+    display: grid;
+    grid-template-columns: 48px 72px 1fr;
+    gap: var(--mh-space-4);
+    align-items: center;
+    padding: var(--mh-space-3);
+    border-radius: var(--mh-radius-md);
+    background: var(--mh-surface);
+    border: 1px solid var(--mh-outline);
+    cursor: pointer;
+    transition: transform 0.2s, border-color 0.2s, background 0.2s;
+
+    &:hover {
+      transform: translateX(4px);
+      border-color: rgba(99, 102, 241, 0.35);
+      background: var(--mh-surface-variant);
+    }
+  }
+
+  &__rank {
+    font-size: 22px;
+    font-weight: 800;
+    font-family: var(--mh-font-display);
+    color: var(--mh-text-muted);
+    text-align: center;
+
+    &--top {
+      color: var(--mh-primary);
+      font-size: 26px;
+    }
+  }
+
+  &__poster {
+    aspect-ratio: 2/3;
+    border-radius: var(--mh-radius-sm);
+    overflow: hidden;
+    background: var(--mh-surface-variant);
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+
+  &__name {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.35;
+    margin-bottom: 6px;
+  }
+
+  &__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--mh-space-3);
+    font-size: 12px;
+    color: var(--mh-text-muted);
+  }
+}
+
+.feed-topic-immersive {
+  position: relative;
+  margin: var(--mh-space-6) 0;
+  padding: var(--mh-space-10) var(--mh-page-gutter) var(--mh-space-6);
+  background-size: cover;
+  background-position: center;
+  border-radius: 0;
+  overflow: hidden;
+
+  &__overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      180deg,
+      rgba(10, 10, 18, 0.55) 0%,
+      rgba(10, 10, 18, 0.92) 55%,
+      rgba(10, 10, 18, 0.98) 100%
+    );
+  }
+
+  &__head {
+    position: relative;
+    z-index: 1;
+    margin-bottom: var(--mh-space-6);
+    max-width: 640px;
+  }
+
+  &__title {
+    margin: 0 0 8px;
+    font-size: clamp(28px, 4vw, 40px);
+    font-weight: 800;
+    font-family: var(--mh-font-display);
+  }
+
+  &__subtitle {
+    margin: 0 0 var(--mh-space-4);
+    color: var(--mh-text-secondary);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  &__link {
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid var(--mh-outline);
+    color: var(--mh-text);
+    padding: 8px 16px;
+    border-radius: var(--mh-radius-sm);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  &__cards {
+    position: relative;
+    z-index: 1;
+    padding: 0 !important;
+  }
 }
 </style>

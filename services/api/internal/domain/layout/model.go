@@ -37,7 +37,7 @@ type LayoutConfig struct {
 // Row 布局中的一行
 type Row struct {
 	ID        string         `json:"id"`                   // 唯一标识（前端生成）
-	Type      string         `json:"type"`                 // hero-banner | shelf | category-grid | topic | text-banner | divider
+	Type      string         `json:"type"`                 // hero-banner | shelf | category-grid | topic | ranking | text-banner | divider
 	Title     string         `json:"title,omitempty"`
 	Subtitle  string         `json:"subtitle,omitempty"`
 	CardStyle string         `json:"card_style,omitempty"` // poster | landscape | square | banner
@@ -161,8 +161,10 @@ type FeedItem struct {
 
 // Feed 播放端拉取的完整布局
 type Feed struct {
-	Version   int       `json:"version"`
-	Platform  string    `json:"platform"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Rows      []FeedRow `json:"rows"`
+	Version   int            `json:"version"`
+	Platform  string         `json:"platform"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	Theme     string         `json:"theme,omitempty"`
+	Global    map[string]any `json:"global,omitempty"`
+	Rows      []FeedRow      `json:"rows"`
 }

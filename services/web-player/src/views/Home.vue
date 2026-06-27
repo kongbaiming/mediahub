@@ -1,5 +1,5 @@
 <template>
-  <div class="home">
+  <div class="home" :class="homeSchemaClass">
     <header class="topbar mh-topbar">
       <div class="logo">
         <span class="logo-icon">▶</span>
@@ -37,6 +37,7 @@
         v-for="row in visibleRows"
         :key="row.id"
         :row="row"
+        :immersive="isImmersiveLayout"
         @open="openDetail"
         @play="playItem"
       />
@@ -68,6 +69,7 @@ import { syncProfiles, getActiveProfileId, type LocalProfile } from '@/utils/pro
 const router = useRouter()
 const loading = ref(false)
 const rows = ref<FeedRow[]>([])
+const feedGlobal = ref<Record<string, unknown>>({})
 const searchQuery = ref('')
 const showProfile = ref(false)
 const currentProfileId = ref('')
@@ -77,6 +79,15 @@ const currentProfile = computed(() =>
   profiles.value.find((p) => p.id === currentProfileId.value),
 )
 
+const isImmersiveLayout = computed(
+  () => feedGlobal.value?.layout_schema === 'immersive',
+)
+
+const homeSchemaClass = computed(() => {
+  const schema = feedGlobal.value?.layout_schema
+  return schema && typeof schema === 'string' ? `home--${schema}` : ''
+})
+
 /** 按 CMS 编排顺序展示全部可见行（含 Hero、公告、分隔线等） */
 const visibleRows = computed(() =>
   rows.value.filter((r) => {
@@ -85,6 +96,9 @@ const visibleRows = computed(() =>
     }
     if (r.type === 'divider' || r.type === 'text-banner') {
       return !!(r.title || r.subtitle)
+    }
+    if (r.type === 'ranking') {
+      return (r.items?.length ?? 0) > 0
     }
     return (r.items?.length ?? 0) > 0
   }),
@@ -99,6 +113,7 @@ async function loadFeed() {
   try {
     const data = await feedApi.get('web')
     rows.value = data.rows
+    feedGlobal.value = data.global || {}
   } catch (e: any) {
     console.error('拉取 Feed 失败', e)
     window.toast?.(`加载失败：${e?.message || '网络错误'}`, 'error', 4000)

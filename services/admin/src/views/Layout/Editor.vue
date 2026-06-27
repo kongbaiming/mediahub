@@ -217,8 +217,31 @@
                 @focus="ensureRowEditable(selectedRowIndex)"
               />
             </el-form-item>
+            <el-form-item v-if="selectedRow.type === 'topic'" label="专题展示">
+              <el-radio-group
+                v-model="selectedRow.config!.display"
+                :disabled="selectedRow._inherited"
+                @focus="ensureRowEditable(selectedRowIndex)"
+              >
+                <el-radio-button label="default">卡片行</el-radio-button>
+                <el-radio-button label="immersive">沉浸式头图</el-radio-button>
+              </el-radio-group>
+              <div class="field-hint-block mt-8">
+                数据源选「专题专辑」；沉浸式模式在播放端全宽展示专辑背景
+              </div>
+            </el-form-item>
+            <el-form-item v-if="selectedRow.type === 'ranking'" label="榜单排序">
+              <el-select
+                v-model="selectedRow.source.params!.sort"
+                :disabled="selectedRow._inherited"
+                @change="syncParamsJson"
+              >
+                <el-option label="评分" value="rating" />
+                <el-option label="入库时间" value="created_at" />
+              </el-select>
+            </el-form-item>
             <el-form-item
-              v-if="!['text-banner', 'divider'].includes(selectedRow.type)"
+              v-if="!['text-banner', 'divider', 'ranking'].includes(selectedRow.type)"
               label="卡片样式"
             >
               <el-radio-group v-model="selectedRow.card_style" :disabled="selectedRow._inherited">
@@ -298,7 +321,7 @@
             </el-form-item>
 
             <template v-if="!['text-banner', 'divider'].includes(selectedRow.type)">
-            <template v-if="selectedRow.source.type === 'album'">
+            <template v-if="selectedRow.type === 'topic' || selectedRow.source.type === 'album'">
               <el-form-item label="专题专辑">
                 <el-select
                   v-model="selectedRow.source.params!.album_id"
@@ -399,7 +422,43 @@
             </template>
           </el-form>
         </div>
-        <el-empty v-else description="选中一行查看属性" :image-size="80" />
+        <el-empty v-else-if="layout" description="选中一行编辑属性，或在此配置页面模版" :image-size="80">
+          <template #default>
+            <div class="layout-global-form">
+              <el-form label-position="top" size="small">
+                <el-form-item label="页面模版">
+                  <el-select v-model="layoutSchema" class="w-full">
+                    <el-option
+                      v-for="s in LAYOUT_SCHEMAS"
+                      :key="s.value"
+                      :label="s.label"
+                      :value="s.value"
+                    />
+                  </el-select>
+                  <div class="field-hint-block mt-8">
+                    {{ layoutSchemaHint }}
+                  </div>
+                </el-form-item>
+                <el-form-item label="一键套用">
+                  <div class="preset-btns">
+                    <el-button
+                      v-for="p in LAYOUT_PRESETS"
+                      :key="p.name"
+                      size="small"
+                      @click="applyLayoutPreset(p)"
+                    >
+                      {{ p.name }}
+                    </el-button>
+                  </div>
+                  <div class="field-hint-block mt-8">
+                    套用后将替换当前所有行，建议先保存备份
+                  </div>
+                </el-form-item>
+              </el-form>
+            </div>
+          </template>
+        </el-empty>
+        <el-empty v-else description="加载中…" :image-size="80" />
       </aside>
     </div>
 
@@ -544,6 +603,11 @@ import {
   ensureRowActionConfig,
   type LayoutRowAction,
 } from '@/utils/feedAction'
+import {
+  LAYOUT_SCHEMAS,
+  LAYOUT_PRESETS,
+  type LayoutPreset,
+} from '@/utils/layoutPresets'
 
 const route = useRoute()
 const loading = ref(false)
@@ -578,6 +642,18 @@ const dayOfWeek = ref<number[]>([])
 // 模板继承
 const parentLayoutId = ref<string>('')
 const layoutName = ref('')
+const layoutGlobal = ref<Record<string, any>>({})
+
+const layoutSchema = computed({
+  get: () => (layoutGlobal.value.layout_schema as string) || 'standard',
+  set: (v: string) => {
+    layoutGlobal.value = { ...layoutGlobal.value, layout_schema: v }
+  },
+})
+
+const layoutSchemaHint = computed(
+  () => LAYOUT_SCHEMAS.find((s) => s.value === layoutSchema.value)?.hint || '',
+)
 
 const hourMarks = {
   0: '0',
@@ -591,18 +667,20 @@ const selectedRow = computed(() => layoutRows.value[selectedRowIndex.value])
 
 const paletteItems = [
   { type: 'hero-banner', label: 'Hero Banner', icon: 'PictureFilled' },
-  { type: 'shelf', label: '横滑 Shelf', icon: 'Operation' },
-  { type: 'category-grid', label: '分类网格', icon: 'Grid' },
+  { type: 'ranking', label: '榜单', icon: 'Trophy' },
   { type: 'topic', label: '专题', icon: 'CollectionTag' },
+  { type: 'shelf', label: '内容 Shelf', icon: 'Operation' },
+  { type: 'category-grid', label: '分类网格', icon: 'Grid' },
   { type: 'text-banner', label: '文字公告', icon: 'Notification' },
   { type: 'divider', label: '分隔线', icon: 'Minus' },
 ]
 
 const rowTypes = [
   { value: 'hero-banner', label: 'Hero Banner' },
-  { value: 'shelf', label: '横滑 Shelf' },
-  { value: 'category-grid', label: '分类网格' },
+  { value: 'ranking', label: '榜单' },
   { value: 'topic', label: '专题' },
+  { value: 'shelf', label: '内容 Shelf' },
+  { value: 'category-grid', label: '分类网格' },
   { value: 'text-banner', label: '文字公告' },
   { value: 'divider', label: '分隔线' },
 ]
@@ -631,13 +709,15 @@ function defaultSourceParams(type: string): Record<string, any> {
     case 'tag':
       return { tag: '', limit: 20 }
     case 'library':
-      return { type: '', genre: '', limit: 20 }
+      return { type: '', genre: '', sort: 'rating', limit: 20 }
     case 'similar-to':
       return { media_id: '', limit: 20 }
     case 'manual':
       return { ids: [] }
     case 'recommend-algorithm':
       return { algo: 'hybrid', limit: 20 }
+    case 'trending':
+      return { limit: 10, sort: 'rating' }
     default:
       return { limit: 20 }
   }
@@ -680,13 +760,36 @@ async function loadCatalogOptions() {
 }
 
 function clonePaletteItem(item: any) {
+  const id = `row-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+  if (item.type === 'ranking') {
+    return {
+      id,
+      type: 'ranking',
+      title: '榜单',
+      card_style: 'landscape',
+      visible: true,
+      source: { type: 'trending', params: { limit: 10, sort: 'rating' } },
+      config: { show_rank: true },
+    }
+  }
+  if (item.type === 'topic') {
+    return {
+      id,
+      type: 'topic',
+      title: '专题',
+      card_style: 'landscape',
+      visible: true,
+      source: { type: 'album', params: { album_id: '', limit: 12 } },
+      config: { display: 'default' },
+    }
+  }
   return {
-    id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    id,
     type: item.type,
     title: '',
-    card_style: 'poster',
+    card_style: item.type === 'hero-banner' ? 'banner' : 'poster',
     visible: true,
-    source: { type: 'trending', params: {} },
+    source: { type: 'trending', params: { limit: 20 } },
   }
 }
 
@@ -713,16 +816,56 @@ function removeRow(idx: number) {
 function onRowOrderChange() { /* 由 v-model 自动更新 */ }
 
 function onRowTypeChange() {
-  if (selectedRow.value?.type === 'hero-banner') {
-    selectedRow.value.card_style = 'banner'
+  const row = selectedRow.value
+  if (!row) return
+  if (row.type === 'hero-banner') {
+    row.card_style = 'banner'
+  } else if (row.type === 'ranking') {
+    row.card_style = 'landscape'
+    row.source = { type: 'trending', params: { limit: 10, sort: 'rating' } }
+    row.config = { show_rank: true, ...(row.config || {}) }
+  } else if (row.type === 'topic') {
+    row.card_style = 'landscape'
+    row.source = { type: 'album', params: { album_id: '', limit: 12 } }
+    row.config = { display: row.config?.display || 'default' }
   }
-  if (selectedRow.value && supportsRowAction(selectedRow.value.type)) {
-    selectedRow.value.config = ensureRowActionConfig(selectedRow.value.config)
+  if (supportsRowAction(row.type)) {
+    row.config = ensureRowActionConfig(row.config)
   }
+  if (row.type === 'topic' && row.config && !row.config.display) {
+    row.config.display = 'default'
+  }
+  syncParamsJson()
+}
+
+function applyLayoutPreset(preset: LayoutPreset) {
+  ElMessageBox.confirm(
+    `套用「${preset.name}」将替换当前所有行，是否继续？`,
+    '套用模版',
+    { type: 'warning' },
+  )
+    .then(() => {
+      layoutRows.value = preset.rows.map((r) => ({
+        ...JSON.parse(JSON.stringify(r)),
+        visible: r.visible !== false,
+      }))
+      layoutGlobal.value = { ...preset.global }
+      if (layout.value) {
+        layout.value.config = {
+          ...layout.value.config,
+          theme: preset.theme,
+          global: layoutGlobal.value,
+        }
+      }
+      selectedRowIndex.value = -1
+      ElMessage.success('已套用模版，请检查后保存')
+      loadPreview()
+    })
+    .catch(() => {})
 }
 
 function supportsRowAction(type: string) {
-  return ['text-banner', 'hero-banner', 'shelf', 'category-grid', 'topic'].includes(type)
+  return ['text-banner', 'hero-banner', 'shelf', 'category-grid', 'topic', 'ranking'].includes(type)
 }
 
 function onActionTypeChange(type: LayoutRowAction['type']) {
@@ -853,11 +996,12 @@ async function load() {
     layout.value = layoutData
     layoutName.value = layoutData.name || ''
     parentLayoutId.value = layoutData.parent_id || ''
+    layoutGlobal.value = { ...(layoutData.config?.global || {}) }
     layoutRows.value = (layoutData.config?.rows || []).map((r) => ({
       ...r,
       visible: r.visible !== false,
       source: r.source || { type: 'trending', params: {} },
-      config: supportsRowAction(r.type) ? ensureRowActionConfig(r.config) : r.config,
+      config: ensureRowConfig(r),
     }))
     templateLayouts.value = (t as { data?: LayoutType[] }).data ?? []
     await detectPreviewPlatform()
@@ -873,7 +1017,11 @@ async function onSave() {
   try {
     const updated = await layoutApi.update(layout.value.id, {
       name: layoutName.value.trim() || layout.value.name,
-      config: { ...layout.value.config, rows: rowsForSave() },
+      config: {
+        theme: layout.value.config?.theme || 'dark',
+        global: layoutGlobal.value,
+        rows: rowsForSave(),
+      },
     } as any)
     layout.value = unwrapApiData<Layout>(updated)
     layoutName.value = layout.value?.name || layoutName.value
@@ -966,11 +1114,28 @@ function rowTypeLabel(t: string) {
 
 const rowPlayerHints: Record<string, string> = {
   'hero-banner': '全宽背景大图 + 播放/详情按钮（取行内首个可播媒资）',
-  shelf: '横向滚动卡片行，适合继续观看、热门推荐等',
+  ranking: '带序号的榜单列表，适合 TOP10 排行；数据源推荐「热门榜单」或「库筛选」',
+  shelf: '卡片网格自动换行，适合继续观看、热门推荐等',
   'category-grid': '网格布局展示，适合分类浏览（播放端为多列网格）',
-  topic: '专题横滑行，默认横版卡片，突出系列内容',
+  topic: '专题行：卡片行或沉浸式头图；数据源选「专题专辑」',
   'text-banner': '文字公告横幅；可在下方配置跳转动作（如进入直播页）',
   divider: '区块分隔线，用于划分首页段落',
+}
+
+function ensureRowConfig(row: LayoutRow): Record<string, unknown> | undefined {
+  let config = row.config ? { ...row.config } : undefined
+  if (row.type === 'topic') {
+    config = config || {}
+    if (!config.display) config.display = 'default'
+  }
+  if (row.type === 'ranking') {
+    config = config || {}
+    if (config.show_rank === undefined) config.show_rank = true
+  }
+  if (supportsRowAction(row.type)) {
+    config = ensureRowActionConfig(config)
+  }
+  return config
 }
 
 function rowPlayerHint(type: string) {
@@ -999,9 +1164,7 @@ watch(showPublications, (val) => {
 watch(selectedRow, (val) => {
   if (val) {
     ensureRowParams(val)
-    if (supportsRowAction(val.type)) {
-      val.config = ensureRowActionConfig(val.config)
-    }
+    val.config = ensureRowConfig(val)
     dataSourceParamsStr.value = JSON.stringify(val.source.params || {}, null, 2)
   }
 }, { immediate: false })
@@ -1100,7 +1263,16 @@ onMounted(async () => {
 
 .mt-8 { margin-top: 8px; }
 .mt-16 { margin-top: 16px; }
-.w-full { width: 100%; }
+.preset-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.layout-global-form {
+  width: 100%;
+  text-align: left;
+}
 .ml-16 { margin-left: 16px; }
 .ml-2 { margin-left: 8px; }
 

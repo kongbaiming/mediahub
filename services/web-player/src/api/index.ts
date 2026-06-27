@@ -62,6 +62,8 @@ export interface Feed {
   version: number
   platform: string
   updated_at: string
+  theme?: string
+  global?: Record<string, unknown>
   rows: FeedRow[]
 }
 

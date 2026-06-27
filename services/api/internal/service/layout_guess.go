@@ -49,7 +49,7 @@ func (s *LayoutService) EnsureGuessYouLikeRows(ctx context.Context) error {
 		return err
 	}
 	for _, l := range all {
-		if layoutHasGuessYouLike(l) || layoutSchema(l) == "web-v2" {
+		if layoutHasGuessYouLike(l) || layoutSchema(l) == "web-v2" || layoutSchema(l) == "immersive" {
 			continue
 		}
 		id := l.ID.String()
