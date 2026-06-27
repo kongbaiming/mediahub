@@ -121,7 +121,13 @@
                       </el-button>
                     </div>
                   </div>
-                  <div class="row-preview" :class="`card-style-${element.card_style || 'poster'}`">
+                  <div
+                    class="row-preview"
+                    :class="[
+                      `card-style-${element.card_style || 'poster'}`,
+                      `row-type-${element.type}`,
+                    ]"
+                  >
                     <template v-if="previewItems(element.id).length">
                       <div
                         v-for="item in previewItems(element.id).slice(0, 8)"
@@ -166,6 +172,15 @@
         <div class="panel-title">属性</div>
         <div v-if="selectedRow" class="config-form">
           <el-alert
+            v-if="rowPlayerHint(selectedRow.type)"
+            type="success"
+            :closable="false"
+            show-icon
+            class="player-hint"
+            :title="'播放端展示'"
+            :description="rowPlayerHint(selectedRow.type)"
+          />
+          <el-alert
             v-if="selectedRow._inherited"
             type="info"
             :closable="false"
@@ -202,7 +217,10 @@
                 @focus="ensureRowEditable(selectedRowIndex)"
               />
             </el-form-item>
-            <el-form-item label="卡片样式">
+            <el-form-item
+              v-if="!['text-banner', 'divider'].includes(selectedRow.type)"
+              label="卡片样式"
+            >
               <el-radio-group v-model="selectedRow.card_style" :disabled="selectedRow._inherited">
                 <el-radio-button label="poster">海报</el-radio-button>
                 <el-radio-button label="landscape">横版</el-radio-button>
@@ -210,7 +228,20 @@
                 <el-radio-button label="banner">Banner</el-radio-button>
               </el-radio-group>
             </el-form-item>
-            <el-form-item label="数据源类型">
+            <el-form-item v-if="selectedRow.type === 'text-banner'" label="公告说明">
+              <div class="field-hint-block">
+                标题与副标题会显示在播放端公告横幅中，无需配置数据源。
+              </div>
+            </el-form-item>
+            <el-form-item v-if="selectedRow.type === 'divider'" label="分隔线说明">
+              <div class="field-hint-block">
+                标题可选，作为分隔线左侧标签；播放端按编排顺序展示。
+              </div>
+            </el-form-item>
+            <el-form-item
+              v-if="!['text-banner', 'divider'].includes(selectedRow.type)"
+              label="数据源类型"
+            >
               <el-select
                 v-model="selectedRow.source.type"
                 :disabled="selectedRow._inherited"
@@ -220,6 +251,7 @@
               </el-select>
             </el-form-item>
 
+            <template v-if="!['text-banner', 'divider'].includes(selectedRow.type)">
             <template v-if="selectedRow.source.type === 'album'">
               <el-form-item label="专题专辑">
                 <el-select
@@ -318,6 +350,7 @@
                 @blur="onDataSourceParamsChange"
               />
             </el-form-item>
+            </template>
           </el-form>
         </div>
         <el-empty v-else description="选中一行查看属性" :image-size="80" />
@@ -859,6 +892,19 @@ async function onDisablePub(pub: Publication) {
 function rowTypeLabel(t: string) {
   return rowTypes.find((r) => r.value === t)?.label || t
 }
+
+const rowPlayerHints: Record<string, string> = {
+  'hero-banner': '全宽背景大图 + 播放/详情按钮（取行内首个可播媒资）',
+  shelf: '横向滚动卡片行，适合继续观看、热门推荐等',
+  'category-grid': '网格布局展示，适合分类浏览（播放端为多列网格）',
+  topic: '专题横滑行，默认横版卡片，突出系列内容',
+  'text-banner': '文字公告横幅，仅展示标题与副标题',
+  divider: '区块分隔线，用于划分首页段落',
+}
+
+function rowPlayerHint(type: string) {
+  return rowPlayerHints[type] || ''
+}
 function statusType(s: string): any {
   return ({ published: 'success', draft: 'info', archived: 'warning' } as any)[s] || ''
 }
@@ -989,6 +1035,16 @@ onMounted(async () => {
   color: #94a3b8;
   margin-top: 4px;
   line-height: 1.5;
+}
+
+.field-hint-block {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.player-hint {
+  margin-bottom: 12px;
 }
 
 .rule-tag {
@@ -1149,6 +1205,36 @@ onMounted(async () => {
   gap: 12px;
   overflow-x: auto;
   padding: 4px 0;
+
+  &.row-type-category-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    overflow: hidden;
+  }
+
+  &.row-type-text-banner {
+    display: block;
+    padding: 12px 16px;
+    background: rgba(99, 102, 241, 0.15);
+    border-radius: 8px;
+    border: 1px dashed rgba(99, 102, 241, 0.4);
+    color: #cbd5e1;
+    font-size: 13px;
+  }
+
+  &.row-type-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    overflow: hidden;
+
+    &::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.15);
+    }
+  }
 }
 
 .preview-card {

@@ -8,7 +8,16 @@
       </el-button>
     </div>
 
-    <el-tabs v-model="activeTab" @tab-change="reload">
+      <el-alert
+        type="info"
+        :closable="false"
+        show-icon
+        class="layout-list-tip"
+        title="编排说明"
+        description="在编辑器中拖拽组件并配置数据源，保存后发布到 Web 平台，播放端首页将按行顺序展示内容。"
+      />
+
+      <el-tabs v-model="activeTab" @tab-change="reload">
       <el-tab-pane label="全部" name="all" />
       <el-tab-pane label="已发布" name="published" />
       <el-tab-pane label="草稿" name="draft" />
@@ -151,6 +160,10 @@ onMounted(reload)
   font-size: 22px;
   font-weight: 600;
   color: #1e293b;
+}
+
+.layout-list-tip {
+  margin-bottom: 16px;
 }
 
 .ml-2 {

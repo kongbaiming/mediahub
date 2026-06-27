@@ -49,7 +49,6 @@
     </Transition>
 
     <main class="rows">
-      <!-- Skeleton: 首次加载 -->
       <section v-if="loading && rows.length === 0" class="row">
         <h2 class="row-title">热门推荐</h2>
         <div class="row-cards">
@@ -57,37 +56,16 @@
         </div>
       </section>
 
-      <section v-for="row in displayRows" :key="row.id" class="row">
-        <h2 class="row-title">
-          {{ row.title }}
-          <span v-if="row.subtitle" class="row-subtitle">{{ row.subtitle }}</span>
-        </h2>
-        <div class="row-cards" :class="`card-style-${row.card_style || 'poster'}`">
-          <div
-            v-for="item in row.items"
-            :key="item.external ? `tmdb-${item.tmdb_id}` : item.media_id"
-            class="card"
-            :class="{ 'card-external': item.external }"
-            @click="openDetail(item)"
-          >
-            <div class="card-poster">
-              <img v-if="item.poster_url" :src="item.poster_url" :alt="item.title" loading="lazy" />
-              <span v-else class="poster-placeholder">{{ item.title.slice(0, 2) }}</span>
-              <div v-if="item.external" class="external-badge">TMDB</div>
-              <div v-if="item.progress && item.progress > 0" class="progress-bar">
-                <div class="progress-fill" :style="{ width: progressPct(item) + '%' }"></div>
-              </div>
-              <div v-if="item.rating > 0" class="rating">⭐ {{ item.rating.toFixed(1) }}</div>
-              <div v-if="item.progress && item.progress > 0" class="resume-badge">继续</div>
-            </div>
-            <div class="card-title">{{ item.title }}</div>
-          </div>
-        </div>
-      </section>
+      <FeedRowRenderer
+        v-for="row in contentRows"
+        :key="row.id"
+        :row="row"
+        @open="openDetail"
+      />
 
       <!-- Empty -->
       <EmptyState
-        v-if="!loading && rows.length === 0"
+        v-if="!loading && contentRows.length === 0 && !heroItem"
         icon="🎬"
         title="暂无内容"
         description="CMS 里还没有发布布局或媒资。打开后台添加内容吧。"
@@ -104,6 +82,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { feedApi, type FeedItem, type FeedRow } from '@/api'
+import FeedRowRenderer from '@/components/FeedRowRenderer.vue'
 import ProfileSwitcher from '@/views/ProfileSwitcher.vue'
 import SkeletonCard from '@/components/SkeletonCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -121,15 +100,15 @@ const currentProfile = computed(() =>
   profiles.value.find((p) => p.id === currentProfileId.value)
 )
 
-/** 列表区：仅用 CMS Feed，排除 hero 行与空行 */
-const displayRows = computed(() =>
-  rows.value.filter(
-    (r) =>
-      r.type !== 'hero-banner' &&
-      r.type !== 'divider' &&
-      r.type !== 'text-banner' &&
-      (r.items?.length ?? 0) > 0,
-  ),
+/** 内容区：按 CMS 编排顺序展示（Hero 单独渲染） */
+const contentRows = computed(() =>
+  rows.value.filter((r) => {
+    if (r.type === 'hero-banner') return false
+    if (r.type === 'divider' || r.type === 'text-banner') {
+      return !!(r.title || r.subtitle)
+    }
+    return (r.items?.length ?? 0) > 0
+  }),
 )
 
 const heroItem = computed<FeedItem | null>(() => {
@@ -169,11 +148,6 @@ async function loadFeed() {
   } finally {
     loading.value = false
   }
-}
-
-function progressPct(item: FeedItem) {
-  if (!item.progress || !item.duration) return 0
-  return Math.min(100, (item.progress / item.duration) * 100)
 }
 
 function openDetail(item: FeedItem) {

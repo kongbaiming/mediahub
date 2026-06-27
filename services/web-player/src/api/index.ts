@@ -54,6 +54,7 @@ export interface FeedRow {
   title?: string
   subtitle?: string
   card_style?: string
+  config?: Record<string, unknown>
   items: FeedItem[]
 }
 
