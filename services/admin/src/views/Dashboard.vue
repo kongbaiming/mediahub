@@ -182,10 +182,6 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
-.dashboard {
-  max-width: 1400px;
-}
-
 .stat-row {
   margin-bottom: var(--mh-space-5);
 }

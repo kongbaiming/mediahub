@@ -1,6 +1,6 @@
 <template>
   <div class="live-list-page">
-    <header class="topbar mh-topbar">
+    <header class="live-topbar mh-topbar">
       <button class="back-btn" @click="$router.push('/')">← 首页</button>
       <h1 class="page-title">直播</h1>
       <div class="topbar-search">
@@ -13,6 +13,7 @@
       </div>
     </header>
 
+    <div class="live-list-body">
     <div class="filter-bar">
       <div class="filter-row">
         <span class="filter-label">类型</span>
@@ -95,6 +96,7 @@
 
       <div v-if="loading && rooms.length > 0" class="loading-more">刷新中…</div>
     </main>
+    </div>
   </div>
 </template>
 
@@ -232,17 +234,12 @@ onBeforeUnmount(() => {
   color: var(--mh-text);
 }
 
-.topbar {
-  display: flex;
-  align-items: center;
+.live-list-body {
+  padding-top: var(--mh-topbar-height);
+}
+
+.live-topbar {
   gap: var(--mh-space-4);
-  padding: var(--mh-space-4) var(--mh-space-6);
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  backdrop-filter: blur(12px);
-  background: rgba(10, 10, 18, 0.85);
-  border-bottom: 1px solid var(--mh-outline);
 }
 
 .back-btn {
@@ -288,12 +285,8 @@ onBeforeUnmount(() => {
 }
 
 .filter-bar {
-  position: sticky;
-  top: var(--mh-topbar-height);
-  z-index: 15;
   padding: var(--mh-space-4) var(--mh-space-6);
-  background: rgba(10, 10, 18, 0.92);
-  backdrop-filter: blur(10px);
+  background: rgba(10, 10, 18, 0.6);
   border-bottom: 1px solid var(--mh-outline);
   display: flex;
   flex-direction: column;
@@ -439,11 +432,14 @@ onBeforeUnmount(() => {
 
 .room-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: var(--mh-space-5);
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--mh-space-4);
+  align-items: start;
 }
 
 .room-card {
+  display: flex;
+  flex-direction: column;
   background: var(--mh-surface);
   border-radius: var(--mh-radius-md);
   overflow: hidden;

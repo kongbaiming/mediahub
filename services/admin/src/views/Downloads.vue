@@ -266,10 +266,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style lang="scss" scoped>
-.downloads-page {
-  max-width: 1400px;
-}
-
 .page-header {
   display: flex;
   justify-content: space-between;

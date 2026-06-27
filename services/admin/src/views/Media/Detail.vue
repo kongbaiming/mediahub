@@ -542,10 +542,6 @@ onMounted(load)
 </script>
 
 <style lang="scss" scoped>
-.media-detail {
-  max-width: 1400px;
-}
-
 .detail-header {
   display: flex;
   justify-content: space-between;
@@ -867,9 +863,5 @@ onMounted(load)
   white-space: pre-wrap;
   max-height: 360px;
   overflow-y: auto;
-}
-
-.edit-form {
-  max-width: 600px;
 }
 </style>

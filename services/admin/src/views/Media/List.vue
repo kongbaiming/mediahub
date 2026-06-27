@@ -268,10 +268,6 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
-.media-list-page {
-  max-width: 1600px;
-}
-
 .page-header {
   display: flex;
   justify-content: space-between;

@@ -268,6 +268,14 @@ function handleCommand(cmd: string) {
   flex: 1;
   overflow: auto;
   padding: var(--mh-space-6);
+  width: 100%;
+  box-sizing: border-box;
+
+  // 路由页面根节点铺满主内容区
+  > * {
+    width: 100%;
+    max-width: none;
+  }
 }
 
 .fade-enter-active, .fade-leave-active {

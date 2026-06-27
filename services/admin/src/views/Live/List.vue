@@ -689,10 +689,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style lang="scss" scoped>
-.live-page {
-  max-width: 1200px;
-}
-
 .page-header {
   display: flex;
   align-items: center;

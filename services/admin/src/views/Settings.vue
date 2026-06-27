@@ -43,10 +43,6 @@ const apiBase = import.meta.env.VITE_API_BASE_URL || location.origin
 </script>
 
 <style lang="scss" scoped>
-.settings-page {
-  max-width: 900px;
-}
-
 .page-h2 {
   margin: 0 0 20px;
   font-size: 22px;

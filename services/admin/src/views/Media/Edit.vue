@@ -83,10 +83,6 @@ async function onSubmit() {
 </script>
 
 <style lang="scss" scoped>
-.media-edit-page {
-  max-width: 800px;
-}
-
 .page-h2 {
   margin: 0 0 20px;
   font-size: 22px;
