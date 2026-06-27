@@ -69,7 +69,7 @@ func NewHandlers(
 	}
 	pathAliases := BuildPathAliasesFromEnv(mediaRoot, downloadRoot)
 	h := &Handlers{
-		Media:         NewMediaHandler(media, scrapeMatch, mediaRoot, downloadRoot, pathAliases),
+		Media:         NewMediaHandler(media, scrapeMatch, scannerSvc, mediaRoot, downloadRoot, pathAliases),
 		Catalog:       NewCatalogHandler(catalog),
 		Library:       NewLibraryHandler(library),
 		Layout:        NewLayoutHandler(layout, feed),
@@ -134,6 +134,7 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 		v1.DELETE("/media/:id", middleware.Auth(h.Auth.svc), middleware.RequireAdmin(), h.Media.Delete)
 		v1.GET("/media/:id/rescan", middleware.Auth(h.Auth.svc), h.Media.Rescan)
 		v1.POST("/media/:id/rescan", middleware.Auth(h.Auth.svc), h.Media.Rescan)
+		v1.POST("/media/:id/rebuild-episodes", middleware.Auth(h.Auth.svc), h.Media.RebuildEpisodes)
 		v1.GET("/media/:id/scrape-candidates", middleware.Auth(h.Auth.svc), h.Media.ScrapeCandidates)
 		v1.POST("/media/:id/apply-scrape-match", middleware.Auth(h.Auth.svc), h.Media.ApplyScrapeMatch)
 

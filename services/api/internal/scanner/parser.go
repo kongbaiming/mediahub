@@ -29,6 +29,8 @@ var (
 	movieRe = regexp.MustCompile(`^(?P<title>.+?)[. _\-\(]+(?P<year>(19|20)\d{2})`)
 	// 剧集: Title - S01E02.mkv  / Title.S01E02.1080p.mkv  / Show - 1x02.mkv
 	episodeRe = regexp.MustCompile(`(?i)(?P<title>.+?)[. _\-\(]+S(?P<s>\d{1,2})E(?P<e>\d{1,2})`)
+	// EP46 集数（无季号）
+	episodeEPNameRe = regexp.MustCompile(`(?i)EP(?P<e>\d{1,3})`)
 	// 备用剧集格式: Title 1x02
 	episodeAltRe = regexp.MustCompile(`(?P<title>.+?)[. _\-\(]+(?P<s>\d{1,2})x(?P<e>\d{1,2})`)
 	// 分辨率
@@ -73,6 +75,17 @@ func ParseFileName(path string) *ParsedFile {
 		}
 		if e, err := strconv.Atoi(m[3]); err == nil {
 			p.Episode = &e
+		}
+	} else if m := episodeEPNameRe.FindStringSubmatch(name); m != nil {
+		p.Type = "episode"
+		if y := yearFromName(name); y != nil {
+			p.Year = y
+		}
+		p.Title = cleanTitle(episodeTitleBeforeEP(name))
+		if e, err := strconv.Atoi(m[1]); err == nil && e > 0 {
+			p.Episode = &e
+			s := 1
+			p.Season = &s
 		}
 	} else if m := movieRe.FindStringSubmatch(name); m != nil {
 		// 2. 电影
@@ -127,6 +140,37 @@ func joinNonEmpty(ss []string) string {
 		out += s
 	}
 	return out
+}
+
+var yearInNameRe = regexp.MustCompile(`(?:^|[._-])(19|20)\d{2}(?:[._-]|$)`)
+
+func yearFromName(name string) *int {
+	m := yearInNameRe.FindStringSubmatch(name)
+	if len(m) < 2 {
+		return nil
+	}
+	start := strings.Index(name, m[1])
+	if start < 0 {
+		return nil
+	}
+	chunk := name[start:]
+	if len(chunk) >= 4 {
+		if y, err := strconv.Atoi(chunk[:4]); err == nil {
+			return &y
+		}
+	}
+	return nil
+}
+
+func episodeTitleBeforeEP(name string) string {
+	idx := strings.Index(strings.ToUpper(name), ".EP")
+	if idx < 0 {
+		idx = strings.Index(strings.ToUpper(name), "_EP")
+	}
+	if idx > 0 {
+		return name[:idx]
+	}
+	return name
 }
 
 // InferMediaType 从 ParsedFile 推断 MediaType

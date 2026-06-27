@@ -81,3 +81,40 @@ func (s *Service) RemigrateSeriesOrphanFiles(ctx context.Context) (int, error) {
 	}
 	return migrated, nil
 }
+
+// RemigrateSeriesOrphanFilesForMedia 重建指定剧集专辑的季/集结构
+func (s *Service) RemigrateSeriesOrphanFilesForMedia(ctx context.Context, mediaID string) (int, error) {
+	if s.mediaRepo == nil {
+		return 0, nil
+	}
+
+	paths, err := s.mediaRepo.ListOrphanSeriesFilePathsForMedia(ctx, mediaID)
+	if err != nil {
+		return 0, err
+	}
+	if len(paths) == 0 {
+		return 0, nil
+	}
+
+	deps := IngestDeps{MediaRepo: s.mediaRepo, Catalog: s.catalogRepo, Queue: s.queue}
+	migrated := 0
+
+	for _, filePath := range paths {
+		parsed := ParseFilePath(filePath)
+		parentDir := filepath.Dir(filePath)
+		mtype := inferTypeFromDir(parsed, parentDir)
+		if !IsEpisodeFile(parsed, string(mtype)) {
+			continue
+		}
+		if _, err := IngestMediaFile(ctx, deps, filePath); err != nil {
+			logger.Warn("剧集孤儿文件重建失败", "media_id", mediaID, "path", filePath, "err", err)
+			continue
+		}
+		migrated++
+	}
+
+	if migrated > 0 {
+		logger.Info("剧集专辑选集重建完成", "media_id", mediaID, "count", migrated)
+	}
+	return migrated, nil
+}

@@ -156,6 +156,10 @@
       </div>
 
       <!-- 剧集选集 -->
+      <div v-if="!isExternal && isSeries && !seasonsWithEpisodes.length" class="section">
+        <h2 class="section-title">选集</h2>
+        <p class="similar-empty">选集结构生成中，请稍后刷新；若仍无选集，请确认文件夹内文件命名含集数（如 EP01、S01E01）</p>
+      </div>
       <div v-if="!isExternal && isSeries && seasonsWithEpisodes.length" class="section">
         <h2 class="section-title">选集</h2>
         <div v-for="season in seasonsWithEpisodes" :key="season.id" class="season-block">

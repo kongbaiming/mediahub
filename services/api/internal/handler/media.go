@@ -24,13 +24,14 @@ import (
 type MediaHandler struct {
 	svc          *service.MediaService
 	match        *service.ScrapeMatchService
+	scanner      *scanner.Service
 	allowedRoots []string
 	pathAliases  []PathAlias
 	mediaRoot    string
 }
 
 // NewMediaHandler 构造
-func NewMediaHandler(svc *service.MediaService, match *service.ScrapeMatchService, mediaRoot, downloadRoot string, pathAliases []PathAlias) *MediaHandler {
+func NewMediaHandler(svc *service.MediaService, match *service.ScrapeMatchService, scannerSvc *scanner.Service, mediaRoot, downloadRoot string, pathAliases []PathAlias) *MediaHandler {
 	roots := []string{mediaRoot}
 	if downloadRoot != "" && downloadRoot != mediaRoot {
 		roots = append(roots, downloadRoot)
@@ -38,6 +39,7 @@ func NewMediaHandler(svc *service.MediaService, match *service.ScrapeMatchServic
 	return &MediaHandler{
 		svc:          svc,
 		match:        match,
+		scanner:      scannerSvc,
 		allowedRoots: roots,
 		pathAliases:  pathAliases,
 		mediaRoot:    mediaRoot,
@@ -81,6 +83,11 @@ func (h *MediaHandler) List(c *gin.Context) {
 // Get 详情
 func (h *MediaHandler) Get(c *gin.Context) {
 	id := c.Param("id")
+	if h.scanner != nil {
+		if _, err := h.scanner.RemigrateSeriesOrphanFilesForMedia(c.Request.Context(), id); err != nil {
+			// 重建失败不阻断详情读取
+		}
+	}
 	result, err := h.svc.Detail(c.Request.Context(), id)
 	if err != nil {
 		respondError(c, err)
@@ -268,6 +275,21 @@ func (h *MediaHandler) Rescan(c *gin.Context) {
 		return
 	}
 	c.JSON(202, gin.H{"status": "queued", "media_id": id})
+}
+
+// RebuildEpisodes 重建剧集季/集结构（同文件夹多集文件）
+func (h *MediaHandler) RebuildEpisodes(c *gin.Context) {
+	id := c.Param("id")
+	if h.scanner == nil {
+		respondError(c, apperr.New(apperr.CodeInternal, "扫描服务未就绪"))
+		return
+	}
+	n, err := h.scanner.RemigrateSeriesOrphanFilesForMedia(c.Request.Context(), id)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"data": gin.H{"rebuilt": n, "media_id": id}})
 }
 
 // BatchRescan 批量重新刮削

@@ -34,6 +34,7 @@ export interface MediaSummary {
   has_subtitle: boolean
   scrape_status?: 'pending' | 'scraping' | 'done' | 'failed'
   scrape_error?: string
+  episode_count?: number
 }
 
 export interface MediaDetail extends MediaSummary {

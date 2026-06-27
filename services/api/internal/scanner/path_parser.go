@@ -14,6 +14,8 @@ var (
 	episodeOnlyRe   = regexp.MustCompile(`(?i)^S?(?P<s>\d{1,2})E(?P<e>\d{1,2})$`)
 	episodeInNameRe = regexp.MustCompile(`(?i)(?:^|[.\s_-])S(?P<s>\d{1,2})E(?P<e>\d{1,2})(?:[.\s_-]|$)`)
 	episodeMarkerRe = regexp.MustCompile(`(?i)(?:^|[._-])E(?P<e>\d{1,3})(?:[._-]|$)`)
+	// 大明王朝1566.2007.EP46.HD1080P — 国内常见 EP 集数命名
+	episodeEPRe = regexp.MustCompile(`(?i)(?:^|[._-])EP(?P<e>\d{1,3})(?:[._-]|$)`)
 	// [武林外传].01.集标题 — 国内常见 RMVB/DVD 命名
 	bracketDotEpRe = regexp.MustCompile(`(?i)\]\.(?P<e>\d{1,3})\.`)
 	leadingNumDotRe = regexp.MustCompile(`^(?P<e>\d{1,3})\.(?P<title>.+)$`)
@@ -112,6 +114,20 @@ func ParseFilePath(fullPath string) *ParsedFile {
 		}
 		if e, err := strconv.Atoi(m[2]); err == nil {
 			p.Episode = &e
+		}
+		return p
+	}
+
+	// 大明王朝1566.2007.EP46.HD1080P — EP 集数（无季号，默认 S01）
+	if m := episodeEPRe.FindStringSubmatch(baseName); len(m) == 2 && isSeriesAlbumDir(parentDir, seriesName) {
+		p.Type = "episode"
+		p.Title = albumSeriesTitle(seriesName)
+		if ep, err := strconv.Atoi(m[1]); err == nil && ep > 0 {
+			p.Episode = &ep
+		}
+		if p.Season == nil {
+			s := 1
+			p.Season = &s
 		}
 		return p
 	}

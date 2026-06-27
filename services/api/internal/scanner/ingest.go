@@ -155,6 +155,10 @@ func ingestEpisodeFile(ctx context.Context, deps IngestDeps, filePath string, pa
 			return res, err
 		}
 		isNewSeries = true
+	} else if series.StoragePath != seriesDir {
+		if err := deps.MediaRepo.SetStoragePath(ctx, series.ID.String(), seriesDir); err == nil {
+			series.StoragePath = seriesDir
+		}
 	}
 
 	epNum := 1

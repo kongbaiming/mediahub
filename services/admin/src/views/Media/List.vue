@@ -136,6 +136,7 @@
             {{ m.rating.toFixed(1) }}
           </div>
           <div class="type-badge">{{ mediaTypeLabel(m.type) }}</div>
+          <div v-if="m.episode_count" class="episode-badge">{{ m.episode_count }} 集</div>
         </div>
         <div class="media-info">
           <div class="media-title" :title="m.title">{{ m.title }}</div>
@@ -408,6 +409,17 @@ onMounted(() => {
   top: 8px;
   right: 8px;
   background: rgba(99, 102, 241, 0.9);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.episode-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(15, 23, 42, 0.82);
   color: #fff;
   padding: 2px 8px;
   border-radius: 4px;

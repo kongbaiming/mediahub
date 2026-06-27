@@ -86,6 +86,13 @@ func TestParseFileName_Episode(t *testing.T) {
 			wantSeason: ptr(1),
 			wantEpisode: ptr(1),
 		},
+		{
+			input: "大明王朝1566.2007.EP46.HD1080P.X264.AAC.Mandarin.CHS.BDE4.mp4",
+			wantType: "episode",
+			wantTitle: "大明王朝1566 2007",
+			wantSeason: ptr(1),
+			wantEpisode: ptr(46),
+		},
 	}
 
 	for _, tt := range tests {
@@ -104,6 +111,23 @@ func TestParseFileName_Episode(t *testing.T) {
 				t.Errorf("Episode = %v, want %v", ptrVal(got.Episode), ptrVal(tt.wantEpisode))
 			}
 		})
+	}
+}
+
+func TestParseFilePath_EP46(t *testing.T) {
+	path := `/media/[哔嘀影视-bde4.com]大明王朝1566.2007.EP01-46.HD1080P.X264.AAC.Mandarin.CHS/大明王朝1566.2007.EP46.HD1080P.X264.AAC.Mandarin.CHS.BDE4.mp4`
+	got := ParseFilePath(path)
+	if got.Type != "episode" {
+		t.Fatalf("Type = %q, want episode", got.Type)
+	}
+	if !equalPtr(got.Season, ptr(1)) {
+		t.Errorf("Season = %v, want 1", ptrVal(got.Season))
+	}
+	if !equalPtr(got.Episode, ptr(46)) {
+		t.Errorf("Episode = %v, want 46", ptrVal(got.Episode))
+	}
+	if !IsEpisodeFile(got, "tvshow") {
+		t.Error("IsEpisodeFile should be true for tvshow")
 	}
 }
 

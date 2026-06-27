@@ -52,6 +52,7 @@ type MediaSummary struct {
 	HasSubtitle   bool             `json:"has_subtitle"`
 	ScrapeStatus  common.ScrapeStatus `json:"scrape_status,omitempty"`
 	ScrapeError   string           `json:"scrape_error,omitempty"`
+	EpisodeCount  *int             `json:"episode_count,omitempty"`
 }
 
 // List 列表
@@ -63,8 +64,19 @@ func (s *MediaService) List(ctx context.Context, f repository.MediaFilter, p com
 	}
 
 	out := make([]MediaSummary, len(items))
+	seriesIDs := make([]uuid.UUID, 0, len(items))
 	for i, m := range items {
 		out[i] = toSummary(&m)
+		if m.IsTV() {
+			seriesIDs = append(seriesIDs, m.ID)
+		}
+	}
+	if counts, err := s.repo.CountPlayableEpisodesByMediaIDs(ctx, seriesIDs); err == nil {
+		for i := range out {
+			if c, ok := counts[out[i].ID]; ok && c > 0 {
+				out[i].EpisodeCount = &c
+			}
+		}
 	}
 	return &ListDTO{
 		Items: out,

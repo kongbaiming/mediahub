@@ -9,12 +9,13 @@ package repository
 import (
 	"context"
 	"errors"
+	"path/filepath"
 
 	"github.com/mediahub/api/internal/apperr"
 	"github.com/mediahub/api/internal/domain/media"
 
-	"gorm.io/gorm"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // MediaRepo 媒资仓储
@@ -178,19 +179,62 @@ func (r *MediaRepo) Create(ctx context.Context, m *media.Media) error {
 	return nil
 }
 
-// GetBySeriesPath 按剧集专辑目录查找（电视剧 storage_path 为文件夹）
+// GetBySeriesPath 按剧集专辑目录查找（storage_path 为文件夹；兼容误设为单集文件路径的情况）
 func (r *MediaRepo) GetBySeriesPath(ctx context.Context, seriesDir string) (*media.Media, error) {
+	seriesDir = filepath.Clean(seriesDir)
+	if seriesDir == "" || seriesDir == "." {
+		return nil, apperr.NotFound("剧集专辑不存在")
+	}
+	seriesTypes := []string{"tvshow", "anime"}
+
 	var m media.Media
 	err := r.db.WithContext(ctx).
-		Where("storage_path = ? AND type IN ?", seriesDir, []string{"tvshow", "anime"}).
+		Where("storage_path = ? AND type IN ?", seriesDir, seriesTypes).
 		First(&m).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperr.NotFound("剧集专辑不存在")
-		}
+	if err == nil {
+		return &m, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, apperr.Wrap(err, apperr.CodeInternal, "查询剧集专辑失败")
 	}
-	return &m, nil
+
+	prefix := seriesDir + string(filepath.Separator)
+	err = r.db.WithContext(ctx).
+		Where("kind = ? AND type IN ? AND storage_path LIKE ?", media.MediaKindSeries, seriesTypes, prefix+"%").
+		Order("updated_at DESC").
+		First(&m).Error
+	if err == nil {
+		return &m, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, apperr.Wrap(err, apperr.CodeInternal, "查询剧集专辑失败")
+	}
+
+	var f media.MediaFile
+	err = r.db.WithContext(ctx).
+		Table("media_files AS mf").
+		Joins("JOIN media AS m ON m.id = mf.media_id").
+		Where("m.kind = ? AND mf.path LIKE ?", media.MediaKindSeries, prefix+"%").
+		Select("mf.*").
+		Order("mf.created_at ASC").
+		First(&f).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, apperr.NotFound("剧集专辑不存在")
+	}
+	if err != nil {
+		return nil, apperr.Wrap(err, apperr.CodeInternal, "查询剧集专辑失败")
+	}
+	return r.GetByID(ctx, f.MediaID.String())
+}
+
+// SetStoragePath 更新媒资 storage_path（剧集专辑目录修正等）
+func (r *MediaRepo) SetStoragePath(ctx context.Context, mediaID string, path string) error {
+	if err := r.db.WithContext(ctx).Model(&media.Media{}).
+		Where("id = ?", mediaID).
+		Update("storage_path", path).Error; err != nil {
+		return apperr.Wrap(err, apperr.CodeInternal, "更新 storage_path 失败")
+	}
+	return nil
 }
 
 // GetEpisodeByFilePath 按单集文件路径查找

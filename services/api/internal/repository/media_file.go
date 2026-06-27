@@ -8,6 +8,7 @@ import (
 	"github.com/mediahub/api/internal/apperr"
 	"github.com/mediahub/api/internal/domain/media"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -123,6 +124,75 @@ func (r *MediaRepo) ListOrphanSeriesFilePaths(ctx context.Context) ([]string, er
 		return nil, apperr.Wrap(err, apperr.CodeInternal, "查询剧集孤儿文件失败")
 	}
 	return paths, nil
+}
+
+// ListOrphanSeriesFilePathsForMedia 指定剧集专辑下未关联 episode 的文件路径
+func (r *MediaRepo) ListOrphanSeriesFilePathsForMedia(ctx context.Context, mediaID string) ([]string, error) {
+	var paths []string
+	err := r.db.WithContext(ctx).
+		Table("media_files AS mf").
+		Joins("JOIN media AS m ON m.id = mf.media_id").
+		Where("mf.episode_id IS NULL AND m.kind = ? AND mf.media_id = ?", media.MediaKindSeries, mediaID).
+		Order("mf.path ASC").
+		Pluck("mf.path", &paths).Error
+	if err != nil {
+		return nil, apperr.Wrap(err, apperr.CodeInternal, "查询剧集孤儿文件失败")
+	}
+	return paths, nil
+}
+
+// CountPlayableEpisodesByMediaIDs 批量统计可播放集数（含尚未建 episode 的孤儿文件）
+func (r *MediaRepo) CountPlayableEpisodesByMediaIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]int, error) {
+	out := make(map[uuid.UUID]int, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+
+	type episodeRow struct {
+		MediaID uuid.UUID
+		Count   int64
+	}
+	var rows []episodeRow
+	if err := r.db.WithContext(ctx).
+		Table("episodes AS e").
+		Select("seasons.media_id AS media_id, COUNT(*) AS count").
+		Joins("JOIN seasons ON seasons.id = e.season_id").
+		Where("seasons.media_id IN ? AND e.file_path <> ''", ids).
+		Group("seasons.media_id").
+		Scan(&rows).Error; err != nil {
+		return nil, apperr.Wrap(err, apperr.CodeInternal, "统计集数失败")
+	}
+	for _, row := range rows {
+		out[row.MediaID] = int(row.Count)
+	}
+
+	var missing []uuid.UUID
+	for _, id := range ids {
+		if out[id] == 0 {
+			missing = append(missing, id)
+		}
+	}
+	if len(missing) == 0 {
+		return out, nil
+	}
+
+	type orphanRow struct {
+		MediaID uuid.UUID
+		Count   int64
+	}
+	var orows []orphanRow
+	if err := r.db.WithContext(ctx).
+		Model(&media.MediaFile{}).
+		Select("media_id, COUNT(*) AS count").
+		Where("media_id IN ? AND episode_id IS NULL", missing).
+		Group("media_id").
+		Scan(&orows).Error; err != nil {
+		return nil, apperr.Wrap(err, apperr.CodeInternal, "统计孤儿文件失败")
+	}
+	for _, row := range orows {
+		out[row.MediaID] = int(row.Count)
+	}
+	return out, nil
 }
 
 // syncLegacyFileFields 双写兼容列（v0.4 过渡）

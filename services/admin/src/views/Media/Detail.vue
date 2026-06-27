@@ -10,6 +10,14 @@
           <el-icon><Refresh /></el-icon>
           重新刮削
         </el-button>
+        <el-button
+          v-if="isSeries"
+          @click="onRebuildEpisodes"
+          :loading="rebuildingEpisodes"
+        >
+          <el-icon><Collection /></el-icon>
+          重建选集
+        </el-button>
         <el-button @click="editing = !editing">
           <el-icon><Edit /></el-icon>
           {{ editing ? '取消编辑' : '编辑' }}
@@ -257,6 +265,16 @@
         </div>
       </el-dialog>
 
+      <el-card v-if="isSeries && !sortedSeasons.length" shadow="never" class="seasons-card">
+        <el-alert
+          type="warning"
+          :closable="false"
+          title="该专辑下的视频文件尚未生成选集结构"
+          description="同文件夹内的多集视频（如 EP01、S01E01、[剧名].01. 等命名）需重建选集后才能在 CMS 与播放端展示。请点击上方「重建选集」，或重启 API 后重新打开本页。"
+          show-icon
+        />
+      </el-card>
+
       <el-card v-if="sortedSeasons.length" shadow="never" class="seasons-card">
         <template #header><span>季 / 集</span></template>
         <el-collapse>
@@ -299,6 +317,7 @@ const router = useRouter()
 
 const loading = ref(false)
 const rescanning = ref(false)
+const rebuildingEpisodes = ref(false)
 const saving = ref(false)
 const editing = ref(false)
 const media = ref<MediaDetail | null>(null)
@@ -323,6 +342,11 @@ const posterSrc = computed(() => {
 const showScrapeMatch = computed(() => {
   const s = media.value?.scrape_status
   return s === 'failed' || s === 'pending'
+})
+
+const isSeries = computed(() => {
+  const t = media.value?.type
+  return t === 'tvshow' || t === 'anime'
 })
 
 const sortedSeasons = computed(() => {
@@ -463,6 +487,23 @@ async function onRescan() {
     await load()
   } finally {
     rescanning.value = false
+  }
+}
+
+async function onRebuildEpisodes() {
+  if (!media.value) return
+  rebuildingEpisodes.value = true
+  try {
+    const res = await mediaApi.rebuildEpisodes(media.value.id)
+    const n = res.data?.rebuilt ?? 0
+    if (n > 0) {
+      ElMessage.success(`已重建 ${n} 集选集结构`)
+    } else {
+      ElMessage.info('没有需要重建的选集文件，或文件名未能识别为单集')
+    }
+    await load()
+  } finally {
+    rebuildingEpisodes.value = false
   }
 }
 

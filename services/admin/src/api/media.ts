@@ -44,6 +44,9 @@ export const mediaApi = {
 
   rescan: (id: string) => http.post(`/api/v1/media/${id}/rescan`),
 
+  rebuildEpisodes: (id: string) =>
+    http.post<{ data: { rebuilt: number; media_id: string } }>(`/api/v1/media/${id}/rebuild-episodes`),
+
   batchRescan: (payload: { ids?: string[]; scrape_status?: string }) =>
     http.post<{ status: string; queued: number }>('/api/v1/media/batch-rescan', payload),
 
