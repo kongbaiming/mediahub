@@ -1,392 +1,221 @@
 <template>
-  <div v-loading="loading" class="person-page">
+  <div class="person-page">
     <header class="person-topbar mh-topbar mh-sub-topbar">
       <button class="back-btn" @click="$router.back()">← 返回</button>
-      <span class="breadcrumb">
-        <span class="link" @click="$router.push('/')">首页</span>
-        <template v-if="fromMediaTitle">
-          <span class="sep">/</span>
-          <span class="link" @click="goFromMedia">{{ fromMediaTitle }}</span>
-        </template>
-        <span class="sep">/</span>
-        <span>{{ person?.name || '影人' }}</span>
-      </span>
     </header>
 
-    <main v-if="person" class="content">
-      <section class="profile">
-        <div class="avatar">
-          <img v-if="avatarUrl" :src="avatarUrl" :alt="person.name" />
-          <span v-else>{{ person.name?.slice(0, 1) || '?' }}</span>
+    <main class="person-content" v-if="person">
+      <div class="person-hero">
+        <div class="person-avatar-large">
+          <img v-if="person.profile_url" :src="person.profile_url" :alt="person.name" />
+          <span v-else class="avatar-placeholder">{{ person.name.slice(0, 1) }}</span>
         </div>
-        <div class="profile-meta">
-          <h1 class="name">{{ person.name }}</h1>
-          <p v-if="roleLabel" class="role">{{ roleLabel }}</p>
-          <p v-if="person.known_for_department" class="dept">{{ person.known_for_department }}</p>
-          <p v-if="extraMeta" class="extra">{{ extraMeta }}</p>
-          <p v-if="person.biography" class="bio">{{ person.biography }}</p>
-          <p v-else-if="!loading" class="empty">暂无人物介绍</p>
+        <div class="person-info">
+          <h1 class="person-name">{{ person.name }}</h1>
+          <div v-if="person.known_for_department" class="person-dept">
+            {{ deptLabel(person.known_for_department) }}
+          </div>
+          <div v-if="person.birthday" class="person-meta">
+            {{ person.birthday }}
+            <span v-if="person.place_of_birth"> · {{ person.place_of_birth }}</span>
+          </div>
+          <p v-if="person.biography" class="person-bio">{{ person.biography }}</p>
         </div>
-      </section>
+      </div>
 
-      <section class="section">
+      <section v-if="works.length" class="works-section">
         <h2 class="section-title">参演作品</h2>
-        <div v-if="works.length" class="works-row">
-          <button
-            v-for="work in works"
-            :key="work.id || `tmdb-${work.tmdb_id}`"
-            type="button"
-            class="work-card"
-            @click="openWork(work)"
+        <div class="works-grid">
+          <div
+            v-for="w in works"
+            :key="w.id"
+            class="card"
+            @click="$router.push(`/media/${w.id}`)"
           >
             <div class="poster-card">
-              <img v-if="work.poster_url" :src="work.poster_url" :alt="work.title" loading="lazy" />
-              <span v-else>{{ work.title.slice(0, 2) }}</span>
-              <div v-if="work.rating > 0" class="rating">⭐ {{ work.rating.toFixed(1) }}</div>
+              <img v-if="w.poster_url" :src="w.poster_url" :alt="w.title" loading="lazy" />
+              <span v-else class="poster-placeholder">{{ (w.title || '').slice(0, 2) }}</span>
+              <div v-if="w.rating > 0" class="rating">⭐ {{ w.rating.toFixed(1) }}</div>
             </div>
-            <div class="card-title">{{ work.title }}</div>
-            <div class="card-meta">{{ work.year || '—' }} · {{ typeLabel(work.type) }}</div>
-          </button>
+            <div class="card-title">{{ w.title }}</div>
+            <div class="card-meta">{{ w.year }}</div>
+          </div>
         </div>
-        <p v-else-if="!loading" class="empty">暂无参演作品</p>
       </section>
     </main>
+
+    <div v-else-if="loading" class="loading">加载中...</div>
+    <div v-else class="loading">影人不存在</div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { catalogApi, mediaApi, historyApi, type Person, type PersonWork } from '@/api'
+import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+import { catalogApi, type PersonBrief, type MediaSummary } from '@/api'
 
 const route = useRoute()
-const router = useRouter()
-const loading = ref(false)
-const person = ref<Person | null>(null)
-const works = ref<PersonWork[]>([])
-const fromMediaTitle = ref('')
+const loading = ref(true)
+const person = ref<PersonBrief | null>(null)
+const works = ref<MediaSummary[]>([])
 
-const fromMediaId = computed(() => (route.query.from as string) || '')
-const fromTmdbType = computed(() => (route.query.from_tmdb_type as string) || '')
-const fromTmdbId = computed(() => (route.query.from_tmdb_id as string) || '')
-const roleName = computed(() => (route.query.role as string) || '')
+function deptLabel(d: string) {
+  return ({ Acting: '演员', Directing: '导演', Writing: '编剧', Production: '制片' } as Record<string, string>)[d] || d
+}
 
-const avatarUrl = computed(() => {
-  const p = person.value
-  if (!p) return ''
-  if (p.profile_url) return p.profile_url
-  if (p.profile_path) {
-    if (p.profile_path.startsWith('http')) return p.profile_path
-    return `https://image.tmdb.org/t/p/w300${p.profile_path}`
-  }
-  return ''
-})
-
-const roleLabel = computed(() => (roleName.value ? `饰 ${roleName.value}` : ''))
-
-const extraMeta = computed(() => {
-  const p = person.value
-  if (!p) return ''
-  const parts: string[] = []
-  if (p.place_of_birth) parts.push(p.place_of_birth)
-  if (p.birthday) parts.push(p.birthday.slice(0, 10))
-  return parts.join(' · ')
-})
-
-async function load() {
-  loading.value = true
+onMounted(async () => {
+  const id = route.params.id as string
   try {
-    await historyApi.ensureProfileId()
-    let personId: string
-    if (route.name === 'person-tmdb') {
-      const p = await catalogApi.personByTmdb(Number(route.params.tmdbId))
-      person.value = p
-      personId = p.id
-    } else {
-      personId = route.params.id as string
-      person.value = await catalogApi.person(personId)
-    }
-    const list = await catalogApi.personWorks(personId, {
-      excludeMediaId: fromMediaId.value || undefined,
-    })
-    works.value = list.filter((w) => {
-      if (fromTmdbId.value && w.tmdb_id === Number(fromTmdbId.value)) return false
-      return true
-    })
-
-    if (fromMediaId.value) {
-      mediaApi.get(fromMediaId.value).then((m) => {
-        fromMediaTitle.value = m.title
-      }).catch(() => {
-        fromMediaTitle.value = ''
-      })
-    } else if (fromTmdbType.value && fromTmdbId.value) {
-      mediaApi.getTmdb(fromTmdbType.value, Number(fromTmdbId.value)).then((m) => {
-        fromMediaTitle.value = m.title
-      }).catch(() => {
-        fromMediaTitle.value = ''
-      })
-    } else {
-      fromMediaTitle.value = ''
-    }
+    person.value = await catalogApi.person(id)
+    works.value = await catalogApi.personWorks(id)
+  } catch {
+    // not found
   } finally {
     loading.value = false
   }
-}
-
-function isPlayableWork(work: PersonWork) {
-  return !work.external && !!work.id && work.id !== '00000000-0000-0000-0000-000000000000'
-}
-
-function openWork(work: PersonWork) {
-  if (isPlayableWork(work)) {
-    router.push(`/media/${work.id}`)
-    return
-  }
-  if (work.tmdb_id && work.type) {
-    router.push(`/media/tmdb/${work.type}/${work.tmdb_id}`)
-  }
-}
-
-function goFromMedia() {
-  if (fromMediaId.value) {
-    router.push(`/media/${fromMediaId.value}`)
-  } else if (fromTmdbType.value && fromTmdbId.value) {
-    router.push(`/media/tmdb/${fromTmdbType.value}/${fromTmdbId.value}`)
-  }
-}
-
-function typeLabel(t: string) {
-  return ({ movie: '电影', tvshow: '剧集', anime: '动画', documentary: '纪录片' } as any)[t] || t
-}
-
-watch(
-  () => [route.name, route.params.id, route.params.tmdbId, route.query.from, route.query.role],
-  (cur, prev) => {
-    if (!cur[0]) return
-    if (prev && cur.every((v, i) => v === prev[i])) return
-    window.scrollTo({ top: 0, behavior: 'instant' })
-    load()
-  },
-)
-
-onMounted(load)
+})
 </script>
 
 <style lang="scss" scoped>
 .person-page {
   min-height: 100vh;
-  background: var(--mh-bg, #0a0a12);
-  color: var(--mh-text, #f0f0f5);
+  background: var(--mh-bg);
+  color: var(--mh-text);
 }
 
-.person-topbar {
-  .back-btn {
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid var(--mh-outline);
-    color: var(--mh-text);
-    padding: 8px 14px;
-    border-radius: var(--mh-radius-sm);
-    cursor: pointer;
-    font-size: 14px;
-
-    &:hover { background: rgba(255, 255, 255, 0.14); }
-  }
+.back-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--mh-outline);
+  color: var(--mh-text);
+  padding: var(--mh-space-2) var(--mh-space-4);
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 500;
+  &:hover { background: rgba(255, 255, 255, 0.1); }
 }
 
-.breadcrumb {
-  flex: 1;
+.person-content {
+  padding: calc(var(--mh-topbar-height) + var(--mh-space-6)) var(--mh-page-gutter) var(--mh-space-10);
+}
+
+.person-hero {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: #94a3b8;
-  min-width: 0;
-
-  .link {
-    cursor: pointer;
-    color: #cbd5e1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 240px;
-
-    &:hover { color: #fff; }
-  }
-
-  .sep { color: #475569; flex-shrink: 0; }
-
-  > span:last-child {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+  gap: var(--mh-space-8);
+  margin-bottom: var(--mh-space-10);
 }
 
-.content {
-  width: 100%;
-  padding: calc(var(--mh-topbar-height) + var(--mh-space-6)) var(--mh-page-gutter) var(--mh-space-12);
-}
-
-.profile {
-  display: flex;
-  gap: 32px;
-  margin-bottom: 48px;
-  align-items: flex-start;
-}
-
-.avatar {
-  flex-shrink: 0;
+.person-avatar-large {
   width: 180px;
   height: 180px;
-  border-radius: 9999px;
+  flex-shrink: 0;
+  border-radius: 50%;
   overflow: hidden;
-  background: var(--mh-surface-variant, #1e1e2e);
-  border: 2px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(145deg, var(--mh-surface-variant), var(--mh-bg));
+  border: 3px solid var(--mh-outline);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 56px;
+
+  img { width: 100%; height: 100%; object-fit: cover; }
+}
+
+.avatar-placeholder {
+  font-size: 64px;
   font-weight: 700;
-  color: var(--mh-text-muted, #6b6b80);
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
+  color: var(--mh-text-muted);
 }
 
-.profile-meta {
-  flex: 1;
-  min-width: 0;
+.person-info { flex: 1; }
+
+.person-name {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: var(--mh-space-2);
 }
 
-.name {
-  margin: 0 0 8px;
-  font-size: 36px;
-  font-weight: 800;
-}
-
-.role,
-.dept,
-.extra {
-  margin: 0 0 6px;
+.person-dept {
   font-size: 14px;
-  color: var(--mh-text-muted, #94a3b8);
+  color: var(--mh-primary);
+  margin-bottom: var(--mh-space-2);
 }
 
-.role {
-  color: #c4bfff;
-}
-
-.bio {
-  margin: 20px 0 0;
-  font-size: 15px;
-  line-height: 1.75;
-  color: #d8d8e8;
-  white-space: pre-wrap;
-}
-
-.empty {
-  margin: 0;
+.person-meta {
   font-size: 14px;
-  color: var(--mh-text-muted, #6b6b80);
+  color: var(--mh-text-muted);
+  margin-bottom: var(--mh-space-4);
+}
+
+.person-bio {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--mh-text-secondary);
 }
 
 .section-title {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 600;
-  margin: 0 0 20px;
+  margin-bottom: var(--mh-space-4);
 }
 
-.works-row {
+.works-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 16px;
+  gap: var(--mh-space-4);
 }
 
-.work-card {
-  border: none;
-  background: transparent;
-  padding: 0;
-  text-align: left;
-  color: inherit;
-  font: inherit;
+.card {
   cursor: pointer;
-  transition: transform 0.2s;
-
-  &:hover {
-    transform: translateY(-4px);
-  }
+  transition: transform var(--mh-duration) var(--mh-ease-spring);
+  &:hover { transform: translateY(-4px); }
 }
 
 .poster-card {
-  aspect-ratio: 2/3;
-  background: linear-gradient(135deg, #1e293b, #0f172a);
-  border-radius: 8px;
-  overflow: hidden;
   position: relative;
+  aspect-ratio: 2/3;
+  background: linear-gradient(145deg, var(--mh-surface-variant), var(--mh-bg));
+  border-radius: var(--mh-radius-md);
+  border: 1px solid var(--mh-outline);
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(255, 255, 255, 0.3);
-  font-size: 24px;
-  font-weight: 600;
-  margin-bottom: 8px;
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 28px;
+  font-weight: 700;
+  img { width: 100%; height: 100%; object-fit: cover; }
 }
 
 .rating {
   position: absolute;
-  top: 6px;
-  left: 6px;
-  background: rgba(0, 0, 0, 0.7);
-  color: #fbbf24;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 11px;
+  top: var(--mh-space-2);
+  left: var(--mh-space-2);
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(8px);
+  color: var(--mh-warning);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 12px;
   font-weight: 600;
 }
 
 .card-title {
-  font-size: 13px;
+  margin-top: var(--mh-space-2);
+  font-size: 14px;
   font-weight: 500;
-  color: #e2e8f0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .card-meta {
-  font-size: 11px;
-  color: #94a3b8;
+  font-size: 12px;
+  color: var(--mh-text-muted);
 }
 
-@media (max-width: 768px) {
-  .content {
-    padding: 76px 20px 48px;
-  }
-
-  .profile {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-  }
-
-  .avatar {
-    width: 140px;
-    height: 140px;
-    font-size: 44px;
-  }
-
-  .name {
-    font-size: 28px;
-  }
+.loading {
+  text-align: center;
+  padding: 80px 0;
+  font-size: 16px;
+  color: var(--mh-text-muted);
 }
 </style>

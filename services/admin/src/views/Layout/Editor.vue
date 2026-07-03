@@ -36,6 +36,10 @@
           <el-icon><Promotion /></el-icon>
           发布
         </el-button>
+        <el-button @click="showAiDialog = true" type="warning">
+          <el-icon><MagicStick /></el-icon>
+          AI 生成
+        </el-button>
         <el-button @click="onSave" type="primary" :loading="saving">
           <el-icon><Document /></el-icon>
           保存
@@ -116,7 +120,10 @@
                     </span>
                     <div class="row-actions">
                       <el-switch v-model="element.visible" size="small" :disabled="element._inherited" />
-                      <el-button v-if="!element._inherited" text size="small" @click.stop="removeRow(index)">
+                      <el-button v-if="!element._inherited" text size="small" @click.stop="duplicateRow(index)" title="复制行">
+                        <el-icon><CopyDocument /></el-icon>
+                      </el-button>
+                      <el-button v-if="!element._inherited" text size="small" @click.stop="removeRow(index)" title="删除行">
                         <el-icon><Delete /></el-icon>
                       </el-button>
                     </div>
@@ -400,10 +407,10 @@
             </template>
 
             <template v-else-if="selectedRow.source.type === 'tag'">
-              <el-form-item label="标签名">
+              <el-form-item label="标签 Slug">
                 <el-input
-                  v-model="selectedRow.source.params!.tag"
-                  placeholder="如：4K"
+                  v-model="selectedRow.source.params!.slug"
+                  placeholder="如：4K, action, horror"
                   :disabled="selectedRow._inherited"
                   @change="syncParamsJson"
                 />
@@ -463,6 +470,16 @@
                 :disabled="selectedRow._inherited"
                 @blur="onDataSourceParamsChange"
               />
+              <el-button
+                v-if="selectedRow.source?.type === 'manual' && !selectedRow._inherited"
+                size="small"
+                type="primary"
+                link
+                class="mt-4"
+                @click="showMediaPicker = true"
+              >
+                可视化选择媒资
+              </el-button>
             </el-form-item>
             </template>
           </el-form>
@@ -594,6 +611,19 @@
         </el-table-column>
       </el-table>
     </el-dialog>
+
+    <!-- AI 布局生成器 -->
+    <AiLayoutDialog
+      v-model="showAiDialog"
+      @apply="onAiApply"
+    />
+
+    <!-- 媒资选择弹窗 -->
+    <MediaPickerDialog
+      v-model="showMediaPicker"
+      :selected-ids="manualSelectedIds"
+      @confirm="onMediaPickerConfirm"
+    />
   </div>
 </template>
 
@@ -602,8 +632,10 @@ import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { VueDraggable } from 'vue-draggable-plus'
-import { layoutApi, type Layout, type LayoutRow, type Publication, type DynamicRules, type FeedRow } from '@/api/layout'
+import { layoutApi, type Layout, type LayoutRow, type LayoutConfig, type Publication, type DynamicRules, type FeedRow } from '@/api/layout'
 import { catalogApi, type Album, type Category } from '@/api/catalog'
+import AiLayoutDialog from '@/components/AiLayoutDialog.vue'
+import MediaPickerDialog from '@/components/MediaPickerDialog.vue'
 import type { Layout as LayoutType } from '@/api/types'
 import {
   ROW_ACTION_PRESETS,
@@ -627,6 +659,8 @@ const loadingPubs = ref(false)
 const showPublish = ref(false)
 const showInherit = ref(false)
 const showPublications = ref(false)
+const showAiDialog = ref(false)
+const showMediaPicker = ref(false)
 
 const layout = ref<Layout | null>(null)
 const layoutRows = ref<LayoutRow[]>([])
@@ -716,7 +750,7 @@ function defaultSourceParams(type: string): Record<string, any> {
     case 'category':
       return { slug: '', limit: 20 }
     case 'tag':
-      return { tag: '', limit: 20 }
+      return { slug: '', limit: 20 }
     case 'library':
       return { type: '', genre: '', sort: 'rating', limit: 20 }
     case 'similar-to':
@@ -828,6 +862,49 @@ function removeRow(idx: number) {
   }
 }
 
+function duplicateRow(idx: number) {
+  const src = layoutRows.value[idx]
+  if (!src) return
+  const copy = JSON.parse(JSON.stringify(src)) as LayoutRow
+  copy.id = `row-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+  copy._inherited = false
+  if (copy.title) copy.title = copy.title + ' (副本)'
+  layoutRows.value.splice(idx + 1, 0, copy)
+  selectedRowIndex.value = idx + 1
+  ElMessage.success('已复制行')
+}
+
+function validateRows(): string[] {
+  const errors: string[] = []
+  for (const row of layoutRows.value) {
+    if (row._inherited) continue
+    if (row.type === 'topic' && row.source?.type === 'album') {
+      if (!row.source.params?.album_id) {
+        errors.push(`「${row.title || '专题'}」未选择专辑`)
+      }
+    }
+    if (row.source?.type === 'manual') {
+      const ids = row.source.params?.ids
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        errors.push(`「${row.title || '手动选择'}」未添加媒资`)
+      }
+    }
+    if (row.source?.type === 'similar-to' && !row.source.params?.media_id) {
+      errors.push(`「${row.title || '相似推荐'}」未指定参考媒资`)
+    }
+    if (row.source?.type === 'album' && !row.source.params?.album_id) {
+      errors.push(`「${row.title || '专辑'}」未选择专辑`)
+    }
+    if (row.source?.type === 'category' && !row.source.params?.slug) {
+      errors.push(`「${row.title || '分类'}」未选择分类`)
+    }
+    if (row.source?.type === 'tag' && !row.source.params?.slug) {
+      errors.push(`「${row.title || '标签'}」未输入标签`)
+    }
+  }
+  return errors
+}
+
 function onRowOrderChange() { /* 由 v-model 自动更新 */ }
 
 function onRowTypeChange() {
@@ -877,6 +954,44 @@ function applyLayoutPreset(preset: LayoutPreset) {
       loadPreview()
     })
     .catch(() => {})
+}
+
+const manualSelectedIds = computed(() => {
+  if (!selectedRow.value || selectedRow.value.source?.type !== 'manual') return []
+  return (selectedRow.value.source.params?.ids as string[]) || []
+})
+
+function onMediaPickerConfirm(ids: string[]) {
+  if (!selectedRow.value) return
+  if (!selectedRow.value.source) {
+    selectedRow.value.source = { type: 'manual', params: {} }
+  }
+  selectedRow.value.source.params = { ...selectedRow.value.source.params, ids }
+  dataSourceParamsStr.value = JSON.stringify(selectedRow.value.source.params, null, 2)
+  loadPreview()
+}
+
+function onAiApply(config: LayoutConfig) {
+  // 应用 AI 生成的布局配置
+  layoutRows.value = (config.rows || []).map((r) => ({
+    ...JSON.parse(JSON.stringify(r)),
+    visible: r.visible !== false,
+    source: r.source || { type: 'trending', params: {} },
+    config: ensureRowConfig(r as LayoutRow),
+  }))
+  if (config.global) {
+    layoutGlobal.value = { ...config.global }
+  }
+  if (config.theme && layout.value) {
+    layout.value.config = {
+      ...layout.value.config,
+      theme: config.theme as 'dark' | 'light',
+      global: layoutGlobal.value,
+    }
+  }
+  selectedRowIndex.value = -1
+  ElMessage.success('AI 布局已应用，请检查后保存')
+  loadPreview()
 }
 
 function supportsRowAction(type: string) {
@@ -1028,6 +1143,19 @@ async function load() {
 
 async function onSave() {
   if (!layout.value) return
+
+  // 保存前校验
+  const errors = validateRows()
+  if (errors.length > 0) {
+    await ElMessageBox.confirm(
+      `发现以下问题：\n${errors.map((e) => `• ${e}`).join('\n')}\n\n是否仍要保存？`,
+      '校验提示',
+      { type: 'warning', confirmButtonText: '仍要保存', cancelButtonText: '取消' },
+    ).catch(() => {
+      throw new Error('cancelled')
+    })
+  }
+
   saving.value = true
   try {
     const updated = await layoutApi.update(layout.value.id, {

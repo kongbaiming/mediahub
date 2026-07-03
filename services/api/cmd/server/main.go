@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mediahub/api/internal/ailayout"
 	"github.com/mediahub/api/internal/cache"
 	"github.com/mediahub/api/internal/config"
 	"github.com/mediahub/api/internal/db"
@@ -107,6 +108,7 @@ func main() {
 	catalogRepo := repository.NewCatalogRepo(database.DB)
 	liveRepo := repository.NewLiveRepo(database.DB)
 	liveSyncRepo := repository.NewLiveM3USyncRepo(database.DB)
+	userListRepo := repository.NewUserListRepo(database.DB)
 
 	// 启动 Asynq worker（注册具体的 handler）
 	tmdbClient := scraper.NewTMDBClient(
@@ -162,6 +164,14 @@ func main() {
 	historySvc := service.NewHistoryService(historyRepo, userRepo)
 	librarySvc := service.NewLibraryService(historySvc, mediaRepo)
 	profileSvc := service.NewProfileService(userRepo)
+	userListSvc := service.NewUserListService(database.DB, userListRepo)
+
+	// AI 布局生成
+	var aiSvc *ailayout.Service
+	if cfg.AI.Enabled {
+		aiSvc = ailayout.NewService(cfg.AI)
+		logger.Info("AI 布局生成已启用", "provider", cfg.AI.Provider, "model", cfg.AI.Model)
+	}
 
 	// 推荐引擎
 	recommendEngine := recommend.NewEngine(mediaRepo, historyRepo, tmdbClient, recommendRepo)
@@ -275,6 +285,22 @@ func main() {
 		go liveSvc.StartM3USyncWatcher(context.Background())
 	}
 
+	// 协同过滤推荐：每天凌晨 3 点刷新 CF 相似度矩阵
+	go func() {
+		for {
+			now := time.Now()
+			next := time.Date(now.Year(), now.Month(), now.Day(), 3, 0, 0, 0, now.Location())
+			if now.After(next) {
+				next = next.Add(24 * time.Hour)
+			}
+			time.Sleep(time.Until(next))
+			if err := worker.RefreshCFSimilarity(context.Background(), database.DB, historyRepo); err != nil {
+				logger.Error("CF 相似度刷新失败", "err", err)
+			}
+		}
+	}()
+	logger.Info("CF 推荐定时任务已注册（每天 03:00）")
+
 	// ---------- 8. Health checkers ----------
 	handler.SetHealthCheckers(
 		func(ctx context.Context) string {
@@ -297,8 +323,13 @@ func main() {
 	if hlsCache == "" {
 		hlsCache = "/data/hls-cache"
 	}
+
+	// HLS 缓存清理：每小时清理超过 7 天的转码产物
+	go handler.StartHLSCacheCleanup(context.Background(), hlsCache, 7*24*time.Hour)
+	logger.Info("HLS 缓存清理已启动", "max_age", "7d", "path", hlsCache)
+
 	hlsTaskStore := hlsstore.New(rdb)
-	h := handler.NewHandlers(mediaSvc, scrapeMatchSvc, layoutSvc, authSvc, feedSvc, historySvc, librarySvc, catalogSvc, profileSvc, recommendSvc, downloaderSvc, indexerSvc, scannerSvc, subtitleSvc, liveSvc, cfg.Media.Root, cfg.Media.DownloadRoot, hlsCache, handler.HLSTranscodeSettings{
+	h := handler.NewHandlers(mediaSvc, scrapeMatchSvc, layoutSvc, authSvc, feedSvc, historySvc, librarySvc, catalogSvc, profileSvc, recommendSvc, downloaderSvc, indexerSvc, scannerSvc, subtitleSvc, liveSvc, userListSvc, aiSvc, database.DB, cfg.Media.Root, cfg.Media.DownloadRoot, hlsCache, handler.HLSTranscodeSettings{
 		HWAccel:     cfg.Transcode.HWAccel,
 		MaxBitrate:  cfg.Transcode.MaxBitrate,
 		MaxHeight:   cfg.Transcode.MaxHeight,

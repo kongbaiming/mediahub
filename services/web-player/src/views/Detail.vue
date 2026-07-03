@@ -62,6 +62,22 @@
           >
             {{ wantListed ? '✓ 已在想看' : '+ 加入想看' }}
           </button>
+          <button
+            v-if="!isExternal"
+            class="btn action-toggle-btn"
+            :class="{ active: wantListed }"
+            @click="toggleWant"
+          >
+            {{ wantListed ? '✓ 已想看' : '+ 想看' }}
+          </button>
+          <button
+            v-if="!isExternal"
+            class="btn action-toggle-btn"
+            :class="{ active: favorited }"
+            @click="toggleFavorite"
+          >
+            {{ favorited ? '★ 已收藏' : '☆ 收藏' }}
+          </button>
         </div>
       </div>
     </div>
@@ -810,6 +826,27 @@ onMounted(load)
     color: #fff;
     backdrop-filter: blur(10px);
     &:hover { background: rgba(255, 255, 255, 0.3); }
+  }
+}
+
+.action-toggle-btn {
+  background: rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 6px;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  &.active {
+    background: rgba(108, 99, 255, 0.2);
+    color: #c4bfff;
+    border-color: rgba(108, 99, 255, 0.4);
   }
 }
 

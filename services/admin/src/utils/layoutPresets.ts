@@ -115,4 +115,170 @@ export const RANKING_TOPIC_PRESET: LayoutPreset = {
   ],
 }
 
-export const LAYOUT_PRESETS = [IMMERSIVE_PRESET, RANKING_TOPIC_PRESET]
+/** 追剧模式：继续观看 + 猜你喜欢 + 高分剧集 + 最近添加 */
+export const BINGE_PRESET: LayoutPreset = {
+  name: '追剧模式',
+  description: '继续观看、猜你喜欢、高分剧集、最近添加，适合追剧用户',
+  theme: 'dark',
+  global: { layout_schema: 'web-v2' },
+  rows: [
+    row({
+      id: 'continue-binge',
+      type: 'shelf',
+      title: '继续观看',
+      card_style: 'landscape',
+      source: { type: 'continue-watching', params: { limit: 12 } },
+    }),
+    row({
+      id: 'guess-binge',
+      type: 'shelf',
+      title: '猜你喜欢',
+      card_style: 'poster',
+      source: { type: 'guess-you-like', params: { limit: 20 } },
+    }),
+    row({
+      id: 'ranking-tv-binge',
+      type: 'ranking',
+      title: '高分剧集',
+      subtitle: '口碑剧集 TOP',
+      card_style: 'poster',
+      source: { type: 'library', params: { type: 'tvshow', sort: 'rating', min_rating: 7, limit: 10 } },
+      config: { show_rank: true },
+    }),
+    row({
+      id: 'recent-binge',
+      type: 'shelf',
+      title: '最近更新',
+      card_style: 'landscape',
+      source: { type: 'recently-added', params: { limit: 12 } },
+    }),
+  ],
+}
+
+/** 儿童专区：动画 + 合家欢 + 教育 */
+export const KIDS_PRESET: LayoutPreset = {
+  name: '儿童专区',
+  description: '动画榜单、合家欢分类、教育纪录片，适合儿童 Profile',
+  theme: 'dark',
+  global: { layout_schema: 'web-v2' },
+  rows: [
+    row({
+      id: 'hero-kids',
+      type: 'hero-banner',
+      title: '动画精选',
+      card_style: 'banner',
+      source: { type: 'library', params: { type: 'anime', sort: 'rating', limit: 6 } },
+    }),
+    row({
+      id: 'ranking-anime',
+      type: 'ranking',
+      title: '动画榜',
+      subtitle: '最受欢迎的动画',
+      card_style: 'poster',
+      source: { type: 'library', params: { type: 'anime', sort: 'rating', limit: 10 } },
+      config: { show_rank: true },
+    }),
+    row({
+      id: 'shelf-family',
+      type: 'shelf',
+      title: '合家欢',
+      card_style: 'poster',
+      source: { type: 'tag', params: { slug: 'family', limit: 16 } },
+    }),
+    row({
+      id: 'shelf-documentary',
+      type: 'shelf',
+      title: '教育纪录片',
+      card_style: 'landscape',
+      source: { type: 'library', params: { type: 'documentary', sort: 'rating', limit: 12 } },
+    }),
+  ],
+}
+
+/** 电影之夜：热门 + 恐怖/动作 + 新片 */
+export const MOVIE_NIGHT_PRESET: LayoutPreset = {
+  name: '电影之夜',
+  description: '热门电影榜单、类型专区、新片推荐，适合周末观影',
+  theme: 'dark',
+  global: { layout_schema: 'web-v2' },
+  rows: [
+    row({
+      id: 'hero-movie',
+      type: 'hero-banner',
+      title: '今晚看什么',
+      card_style: 'banner',
+      source: { type: 'recommend-algorithm', params: { algo: 'hot', limit: 6 } },
+    }),
+    row({
+      id: 'ranking-movie-hot',
+      type: 'ranking',
+      title: '热门电影',
+      subtitle: '大家都在看',
+      card_style: 'landscape',
+      source: { type: 'library', params: { type: 'movie', sort: 'rating', limit: 10 } },
+      config: { show_rank: true },
+    }),
+    row({
+      id: 'shelf-action',
+      type: 'shelf',
+      title: '动作大片',
+      card_style: 'poster',
+      source: { type: 'tag', params: { slug: 'action', limit: 16 } },
+    }),
+    row({
+      id: 'shelf-new-movie',
+      type: 'shelf',
+      title: '最新上线',
+      card_style: 'landscape',
+      source: { type: 'recently-added', params: { limit: 12 } },
+    }),
+  ],
+}
+
+/** 发现探索：猜你喜欢 + 冷门佳片 + 分类浏览 */
+export const DISCOVER_PRESET: LayoutPreset = {
+  name: '发现探索',
+  description: '猜你喜欢、冷门佳片、分类浏览，适合探索新内容',
+  theme: 'dark',
+  global: { layout_schema: 'web-v2' },
+  rows: [
+    row({
+      id: 'guess-discover',
+      type: 'shelf',
+      title: '猜你喜欢',
+      card_style: 'poster',
+      source: { type: 'guess-you-like', params: { limit: 20 } },
+    }),
+    row({
+      id: 'shelf-hidden-gem',
+      type: 'shelf',
+      title: '冷门佳片',
+      subtitle: '评分高但看的人少',
+      card_style: 'poster',
+      source: { type: 'library', params: { sort: 'rating', min_rating: 8, limit: 16 } },
+    }),
+    row({
+      id: 'category-discover',
+      type: 'category-grid',
+      title: '分类浏览',
+      card_style: 'poster',
+      source: { type: 'library', params: { sort: 'rating', limit: 20 } },
+    }),
+    row({
+      id: 'shelf-recent-discover',
+      type: 'shelf',
+      title: '最近入库',
+      card_style: 'landscape',
+      source: { type: 'recently-added', params: { limit: 12 } },
+    }),
+  ],
+}
+
+export const LAYOUT_PRESETS = [
+  IMMERSIVE_PRESET,
+  RANKING_TOPIC_PRESET,
+  BINGE_PRESET,
+  KIDS_PRESET,
+  MOVIE_NIGHT_PRESET,
+  DISCOVER_PRESET,
+]

@@ -162,6 +162,74 @@ func TestDynamicRules_Matches(t *testing.T) {
 	}
 }
 
+func TestDynamicRules_Matches_Seasons(t *testing.T) {
+	tests := []struct {
+		name  string
+		month time.Month
+		want  bool
+	}{
+		{"spring march", time.March, true},
+		{"spring may", time.May, true},
+		{"summer june", time.June, false},
+		{"summer august", time.August, false},
+		{"autumn september", time.September, false},
+		{"winter december", time.December, false},
+		{"winter january", time.January, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rules := &DynamicRules{Seasons: []int{1}} // spring only
+			now := time.Date(2026, tt.month, 15, 12, 0, 0, 0, time.UTC)
+			if got := rules.Matches(now); got != tt.want {
+				t.Errorf("Matches() = %v, want %v for month %v", got, tt.want, tt.month)
+			}
+		})
+	}
+}
+
+func TestDynamicRules_Matches_AllSeasons(t *testing.T) {
+	rules := &DynamicRules{Seasons: []int{1, 2, 3, 4}}
+	for month := 1; month <= 12; month++ {
+		now := time.Date(2026, time.Month(month), 15, 12, 0, 0, 0, time.UTC)
+		if !rules.Matches(now) {
+			t.Errorf("All seasons should match month %d", month)
+		}
+	}
+}
+
+func TestMonthToSeason(t *testing.T) {
+	tests := []struct {
+		month int
+		want  int
+	}{
+		{1, 4}, {2, 4}, {3, 1}, {4, 1}, {5, 1},
+		{6, 2}, {7, 2}, {8, 2}, {9, 3}, {10, 3},
+		{11, 3}, {12, 4},
+	}
+	for _, tt := range tests {
+		if got := monthToSeason(tt.month); got != tt.want {
+			t.Errorf("monthToSeason(%d) = %d, want %d", tt.month, got, tt.want)
+		}
+	}
+}
+
+func TestRowIsVisible(t *testing.T) {
+	row := Row{ID: "1", Type: "shelf"}
+	if !RowIsVisible(row) {
+		t.Error("nil visible should be true")
+	}
+	vis := true
+	row.Visible = &vis
+	if !RowIsVisible(row) {
+		t.Error("visible=true should be true")
+	}
+	vis = false
+	row.Visible = &vis
+	if RowIsVisible(row) {
+		t.Error("visible=false should be false")
+	}
+}
+
 func TestFeedRow_JSON(t *testing.T) {
 	row := FeedRow{
 		ID:        "row-1",

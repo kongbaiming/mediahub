@@ -123,7 +123,35 @@ func (d *DynamicRules) Matches(now time.Time) bool {
 		}
 	}
 
+	// 季节（1=春3-5月, 2=夏6-8月, 3=秋9-11月, 4=冬12-2月）
+	if len(d.Seasons) > 0 {
+		currentSeason := monthToSeason(int(now.Month()))
+		found := false
+		for _, s := range d.Seasons {
+			if s == currentSeason {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+
 	return true
+}
+
+func monthToSeason(month int) int {
+	switch {
+	case month >= 3 && month <= 5:
+		return 1 // 春
+	case month >= 6 && month <= 8:
+		return 2 // 夏
+	case month >= 9 && month <= 11:
+		return 3 // 秋
+	default:
+		return 4 // 冬（12, 1, 2）
+	}
 }
 
 func (Publication) TableName() string { return "layout_publications" }

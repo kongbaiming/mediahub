@@ -103,4 +103,21 @@ export const layoutApi = {
 
   disablePublication: (pubId: string) =>
     http.delete(`/api/v1/layouts/publications/${pubId}`),
+
+  // AI 布局生成
+  aiGenerate: (prompt: string) =>
+    http.post<{ data: { config: LayoutConfig; explanation: string } }>(
+      '/api/v1/layouts/ai/generate',
+      { prompt },
+    ),
+
+  aiGenerateFromImage: (file: File) => {
+    const formData = new FormData()
+    formData.append('image', file)
+    return http.post<{ data: { config: LayoutConfig; explanation: string } }>(
+      '/api/v1/layouts/ai/generate-from-image',
+      formData,
+      // 不设置 Content-Type，让 axios 自动添加 boundary
+    )
+  },
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/mediahub/api/internal/repository"
 	"github.com/mediahub/api/internal/scanner"
 	"github.com/mediahub/api/internal/service"
+	"github.com/mediahub/api/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 )
@@ -25,13 +26,14 @@ type MediaHandler struct {
 	svc          *service.MediaService
 	match        *service.ScrapeMatchService
 	scanner      *scanner.Service
+	catalog      *service.CatalogService
 	allowedRoots []string
 	pathAliases  []PathAlias
 	mediaRoot    string
 }
 
 // NewMediaHandler 构造
-func NewMediaHandler(svc *service.MediaService, match *service.ScrapeMatchService, scannerSvc *scanner.Service, mediaRoot, downloadRoot string, pathAliases []PathAlias) *MediaHandler {
+func NewMediaHandler(svc *service.MediaService, match *service.ScrapeMatchService, scannerSvc *scanner.Service, catalogSvc *service.CatalogService, mediaRoot, downloadRoot string, pathAliases []PathAlias) *MediaHandler {
 	roots := []string{mediaRoot}
 	if downloadRoot != "" && downloadRoot != mediaRoot {
 		roots = append(roots, downloadRoot)
@@ -40,6 +42,7 @@ func NewMediaHandler(svc *service.MediaService, match *service.ScrapeMatchServic
 		svc:          svc,
 		match:        match,
 		scanner:      scannerSvc,
+		catalog:      catalogSvc,
 		allowedRoots: roots,
 		pathAliases:  pathAliases,
 		mediaRoot:    mediaRoot,
@@ -357,7 +360,7 @@ func (h *MediaHandler) Stats(c *gin.Context) {
 	c.JSON(200, gin.H{"data": stats})
 }
 
-// Search 关键字搜索（为 TV / Android 客户端返回简洁的扁平结果）
+// Search 关键字搜索（支持 type=all|media|person，all 时返回分组结果）
 func (h *MediaHandler) Search(c *gin.Context) {
 	q := c.Query("q")
 	if q == "" {
@@ -371,20 +374,94 @@ func (h *MediaHandler) Search(c *gin.Context) {
 		limit = 100
 	}
 
-	// 直接复用 List 服务（page_size=limit，只取 items）
+	ctx := c.Request.Context()
+
+	// type=person：仅搜影人
+	if typeFilter == "person" {
+		persons, _ := h.catalog.SearchPersons(ctx, q, limit)
+		personOut := make([]gin.H, 0, len(persons))
+		for _, p := range persons {
+			personOut = append(personOut, gin.H{
+				"person_id":  p.ID,
+				"name":       p.Name,
+				"profile_url": p.ProfileURL,
+				"known_for":  p.KnownForDepartment,
+			})
+		}
+		c.JSON(200, gin.H{"data": personOut, "total": len(personOut), "q": q})
+		return
+	}
+
+	// type=all：返回分组结果（媒体 + 影人）
+	if typeFilter == "all" {
+		mediaCh := make(chan []gin.H, 1)
+		personCh := make(chan []gin.H, 1)
+
+		go func() {
+			f := repository.MediaFilter{Search: q}
+			p := common.Pagination{Page: 1, PageSize: limit}
+			result, err := h.svc.List(ctx, f, p)
+			if err != nil {
+				logger.Warn("搜索媒资失败", "query", q, "err", err)
+				mediaCh <- nil
+				return
+			}
+			out := make([]gin.H, 0, len(result.Items))
+			for _, m := range result.Items {
+				out = append(out, gin.H{
+					"media_id":     m.ID,
+					"title":        m.Title,
+					"year":         m.Year,
+					"poster_url":   m.PosterURL,
+					"backdrop_url": m.BackdropURL,
+					"rating":       m.Rating,
+					"type":         string(m.Type),
+					"genres":       m.Genres,
+				})
+			}
+			mediaCh <- out
+		}()
+
+		go func() {
+			persons, err := h.catalog.SearchPersons(ctx, q, 10)
+			if err != nil {
+				logger.Warn("搜索影人失败", "query", q, "err", err)
+			}
+			out := make([]gin.H, 0, len(persons))
+			for _, p := range persons {
+				out = append(out, gin.H{
+					"person_id":  p.ID,
+					"name":       p.Name,
+					"profile_url": p.ProfileURL,
+					"known_for":  p.KnownForDepartment,
+				})
+			}
+			personCh <- out
+		}()
+
+		c.JSON(200, gin.H{
+			"data": gin.H{
+				"media":   <-mediaCh,
+				"persons": <-personCh,
+			},
+			"q": q,
+		})
+		return
+	}
+
+	// 默认：仅搜媒体（保持 TV 客户端兼容）
 	f := repository.MediaFilter{
 		Type:   typeFilter,
 		Search: q,
 	}
 	p := common.Pagination{Page: 1, PageSize: limit}
 
-	result, err := h.svc.List(c.Request.Context(), f, p)
+	result, err := h.svc.List(ctx, f, p)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	// 转换为轻量级输出（去掉 is_adult 等敏感字段，方便客户端直接用）
 	out := make([]gin.H, 0, len(result.Items))
 	for _, m := range result.Items {
 		out = append(out, gin.H{

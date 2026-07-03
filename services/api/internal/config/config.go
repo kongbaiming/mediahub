@@ -29,6 +29,7 @@ type Config struct {
 	Downloader DownloaderConfig
 	Indexer    IndexerConfig
 	Live       LiveConfig
+	AI       AIConfig
 }
 
 type DownloaderConfig struct {
@@ -101,6 +102,14 @@ type LiveConfig struct {
 	RTMPHost       string
 	MediaMTXURL    string
 	MediaMTXAPIURL string
+}
+
+type AIConfig struct {
+	Enabled  bool
+	Provider string // openai | claude | ollama
+	APIKey   string
+	Model    string
+	BaseURL  string // 自定义 endpoint（Ollama 用 http://localhost:11434）
 }
 
 // Load 加载配置（先尝试读 .env，再读环境变量）
@@ -176,6 +185,13 @@ func Load() (*Config, error) {
 			MediaMTXURL:    getEnv("LIVE_MEDIAMTX_URL", "http://mediamtx:8888"),
 			MediaMTXAPIURL: getEnv("LIVE_MEDIAMTX_API_URL", "http://mediamtx:9997"),
 		},
+		AI: AIConfig{
+			Enabled:  getEnv("AI_ENABLED", "false") == "true",
+			Provider: getEnv("AI_PROVIDER", "ollama"),
+			APIKey:   getEnv("AI_API_KEY", ""),
+			Model:    getEnv("AI_MODEL", "gpt-4o"),
+			BaseURL:  getEnv("AI_BASE_URL", ""),
+		},
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -198,6 +214,14 @@ func (c *Config) Validate() error {
 	}
 	if c.Redis.URL == "" {
 		return fmt.Errorf("REDIS_URL 不能为空")
+	}
+	if c.AI.Enabled {
+		switch c.AI.Provider {
+		case "openai", "ollama":
+			// ok
+		default:
+			return fmt.Errorf("不支持的 AI_PROVIDER: %s (支持 openai, ollama)", c.AI.Provider)
+		}
 	}
 	return nil
 }
