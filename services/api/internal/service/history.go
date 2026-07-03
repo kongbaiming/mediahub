@@ -60,6 +60,17 @@ func (s *HistoryService) RecordProgress(ctx context.Context, req RecordProgress)
 		h.EpisodeID = &eid
 	}
 
+	pp := &history.PlaybackProgress{
+		ProfileID:   pid,
+		MediaID:     mid,
+		PositionSec: req.Progress,
+		DurationSec: req.Duration,
+		Device:      req.Device,
+	}
+	if h.EpisodeID != nil {
+		pp.EpisodeID = h.EpisodeID
+	}
+
 	if s.profiles != nil {
 		if _, err := s.profiles.GetProfile(ctx, req.ProfileID); err != nil {
 			if ae, ok := apperr.As(err); ok && ae.Code == apperr.CodeNotFound {
@@ -69,7 +80,10 @@ func (s *HistoryService) RecordProgress(ctx context.Context, req RecordProgress)
 		}
 	}
 
-	return s.repo.UpsertHistory(ctx, h)
+	if err := s.repo.UpsertHistory(ctx, h); err != nil {
+		return err
+	}
+	return s.repo.UpsertPlaybackProgress(ctx, pp)
 }
 
 // GetHistory 获取历史
@@ -90,6 +104,12 @@ func (s *HistoryService) GetContinueWatching(ctx context.Context, profileID stri
 
 // GetResumePoint 获取某媒资的续播位置
 func (s *HistoryService) GetResumePoint(ctx context.Context, profileID, mediaID string) (*history.History, error) {
+	// 优先返回跨设备续播表 playback_progress，历史表 history 作为兼容兜底。
+	if p, err := s.repo.GetPlaybackResumePoint(ctx, profileID, mediaID); err != nil {
+		return nil, err
+	} else if p != nil {
+		return p, nil
+	}
 	return s.repo.GetLatestByMedia(ctx, profileID, mediaID)
 }
 

@@ -2,6 +2,7 @@
 package handler
 
 import (
+	"github.com/mediahub/api/internal/ailayout"
 	"github.com/mediahub/api/internal/downloader"
 	"github.com/mediahub/api/internal/hlsstore"
 	"github.com/mediahub/api/internal/indexer"
@@ -12,6 +13,7 @@ import (
 	"github.com/mediahub/api/internal/subtitle"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // Handlers 聚合所有 handler 依赖
@@ -25,6 +27,10 @@ type Handlers struct {
 	History        *HistoryHandler
 	Profile        *ProfileHandler
 	Recommend      *RecommendHandler
+	Dashboard      *DashboardHandler
+	UserList       *UserListHandler
+	Analytics      *AnalyticsHandler
+	AiLayout       *AiLayoutHandler
 	Downloader     *DownloaderHandler
 	Indexer        *IndexerHandler
 	Scanner        *ScannerHandler
@@ -54,6 +60,9 @@ func NewHandlers(
 	scannerSvc *scanner.Service,
 	subSvc *subtitle.Service,
 	liveSvc *service.LiveService,
+	userListSvc *service.UserListService,
+	aiSvc *ailayout.Service,
+	db *gorm.DB,
 	mediaRoot string,
 	downloadRoot string,
 	hlsCacheRoot string,
@@ -69,7 +78,7 @@ func NewHandlers(
 	}
 	pathAliases := BuildPathAliasesFromEnv(mediaRoot, downloadRoot)
 	h := &Handlers{
-		Media:         NewMediaHandler(media, scrapeMatch, scannerSvc, mediaRoot, downloadRoot, pathAliases),
+		Media:         NewMediaHandler(media, scrapeMatch, scannerSvc, catalog, mediaRoot, downloadRoot, pathAliases),
 		Catalog:       NewCatalogHandler(catalog),
 		Library:       NewLibraryHandler(library),
 		Layout:        NewLayoutHandler(layout, feed),
@@ -78,6 +87,8 @@ func NewHandlers(
 		History:       NewHistoryHandler(history),
 		Profile:       NewProfileHandler(profile),
 		Recommend:     NewRecommendHandler(recommend),
+		Dashboard:     NewDashboardHandler(db),
+		Analytics:     NewAnalyticsHandler(db),
 		Stream:        StreamHandler(streamRoots, pathAliases, hlsCacheRoot, transcode, hlsStore),
 		StreamProbe:   StreamProbeHandler(streamRoots, pathAliases),
 		HLSPlaylist:   ServeHLSPlaylist(hlsCacheRoot),
@@ -99,6 +110,13 @@ func NewHandlers(
 	if liveSvc != nil {
 		h.Live = NewLiveHandler(liveSvc)
 	}
+	if userListSvc != nil {
+		h.UserList = NewUserListHandler(userListSvc)
+	}
+	if aiSvc != nil {
+		statsProvider := NewDBLibraryStatsProvider(db)
+		h.AiLayout = NewAiLayoutHandler(aiSvc, statsProvider)
+	}
 	return h
 }
 
@@ -113,10 +131,11 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 	// ---------- API v1 ----------
 	v1 := r.Group("/api/v1")
 	v1.Use(middleware.InjectProfileID())
+	v1.Use(middleware.RateLimitAPI())
 	{
-		// 认证（无需登录）
-		v1.POST("/auth/login", h.Auth.Login)
-		v1.POST("/auth/register", h.Auth.Register)
+		// 认证（无需登录，限流更严格）
+		v1.POST("/auth/login", middleware.RateLimitAuth(), h.Auth.Login)
+		v1.POST("/auth/register", middleware.RateLimitAuth(), h.Auth.Register)
 		v1.GET("/auth/me", middleware.Auth(h.Auth.svc), h.Auth.Me)
 
 		// 媒资（部分需要登录）
@@ -173,6 +192,16 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 			lib.GET("/watched", h.Library.Watched)
 			lib.GET("/history", h.Library.History)
 			lib.GET("/continue-watching", h.Library.ContinueWatching)
+		}
+
+		// AI 布局生成（需登录）
+		if h.AiLayout != nil {
+			aiAuth := v1.Group("/layouts/ai")
+			aiAuth.Use(middleware.Auth(h.Auth.svc))
+			{
+				aiAuth.POST("/generate", h.AiLayout.Generate)
+				aiAuth.POST("/generate-from-image", h.AiLayout.GenerateFromImage)
+			}
 		}
 
 		// 布局（preview 与 get 一样只读，无需登录；CMS 编辑器依赖）
@@ -234,6 +263,8 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 		{
 			cms.GET("/admin/want-to-watch", h.Library.AdminWantToWatch)
 			cms.GET("/admin/recommendations/library-missing", h.Recommend.LibraryMissing)
+			cms.GET("/dashboard/stats", h.Dashboard.Stats)
+			cms.GET("/dashboard/health", h.Dashboard.Health)
 			if h.Indexer != nil {
 				cms.GET("/indexer/search", h.Indexer.Search)
 			}
@@ -292,11 +323,28 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 		playback.Use(middleware.RequireProfile())
 		{
 			playback.POST("/history", h.History.Record)
+			playback.PUT("/progress", h.History.PutProgress)
+			playback.GET("/progress/:media_id", h.History.GetProgress)
 			playback.GET("/resume/:media_id", h.History.GetResumePoint)
 			playback.GET("/continue-watching", h.History.ContinueWatching)
 			playback.POST("/favorites", h.History.ToggleFavorite)
 			playback.GET("/favorites", h.History.ListFavorites)
+
+			// 用户片单（需 Profile）
+			if h.UserList != nil {
+				playback.GET("/lists", h.UserList.List)
+				playback.GET("/lists/:id", h.UserList.Get)
+				playback.POST("/lists", h.UserList.Create)
+				playback.PUT("/lists/:id", h.UserList.Update)
+				playback.DELETE("/lists/:id", h.UserList.Delete)
+				playback.POST("/lists/:id/items", h.UserList.AddItem)
+				playback.DELETE("/lists/:id/items/:media_id", h.UserList.RemoveItem)
+			}
 		}
+
+		// 匿名事件上报（Feed 曝光/点击）
+		v1.POST("/feed/event", h.Analytics.RecordEvent)
+		v1.GET("/analytics/feed", h.Analytics.FeedStats)
 
 		// 历史 / Profile 管理（CMS 需登录）
 		authed := v1.Group("/")

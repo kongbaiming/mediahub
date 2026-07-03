@@ -28,6 +28,19 @@ type History struct {
 
 func (History) TableName() string { return "history" }
 
+// PlaybackProgress 跨设备续播进度（独立于 history）
+type PlaybackProgress struct {
+	common.BaseModel
+	ProfileID   uuid.UUID  `gorm:"type:uuid;not null;index" json:"profile_id"`
+	MediaID     uuid.UUID  `gorm:"type:uuid;not null;index" json:"media_id"`
+	EpisodeID   *uuid.UUID `gorm:"type:uuid;index" json:"episode_id,omitempty"`
+	PositionSec int        `gorm:"column:position_sec;default:0" json:"position_sec"`
+	DurationSec int        `gorm:"column:duration_sec;default:0" json:"duration_sec"`
+	Device      string     `gorm:"type:varchar(50)" json:"device,omitempty"`
+}
+
+func (PlaybackProgress) TableName() string { return "playback_progress" }
+
 // ProgressPct 进度百分比
 func (h *History) ProgressPct() float64 {
 	if h.Duration <= 0 {

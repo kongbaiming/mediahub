@@ -77,6 +77,71 @@ func (r *HistoryRepo) GetLatestByMedia(ctx context.Context, profileID, mediaID s
 	return &hs[0], nil
 }
 
+// UpsertPlaybackProgress 更新或插入跨设备续播进度
+func (r *HistoryRepo) UpsertPlaybackProgress(ctx context.Context, p *history.PlaybackProgress) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		q := tx.Model(&history.PlaybackProgress{}).
+			Where("profile_id = ? AND media_id = ?", p.ProfileID, p.MediaID)
+		if p.EpisodeID != nil {
+			q = q.Where("episode_id = ?", *p.EpisodeID)
+		} else {
+			q = q.Where("episode_id IS NULL")
+		}
+
+		var existing history.PlaybackProgress
+		err := q.First(&existing).Error
+		if err == gorm.ErrRecordNotFound {
+			if err := tx.Create(p).Error; err != nil {
+				return apperr.Wrap(err, apperr.CodeInternal, "记录续播进度失败")
+			}
+			return nil
+		}
+		if err != nil {
+			return apperr.Wrap(err, apperr.CodeInternal, "查询续播进度失败")
+		}
+
+		existing.PositionSec = p.PositionSec
+		existing.DurationSec = p.DurationSec
+		existing.Device = p.Device
+		existing.EpisodeID = p.EpisodeID
+		if err := tx.Save(&existing).Error; err != nil {
+			return apperr.Wrap(err, apperr.CodeInternal, "更新续播进度失败")
+		}
+		*p = existing
+		return nil
+	})
+}
+
+// GetPlaybackResumePoint 读取跨设备续播进度并映射为历史响应结构
+func (r *HistoryRepo) GetPlaybackResumePoint(ctx context.Context, profileID, mediaID string) (*history.History, error) {
+	var rows []history.PlaybackProgress
+	err := r.db.WithContext(ctx).
+		Where("profile_id = ? AND media_id = ?", profileID, mediaID).
+		Order("updated_at DESC").
+		Limit(1).
+		Find(&rows).Error
+	if err != nil {
+		return nil, apperr.Wrap(err, apperr.CodeInternal, "查询跨设备续播失败")
+	}
+	if len(rows) == 0 {
+		return nil, nil
+	}
+
+	row := rows[0]
+	completed := row.DurationSec > 0 && row.PositionSec >= row.DurationSec*95/100
+	out := &history.History{
+		BaseModel: row.BaseModel,
+		ProfileID: row.ProfileID,
+		MediaID:   row.MediaID,
+		EpisodeID: row.EpisodeID,
+		Progress:  row.PositionSec,
+		Duration:  row.DurationSec,
+		Completed: completed,
+		Device:    row.Device,
+	}
+	return out, nil
+}
+
 // ListByProfile 按 Profile 拉取历史
 func (r *HistoryRepo) ListByProfile(ctx context.Context, profileID string, limit int) ([]history.History, error) {
 	var hs []history.History

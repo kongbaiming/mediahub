@@ -57,6 +57,11 @@ func (h *HistoryHandler) Record(c *gin.Context) {
 	c.JSON(200, gin.H{"status": "recorded"})
 }
 
+// PutProgress 显式跨设备续播写入（等价于 Record）
+func (h *HistoryHandler) PutProgress(c *gin.Context) {
+	h.Record(c)
+}
+
 // List 历史
 func (h *HistoryHandler) List(c *gin.Context) {
 	profileID := middleware.GetProfileID(c)
@@ -157,4 +162,9 @@ func (h *HistoryHandler) GetResumePoint(c *gin.Context) {
 		resp["episode_id"] = h_.EpisodeID.String()
 	}
 	c.JSON(200, gin.H{"data": resp})
+}
+
+// GetProgress 显式跨设备续播读取（等价于 GetResumePoint）
+func (h *HistoryHandler) GetProgress(c *gin.Context) {
+	h.GetResumePoint(c)
 }

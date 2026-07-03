@@ -3,6 +3,21 @@
     <div class="player-header">
       <button class="back-btn" @click="$router.back()">← 返回</button>
       <h1 v-if="media" class="title">{{ media.title }}</h1>
+      <button
+        v-if="subtitleTracks.length"
+        class="header-btn"
+        @click="showSubtitleMenu = !showSubtitleMenu"
+      >
+        字幕
+      </button>
+      <button
+        v-if="supportsPiP"
+        class="header-btn"
+        @click="togglePiP"
+        title="画中画"
+      >
+        画中画
+      </button>
       <span v-if="resumeInfo && !resumeInfo.completed" class="resume-badge">
         <el-icon><VideoPlay /></el-icon>
         续播 {{ formatTime(resumeInfo.progress) }} / {{ formatTime(resumeInfo.duration) }}
@@ -35,10 +50,41 @@
       </div>
     </div>
 
+    <!-- 字幕/音轨选择器 -->
+    <div v-if="showSubtitleMenu" class="subtitle-menu">
+      <div class="menu-title">字幕</div>
+      <div
+        v-for="st in subtitleTracks"
+        :key="st.id"
+        class="menu-item"
+        :class="{ active: selectedSubtitleId === st.id }"
+        @click="selectSubtitle(st)"
+      >
+        {{ st.label || st.language }} {{ st.is_default ? '(默认)' : '' }}
+      </div>
+      <div
+        class="menu-item"
+        :class="{ active: !selectedSubtitleId }"
+        @click="disableSubtitle"
+      >
+        关闭字幕
+      </div>
+    </div>
+
+    <!-- 下一集倒计时 -->
     <div v-if="nextEpisodePrompt" class="next-episode-banner">
-      <span>下一集：{{ nextEpisodePrompt.title || `第 ${nextEpisodePrompt.episode_number} 集` }}</span>
+      <span>
+        {{ nextCountdown > 0 ? `${nextCountdown}s 后自动播放` : '即将播放' }}：
+        {{ nextEpisodePrompt.title || `第 ${nextEpisodePrompt.episode_number} 集` }}
+      </span>
       <button class="next-btn" @click="playNextEpisode">立即播放</button>
-      <button class="dismiss-btn" @click="nextEpisodePrompt = null">关闭</button>
+      <button class="dismiss-btn" @click="cancelNextEpisode">取消</button>
+    </div>
+
+    <div v-else-if="seriesEnded" class="next-episode-banner series-ended-banner">
+      <span>本剧已播放完毕</span>
+      <button class="next-btn" @click="goToDetail">返回详情</button>
+      <button class="dismiss-btn" @click="seriesEnded = false">关闭</button>
     </div>
 
     <div v-if="media" class="player-info">
@@ -55,12 +101,13 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import Hls from 'hls.js'
 import LoadingState from '@/components/LoadingState.vue'
-import { mediaApi, historyApi, catalogApi, type MediaDetail, type ResumeInfo, type EpisodeDetail, type EpisodeNext } from '@/api'
+import { mediaApi, historyApi, catalogApi, type MediaDetail, type ResumeInfo, type EpisodeDetail, type EpisodeNext, type SubtitleTrackInfo } from '@/api'
 
 const route = useRoute()
+const router = useRouter()
 const videoRef = ref<HTMLVideoElement>()
 const containerRef = ref<HTMLDivElement>()
 const media = ref<MediaDetail | null>(null)
@@ -70,25 +117,54 @@ const showShortcutTip = ref(true)
 const currentEpisodeId = ref<string | undefined>()
 const playablePath = ref('')
 const nextEpisodePrompt = ref<EpisodeNext | null>(null)
+const nextCountdown = ref(0)
+const seriesEnded = ref(false)
+const nextEpisodeTriggered = ref(false)
+let nextCountdownTimer: ReturnType<typeof setInterval> | null = null
 const transcodeLoading = ref(false)
 const transcodeMessage = ref('正在准备播放流…')
 const transcodeProgress = ref<number | undefined>()
 
+// 字幕状态
+const subtitleTracks = ref<SubtitleTrackInfo[]>([])
+const selectedSubtitleId = ref<string | null>(null)
+const showSubtitleMenu = ref(false)
+
+// 画中画
+const supportsPiP = ref(typeof document !== 'undefined' && 'pictureInPictureEnabled' in document)
+
+function togglePiP() {
+  if (!videoRef.value) return
+  if (document.pictureInPictureElement) {
+    document.exitPictureInPicture().catch(() => {})
+  } else {
+    videoRef.value.requestPictureInPicture().catch(() => {
+      window.toast?.('画中画不可用', 'error', 2000)
+    })
+  }
+}
+
 const lastReportAt = ref(0)
 const REPORT_INTERVAL = 10
+
+type PlayableEpisode = EpisodeDetail & { season_number: number }
 
 function isSeriesType(type: string) {
   return type === 'tvshow' || type === 'anime'
 }
 
-function listEpisodes(detail: MediaDetail): EpisodeDetail[] {
-  const out: EpisodeDetail[] = []
+function listEpisodes(detail: MediaDetail): PlayableEpisode[] {
+  const out: PlayableEpisode[] = []
   for (const season of detail.seasons || []) {
     for (const ep of season.episodes || []) {
-      if (ep.file_path) out.push(ep)
+      if (ep.file_path) out.push({ ...ep, season_number: season.season_number })
     }
   }
-  out.sort((a, b) => a.episode_number - b.episode_number)
+  out.sort((a, b) => {
+    const seasonDiff = a.season_number - b.season_number
+    if (seasonDiff !== 0) return seasonDiff
+    return a.episode_number - b.episode_number
+  })
   return out
 }
 
@@ -127,12 +203,28 @@ async function loadMedia() {
 
     const queryEpisode = route.query.episode_id as string | undefined
     const resumeEpisode = resumeInfo.value?.episode_id
+    const preferredEpisode = queryEpisode || resumeEpisode
 
-    const playback = resolvePlayback(data, queryEpisode || resumeEpisode)
+    // 路由明确指定集数时，优先按路由播放，不应用其他集的服务端续播进度。
+    if (queryEpisode && resumeInfo.value?.episode_id && queryEpisode !== resumeInfo.value.episode_id) {
+      resumeInfo.value = null
+    }
+
+    const playback = resolvePlayback(data, preferredEpisode)
     currentEpisodeId.value = playback.episodeId
     playablePath.value = playback.filePath || ''
 
     await setupVideo()
+
+    // 加载字幕轨
+    if (data.id) {
+      try {
+        const tracks = await catalogApi.subtitles(data.id, currentEpisodeId.value)
+        subtitleTracks.value = tracks || []
+      } catch {
+        // 无字幕
+      }
+    }
   } catch (e: any) {
     console.error('加载媒资失败', e)
     window.toast?.(`加载失败：${e?.message || '未知错误'}`, 'error', 5000)
@@ -337,8 +429,13 @@ function switchToDirect(storagePath: string) {
 function onLoadedMetadata() {
   if (!videoRef.value || !media.value) return
 
+  nextEpisodeTriggered.value = false
+  seriesEnded.value = false
+
   if (resumeInfo.value && !resumeInfo.value.completed && resumeInfo.value.progress > 0) {
-    videoRef.value.currentTime = resumeInfo.value.progress
+    const duration = videoRef.value.duration || 0
+    const maxSeek = duration > 0 ? Math.max(0, duration - 3) : resumeInfo.value.progress
+    videoRef.value.currentTime = Math.min(resumeInfo.value.progress, maxSeek)
   }
 
   videoRef.value.play().catch(() => {})
@@ -351,6 +448,20 @@ function onLoadedMetadata() {
 
 function onTimeUpdate() {
   if (!videoRef.value || !media.value) return
+
+  if (
+    !nextEpisodeTriggered.value &&
+    !nextEpisodePrompt.value &&
+    !seriesEnded.value &&
+    currentEpisodeId.value &&
+    isSeriesType(media.value.type)
+  ) {
+    const duration = videoRef.value.duration || 0
+    if (duration > 0 && videoRef.value.currentTime >= duration * 0.9) {
+      triggerNextEpisodePrompt()
+    }
+  }
+
   const now = Date.now() / 1000
   if (now - lastReportAt.value < REPORT_INTERVAL) return
   lastReportAt.value = now
@@ -370,23 +481,69 @@ async function reportProgress() {
 function onEnded() {
   reportProgress().catch(console.error)
   if (!media.value || !currentEpisodeId.value || !isSeriesType(media.value.type)) return
+  if (nextEpisodeTriggered.value) return
+  triggerNextEpisodePrompt()
+}
+
+function triggerNextEpisodePrompt() {
+  if (!media.value || !currentEpisodeId.value || !isSeriesType(media.value.type)) return
+  nextEpisodeTriggered.value = true
+  seriesEnded.value = false
   catalogApi
     .nextEpisode(media.value.id, currentEpisodeId.value)
     .then((next) => {
       if (next?.id && next.file_path) {
         nextEpisodePrompt.value = next
+        startNextCountdown()
+        return
       }
+      seriesEnded.value = true
     })
     .catch(() => {})
+}
+
+function startNextCountdown() {
+  if (nextCountdownTimer) {
+    clearInterval(nextCountdownTimer)
+    nextCountdownTimer = null
+  }
+  nextCountdown.value = 10
+  nextCountdownTimer = setInterval(() => {
+    nextCountdown.value--
+    if (nextCountdown.value <= 0) {
+      if (nextCountdownTimer) {
+        clearInterval(nextCountdownTimer)
+        nextCountdownTimer = null
+      }
+      playNextEpisode()
+    }
+  }, 1000)
+}
+
+function cancelNextEpisode() {
+  if (nextCountdownTimer) {
+    clearInterval(nextCountdownTimer)
+    nextCountdownTimer = null
+  }
+  nextCountdown.value = 0
+  nextEpisodePrompt.value = null
 }
 
 async function playNextEpisode() {
   const next = nextEpisodePrompt.value
   if (!next?.file_path || !media.value) return
-  nextEpisodePrompt.value = null
+  seriesEnded.value = false
+  nextEpisodeTriggered.value = false
+  cancelNextEpisode()
   currentEpisodeId.value = next.id
+  await router.replace({
+    path: `/play/${media.value.id}`,
+    query: { episode_id: next.id },
+  })
   playablePath.value = next.file_path
   resumeInfo.value = null
+  subtitleTracks.value = []
+  selectedSubtitleId.value = null
   if (hls.value) {
     hls.value.destroy()
     hls.value = null
@@ -396,6 +553,57 @@ async function playNextEpisode() {
     videoRef.value.load()
   }
   await setupVideo()
+}
+
+function goToDetail() {
+  if (!media.value) return
+  router.push(`/media/${media.value.id}`)
+}
+
+// ---- 字幕 ----
+
+function selectSubtitle(track: SubtitleTrackInfo) {
+  if (!videoRef.value) return
+  selectedSubtitleId.value = track.id
+  showSubtitleMenu.value = false
+
+  const video = videoRef.value
+
+  // 禁用所有现有轨道
+  for (let i = 0; i < video.textTracks.length; i++) {
+    video.textTracks[i].mode = 'disabled'
+  }
+
+  // 移除之前动态添加的 track 元素
+  video.querySelectorAll('track[data-dynamic]').forEach((el) => el.remove())
+
+  // 如果是外挂字幕，加载 VTT/SRT
+  if (track.path) {
+    const trackEl = document.createElement('track')
+    trackEl.setAttribute('data-dynamic', 'true')
+    trackEl.kind = 'subtitles'
+    trackEl.src = `/api/v1/stream/direct?path=${encodeURIComponent(track.path)}`
+    trackEl.srclang = track.language
+    trackEl.label = track.label || track.language
+    trackEl.default = true
+    video.appendChild(trackEl)
+
+    // 启用新轨道
+    setTimeout(() => {
+      for (let i = 0; i < video.textTracks.length; i++) {
+        video.textTracks[i].mode = i === video.textTracks.length - 1 ? 'showing' : 'disabled'
+      }
+    }, 100)
+  }
+}
+
+function disableSubtitle() {
+  selectedSubtitleId.value = null
+  showSubtitleMenu.value = false
+  if (!videoRef.value) return
+  for (let i = 0; i < videoRef.value.textTracks.length; i++) {
+    videoRef.value.textTracks[i].mode = 'disabled'
+  }
 }
 
 // ---- 键盘快捷键 ----
@@ -489,6 +697,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   reportProgress().catch(() => {})
+  cancelNextEpisode()
   if (hls.value) {
     hls.value.destroy()
   }
@@ -654,6 +863,11 @@ onBeforeUnmount(() => {
   font-size: 14px;
 }
 
+.series-ended-banner {
+  border-color: rgba(16, 185, 129, 0.5);
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.26), rgba(0, 0, 0, 0.78));
+}
+
 .next-btn {
   height: 36px;
   padding: 0 16px;
@@ -673,5 +887,53 @@ onBeforeUnmount(() => {
   background: transparent;
   color: var(--mh-text-secondary, #a8a8bc);
   cursor: pointer;
+}
+
+.header-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+
+  &:hover { background: rgba(255, 255, 255, 0.2); }
+}
+
+.subtitle-menu {
+  position: fixed;
+  top: 70px;
+  right: 40px;
+  z-index: 150;
+  min-width: 180px;
+  background: rgba(10, 10, 18, 0.95);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 8px 0;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.menu-title {
+  padding: 8px 16px 4px;
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.menu-item {
+  padding: 10px 16px;
+  font-size: 14px;
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover { background: rgba(255, 255, 255, 0.08); }
+
+  &.active {
+    color: #6c63ff;
+    font-weight: 500;
+  }
 }
 </style>

@@ -354,7 +354,7 @@ func (r *MediaRepo) NextEpisode(ctx context.Context, mediaID string, afterEpisod
 	}
 	var next media.Episode
 	err := r.db.WithContext(ctx).
-		Where("season_id = ? AND episode_number > ?", season.ID, current.EpisodeNumber).
+		Where("season_id = ? AND episode_number > ? AND file_path <> ''", season.ID, current.EpisodeNumber).
 		Order("episode_number ASC").First(&next).Error
 	if err == nil {
 		return &next, nil
@@ -372,7 +372,7 @@ func (r *MediaRepo) NextEpisode(ctx context.Context, mediaID string, afterEpisod
 	if err != nil {
 		return nil, err
 	}
-	err = r.db.WithContext(ctx).Where("season_id = ?", nextSeason.ID).
+	err = r.db.WithContext(ctx).Where("season_id = ? AND file_path <> ''", nextSeason.ID).
 		Order("episode_number ASC").First(&next).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil

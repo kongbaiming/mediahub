@@ -231,6 +231,36 @@ paths:
         '202':
           description: Queued
 
+  /api/v1/works/{id}/next-episode:
+    get:
+      tags: [Media]
+      summary: 查询当前集之后的下一可播放集
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: after_episode_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    oneOf:
+                      - $ref: '#/components/schemas/EpisodeDetail'
+                      - type: 'null'
+        '400':
+          description: 参数错误
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /api/v1/media/stats:
     get:
       tags: [Media]
@@ -403,6 +433,40 @@ paths:
         - in: query
           name: limit
           schema: { type: integer, default: 12 }
+      responses:
+        '200':
+          description: OK
+
+  /api/v1/progress:
+    put:
+      tags: [History]
+      summary: 写入跨设备续播进度
+      parameters:
+        - in: header
+          name: X-Profile-ID
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordProgressRequest'
+      responses:
+        '200':
+          description: OK
+
+  /api/v1/progress/{media_id}:
+    get:
+      tags: [History]
+      summary: 读取跨设备续播进度
+      parameters:
+        - in: header
+          name: X-Profile-ID
+          schema: { type: string, format: uuid }
+        - in: path
+          name: media_id
+          required: true
+          schema: { type: string, format: uuid }
       responses:
         '200':
           description: OK

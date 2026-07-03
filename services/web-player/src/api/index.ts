@@ -168,6 +168,13 @@ export interface PersonBrief {
   tmdb_person_id?: number
 }
 
+export interface PersonSearchResult {
+  person_id: string
+  name: string
+  profile_url?: string
+  known_for?: string
+}
+
 export interface Person extends PersonBrief {
   original_name?: string
 }
@@ -207,6 +214,16 @@ export interface EpisodeNext {
   title?: string
   file_path?: string
   season_id?: string
+}
+
+export interface SubtitleTrackInfo {
+  id: string
+  language: string
+  format: string
+  label?: string
+  path?: string
+  source?: string
+  is_default?: boolean
 }
 
 export interface MediaExtra {
@@ -273,6 +290,13 @@ export const mediaApi = {
       size: number
     }
   },
+
+  async searchAll(q: string, limit = 30): Promise<{ media: MediaSummary[]; persons: PersonSearchResult[] }> {
+    const body = (await http.get<unknown>('/api/v1/search', {
+      params: { q, type: 'all', limit },
+    })) as { data: { media: MediaSummary[]; persons: PersonSearchResult[] } }
+    return body.data || { media: [], persons: [] }
+  },
 }
 
 export const historyApi = {
@@ -303,18 +327,32 @@ export const historyApi = {
     progress: number
     duration: number
   }): Promise<{ status: string }> {
-    return http.post('/api/v1/history', {
+    const payload = {
       profile_id: localStorage.getItem('mediahub_profile_id') || '',
       ...data,
       device: 'web',
-    }) as Promise<{ status: string }>
+    }
+    try {
+      return (await http.put('/api/v1/progress', payload)) as { status: string }
+    } catch {
+      // 兼容旧版 API
+      return (await http.post('/api/v1/history', payload)) as { status: string }
+    }
   },
 
   async getResume(mediaId: string): Promise<ResumeInfo | null> {
-    const body = (await http.get<unknown>(`/api/v1/resume/${mediaId}`)) as {
-      data: ResumeInfo | null
+    try {
+      const body = (await http.get<unknown>(`/api/v1/progress/${mediaId}`)) as {
+        data: ResumeInfo | null
+      }
+      return body.data
+    } catch {
+      // 兼容旧版 API
+      const body = (await http.get<unknown>(`/api/v1/resume/${mediaId}`)) as {
+        data: ResumeInfo | null
+      }
+      return body.data
     }
-    return body.data
   },
 
   async toggleFavorite(data: { media_id: string; type?: string }): Promise<{ status: string }> {
@@ -453,6 +491,15 @@ export const catalogApi = {
       data: CollectionInfo | null
     }
     return body.data ?? null
+  },
+
+  async subtitles(mediaId: string, episodeId?: string): Promise<SubtitleTrackInfo[]> {
+    const params: Record<string, string> = {}
+    if (episodeId) params.episode_id = episodeId
+    const body = (await http.get<unknown>(`/api/v1/works/${mediaId}/subtitles`, {
+      params,
+    })) as { data: SubtitleTrackInfo[] }
+    return body.data || []
   },
 }
 
