@@ -1,18 +1,21 @@
 package com.mediahub.tv.playback
 
-import android.content.Context
-import androidx.media3.common.MediaMetadata
+import android.app.PendingIntent
+import android.content.Intent
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import com.mediahub.tv.ui.MainActivity
 
 /**
- * MediaSession Service（系统媒体控件集成）
+ * 全局唯一的 ExoPlayer + MediaSession 持有者。
  *
- * 关键作用：
- *  - 让用户能从电视主页或手机控制播放
- *  - 锁屏控制 / 通知栏控制
- *  - "正在播放" 卡片显示在系统设置里
+ * 设计原则：
+ *  - 一个进程内一个 ExoPlayer、一个 MediaSession
+ *  - Service 常驻以支持后台播放 + 锁屏控制
+ *  - PlaybackActivity 不再自己 new ExoPlayer，直接从 [MediaSessionManager] 拿
  */
 class MediaSessionService : MediaSessionService() {
 
@@ -20,39 +23,57 @@ class MediaSessionService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
-        val player = ExoPlayer.Builder(this).build()
-        mediaSession = MediaSession.Builder(this, player).build()
+        val player = ExoPlayer.Builder(this)
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(C.USAGE_MEDIA)
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+                    .build(),
+                /* handleAudioFocus = */ true,
+            )
+            .setHandleAudioBecomingNoisy(true)
+            .build()
+        mediaSession = MediaSession.Builder(this, player)
+            .setSessionActivity(
+                PendingIntent.getActivity(
+                    this,
+                    0,
+                    Intent(this, MainActivity::class.java),
+                    PendingIntent.FLAG_IMMUTABLE,
+                ),
+            )
+            .build()
+        MediaSessionManager.bind(player)
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? =
         mediaSession
 
     override fun onDestroy() {
+        MediaSessionManager.unbind()
         mediaSession?.run {
             player.release()
             release()
+            mediaSession = null
         }
         super.onDestroy()
     }
 }
 
 /**
- * MediaSession Manager 辅助（用于从 PlaybackActivity 调用）
+ * 全局 player 句柄，由 [MediaSessionService.onCreate] 绑定、
+ * [MediaSessionService.onDestroy] 解绑。
+ *
+ * PlaybackActivity 通过此对象拿到 ExoPlayer 并渲染 PlayerView，
+ * 避免重复创建 player/session。
  */
 object MediaSessionManager {
-    fun create(context: Context, player: ExoPlayer): MediaSession {
-        return MediaSession.Builder(context, player).build().also {
-            // 实际上 PlaybackActivity 用自己的 PlayerView，
-            // MediaSessionService 才是常驻后台播放入口。
-            // 这里只是占位实现。
-        }
-    }
+    @Volatile
+    private var player: ExoPlayer? = null
 
-    fun MediaSession.setMediaMetadata(title: String, artist: String?) {
-        val metadata = MediaMetadata.Builder()
-            .setTitle(title)
-            .setArtist(artist ?: "")
-            .build()
-        player.mediaMetadata = metadata
-    }
+    internal fun bind(p: ExoPlayer) { player = p }
+    internal fun unbind() { player = null }
+
+    fun get(): ExoPlayer =
+        player ?: error("MediaSessionService not running. Start the service first.")
 }

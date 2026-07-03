@@ -284,11 +284,11 @@ private fun ProfileChip(
             modifier = Modifier.padding(horizontal = 20.dp),
         ) {
             Text(
-                text = profile.avatar_emoji.ifBlank { "👤" },
+                text = profile.avatarEmojiResolved.ifBlank { "👤" },
                 fontSize = 20.sp,
             )
             Text(
-                text = profile.display_name,
+                text = profile.name,
                 color = androidx.compose.ui.graphics.Color.White,
                 fontSize = 16.sp,
                 fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,

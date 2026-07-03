@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 android {
@@ -14,8 +15,7 @@ android {
         versionCode = 1
         versionName = "0.1.0"
 
-        // 强制 TV-only
-        manifestPlaceholders["usesPermission"] = "false"
+        // TV-only（无 manifestPlaceholders 占位）
 
         // 默认 API 地址（运行时可在设置里改）
         buildConfigField("String", "DEFAULT_API_BASE", "\"http://10.0.0.1:3000\"")
@@ -62,6 +62,9 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
+    // Compose for TV（Leanback Compose 替代）
+    implementation("androidx.tv:tv-foundation:1.0.0-alpha10")
+    implementation("androidx.tv:tv-material3:1.0.0-alpha10")
     // Leanback（Android TV 官方框架）
     implementation("androidx.leanback:leanback:1.0.0")
     implementation("androidx.leanback:leanback-tab:1.1.0-beta01")

@@ -7,6 +7,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,30 +17,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.mediahub.tv.data.PreferencesRepository
 import com.mediahub.tv.data.api.MediaHubApi
+import com.mediahub.tv.data.model.Episode
 import com.mediahub.tv.data.model.MediaDetail
 import com.mediahub.tv.data.model.MediaItem
+import com.mediahub.tv.data.model.Season
 import com.mediahub.tv.ui.playback.PlaybackActivity
 import com.mediahub.tv.ui.theme.MediaHubTheme
 
-/**
- * 媒资详情页
- *
- * 显示：
- *  - 背景大图（backdropUrl）
- *  - 海报 + 标题 + 元数据（年/类型/时长/评分）
- *  - 操作按钮：播放 / 续播（如果有 progress）/ 收藏
- *  - 简介
- *  - 相关推荐（横向滚动）
- *
- * 进入：BrowseScreen / SearchActivity 点卡片
- * 退出：返回键
- */
 class DetailActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,7 +45,10 @@ class DetailActivity : ComponentActivity() {
                     mediaId = mediaId,
                     api = MediaHubApi.get(),
                     onPlay = { id, resumeSec ->
-                        startActivity(PlaybackActivity.intent(this, id, resumeSec))
+                        startActivity(PlaybackActivity.intent(this, id, resumeSec = resumeSec))
+                    },
+                    onPlayEpisode = { mediaId, episodeId, filePath ->
+                        startActivity(PlaybackActivity.intent(this, mediaId, episodeId = episodeId, filePath = filePath))
                     },
                     onBack = { finish() },
                 )
@@ -75,11 +72,12 @@ fun DetailScreen(
     mediaId: String,
     api: MediaHubApi,
     onPlay: (mediaId: String, resumeSec: Int) -> Unit,
+    onPlayEpisode: (mediaId: String, episodeId: String, filePath: String?) -> Unit,
     onBack: () -> Unit,
 ) {
     var detail by remember { mutableStateOf<MediaDetail?>(null) }
     var resumeSec by remember { mutableStateOf(0) }
-    var related by remember { mutableStateOf<List<MediaItem>>(emptyList()) }
+    var selectedSeason by remember { mutableStateOf<Season?>(null) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -87,9 +85,8 @@ fun DetailScreen(
         try {
             detail = api.getMediaDetail(mediaId)
             resumeSec = api.getResume(mediaId)
-            // 相关推荐（复用 Feed API 的 similar row 是当前实现的简化）
-            // 实际可单独加 /api/v1/media/{id}/similar
-            related = emptyList() // TODO: 等待后端 /similar 接口
+            // 自动选中第一季
+            detail?.seasons?.firstOrNull()?.let { selectedSeason = it }
         } catch (t: Throwable) {
             error = t.message
         } finally {
@@ -97,17 +94,18 @@ fun DetailScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0xFF0F172A))) {
+    Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0F172A))) {
         when {
             loading -> LoadingState()
             error != null -> ErrorState(error!!)
             detail != null -> ContentState(
                 detail = detail!!,
                 resumeSec = resumeSec,
-                related = related,
+                selectedSeason = selectedSeason,
+                onSelectSeason = { selectedSeason = it },
                 onPlay = { onPlay(mediaId, 0) },
                 onResume = { onPlay(mediaId, resumeSec) },
-                onRelatedClick = { id -> /* TODO: 嵌套到 DetailActivity 自身 */ },
+                onPlayEpisode = { ep -> onPlayEpisode(mediaId, ep.id, ep.filePath) },
             )
         }
     }
@@ -116,7 +114,7 @@ fun DetailScreen(
 @Composable
 private fun LoadingState() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(color = androidx.compose.ui.graphics.Color(0xFF6366F1))
+        CircularProgressIndicator(color = Color(0xFF6366F1))
     }
 }
 
@@ -124,18 +122,9 @@ private fun LoadingState() {
 private fun ErrorState(message: String) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "加载失败",
-                color = androidx.compose.ui.graphics.Color.White,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-            )
+            Text("加载失败", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = message,
-                color = androidx.compose.ui.graphics.Color(0xFF94A3B8),
-                fontSize = 14.sp,
-            )
+            Text(message, color = Color(0xFF94A3B8), fontSize = 14.sp)
         }
     }
 }
@@ -144,222 +133,256 @@ private fun ErrorState(message: String) {
 private fun ContentState(
     detail: MediaDetail,
     resumeSec: Int,
-    related: List<MediaItem>,
+    selectedSeason: Season?,
+    onSelectSeason: (Season) -> Unit,
     onPlay: () -> Unit,
     onResume: () -> Unit,
-    onRelatedClick: (String) -> Unit,
+    onPlayEpisode: (Episode) -> Unit,
 ) {
     val showResume = resumeSec > 0
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        // 背景大图
-        detail.backdropUrl?.let { url ->
-            AsyncImage(
-                model = url,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(
-                                androidx.compose.ui.graphics.Color.Transparent,
-                                androidx.compose.ui.graphics.Color(0xCC0F172A),
-                                androidx.compose.ui.graphics.Color(0xFF0F172A),
-                            ),
-                        ),
-                    ),
-            )
-        }
-
-        Column(modifier = Modifier.fillMaxSize().padding(48.dp)) {
-            // 顶部条（标题 + 返回提示）
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    text = detail.title,
-                    color = androidx.compose.ui.graphics.Color.White,
-                    fontSize = 36.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    text = "← 返回",
-                    color = androidx.compose.ui.graphics.Color(0xFF94A3B8),
-                    fontSize = 14.sp,
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(32.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                // 海报
-                detail.posterUrl?.let { url ->
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        // 背景 + 主信息区
+        item {
+            Box(modifier = Modifier.fillMaxWidth().height(480.dp)) {
+                // 背景大图
+                detail.backdropUrl?.let { url ->
                     AsyncImage(
                         model = url,
-                        contentDescription = detail.title,
+                        contentDescription = null,
                         contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .width(220.dp)
-                            .height(330.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(androidx.compose.ui.graphics.Color(0xFF1E293B)),
+                        modifier = Modifier.fillMaxSize().background(
+                            Brush.verticalGradient(
+                                listOf(Color.Transparent, Color(0xCC0F172A), Color(0xFF0F172A)),
+                            ),
+                        ),
                     )
                 }
 
-                // 右侧信息
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    // 元数据行
+                Column(modifier = Modifier.fillMaxSize().padding(48.dp)) {
+                    // 标题
+                    Text(
+                        text = detail.title,
+                        color = Color.White,
+                        fontSize = 36.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(32.dp),
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
-                        if (detail.year != null) {
-                            Text(
-                                text = detail.year.toString(),
-                                color = androidx.compose.ui.graphics.Color(0xFFCBD5E1),
-                                fontSize = 16.sp,
+                        // 海报
+                        detail.posterUrl?.let { url ->
+                            AsyncImage(
+                                model = url,
+                                contentDescription = detail.title,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .width(220.dp)
+                                    .height(330.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFF1E293B)),
                             )
                         }
-                        if (detail.runtime != null) {
-                            Text(
-                                text = "${detail.runtime} 分钟",
-                                color = androidx.compose.ui.graphics.Color(0xFFCBD5E1),
-                                fontSize = 16.sp,
-                            )
-                        }
-                        if (detail.rating > 0) {
-                            Text(
-                                text = "★ ${detail.rating}",
-                                color = androidx.compose.ui.graphics.Color(0xFFFBBF24),
-                                fontSize = 16.sp,
-                            )
-                        }
-                    }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // 类型标签
-                    if (detail.genres.isNotEmpty()) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            detail.genres.take(4).forEach { g ->
-                                Surface(
-                                    color = androidx.compose.ui.graphics.Color(0xFF1E293B),
-                                    shape = RoundedCornerShape(6.dp),
-                                ) {
-                                    Text(
-                                        text = g,
-                                        color = androidx.compose.ui.graphics.Color(0xFFCBD5E1),
-                                        fontSize = 12.sp,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                    )
+                        // 右侧信息
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            // 元数据行
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                detail.year?.let { Text(it.toString(), color = Color(0xFFCBD5E1), fontSize = 16.sp) }
+                                detail.runtime?.let { Text("${it} 分钟", color = Color(0xFFCBD5E1), fontSize = 16.sp) }
+                                if (detail.rating > 0) {
+                                    Text("★ ${detail.rating}", color = Color(0xFFFBBF24), fontSize = 16.sp)
                                 }
                             }
-                        }
-                    }
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
 
-                    // 操作按钮
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button(
-                            onClick = onPlay,
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = androidx.compose.ui.graphics.Color(0xFF6366F1),
-                            ),
-                            modifier = Modifier.height(48.dp),
-                        ) {
-                            Text(if (showResume) "从头开始" else "▶ 播放", fontSize = 16.sp)
-                        }
-                        if (showResume) {
-                            OutlinedButton(
-                                onClick = onResume,
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.height(48.dp),
-                            ) {
-                                Text(
-                                    "续播 ${formatResume(resumeSec)}",
-                                    color = androidx.compose.ui.graphics.Color.White,
-                                    fontSize = 16.sp,
-                                )
+                            // 类型标签
+                            if (detail.genres.isNotEmpty()) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    detail.genres.take(4).forEach { g ->
+                                        Surface(color = Color(0xFF1E293B), shape = RoundedCornerShape(6.dp)) {
+                                            Text(g, color = Color(0xFFCBD5E1), fontSize = 12.sp,
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+                                        }
+                                    }
+                                }
                             }
-                        }
-                        OutlinedButton(
-                            onClick = { /* TODO: 收藏 */ },
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.height(48.dp),
-                        ) {
-                            Text("☆ 收藏", color = androidx.compose.ui.graphics.Color.White, fontSize = 16.sp)
-                        }
-                    }
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                            Spacer(modifier = Modifier.height(20.dp))
 
-                    // 简介
-                    detail.overview?.let { ov ->
-                        Text(
-                            text = ov,
-                            color = androidx.compose.ui.graphics.Color(0xFFCBD5E1),
-                            fontSize = 14.sp,
-                            lineHeight = 20.sp,
-                            maxLines = 4,
-                        )
-                    }
+                            // 操作按钮
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Button(
+                                    onClick = if (detail.isSeries && selectedSeason?.episodes?.isNotEmpty() == true) {
+                                        { onPlayEpisode(selectedSeason!!.episodes.first()) }
+                                    } else onPlay,
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
+                                    modifier = Modifier.height(48.dp),
+                                ) {
+                                    Text(
+                                        when {
+                                            detail.isSeries -> "▶ 播放 S${selectedSeason?.seasonNumber ?: 1}E1"
+                                            showResume -> "从头开始"
+                                            else -> "▶ 播放"
+                                        },
+                                        fontSize = 16.sp,
+                                    )
+                                }
+                                if (showResume) {
+                                    OutlinedButton(
+                                        onClick = onResume,
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.height(48.dp),
+                                    ) {
+                                        Text("续播 ${formatResume(resumeSec)}", color = Color.White, fontSize = 16.sp)
+                                    }
+                                }
+                            }
 
-                    // 技术信息
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        detail.resolution?.let {
-                            TechChip("分辨率：$it")
-                        }
-                        detail.videoCodec?.let {
-                            TechChip("视频：$it")
-                        }
-                        detail.audioCodec?.let {
-                            TechChip("音频：$it")
-                        }
-                        if (detail.hasSubtitle) {
-                            TechChip("字幕 ✓")
+                            Spacer(modifier = Modifier.height(20.dp))
+
+                            // 简介
+                            detail.overview?.let { ov ->
+                                Text(ov, color = Color(0xFFCBD5E1), fontSize = 14.sp, lineHeight = 20.sp, maxLines = 4)
+                            }
+
+                            // 技术信息
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                detail.resolution?.let { TechChip("分辨率：$it") }
+                                detail.videoCodec?.let { TechChip("视频：$it") }
+                                detail.audioCodec?.let { TechChip("音频：$it") }
+                                if (detail.hasSubtitle) TechChip("字幕 ✓")
+                            }
                         }
                     }
                 }
             }
+        }
 
-            Spacer(modifier = Modifier.height(24.dp))
+        // 季/集选择器（仅电视剧）
+        if (detail.isSeries && detail.seasons != null && detail.seasons.isNotEmpty()) {
+            item {
+                Column(modifier = Modifier.padding(horizontal = 48.dp)) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("选集", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(12.dp))
 
-            // 相关推荐（如果有）
-            if (related.isNotEmpty()) {
-                Text(
-                    text = "你可能也喜欢",
-                    color = androidx.compose.ui.graphics.Color.White,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                // 这里省略横向列表实现，复用 BrowseScreen 的 RowCarousel 思路
+                    // 季选择
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(detail.seasons!!) { season ->
+                            val isSelected = season.id == selectedSeason?.id
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { onSelectSeason(season) },
+                                label = { Text("第 ${season.seasonNumber} 季") },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = Color(0xFF6366F1),
+                                    selectedLabelColor = Color.White,
+                                    containerColor = Color(0xFF1E293B),
+                                    labelColor = Color(0xFFCBD5E1),
+                                ),
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
             }
+
+            // 集列表
+            val episodes = selectedSeason?.episodes ?: emptyList()
+            items(episodes) { ep ->
+                EpisodeRow(
+                    episode = ep,
+                    seasonNumber = selectedSeason?.seasonNumber ?: 1,
+                    onClick = { onPlayEpisode(ep) },
+                )
+            }
+        }
+
+        // 底部留白
+        item { Spacer(modifier = Modifier.height(48.dp)) }
+    }
+}
+
+@Composable
+private fun EpisodeRow(episode: Episode, seasonNumber: Int, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        color = Color.Transparent,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 48.dp, vertical = 4.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF1E293B), RoundedCornerShape(8.dp))
+                .padding(16.dp),
+        ) {
+            // 集号
+            Text(
+                text = "E${episode.episodeNumber}",
+                color = Color(0xFF6366F1),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.width(48.dp),
+            )
+
+            // 缩略图
+            episode.stillUrl?.let { url ->
+                AsyncImage(
+                    model = url,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .width(120.dp)
+                        .height(68.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFF334155)),
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+            }
+
+            // 标题 + 时长
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = episode.title ?: "第 ${episode.episodeNumber} 集",
+                    color = Color.White,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+                if (episode.duration > 0) {
+                    Text(
+                        text = "${episode.duration / 60} 分钟",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 12.sp,
+                    )
+                }
+            }
+
+            // 播放图标
+            Text("▶", color = Color(0xFF6366F1), fontSize = 20.sp)
         }
     }
 }
 
 @Composable
 private fun TechChip(text: String) {
-    Surface(
-        color = androidx.compose.ui.graphics.Color(0x331E293B),
-        shape = RoundedCornerShape(4.dp),
-    ) {
-        Text(
-            text = text,
-            color = androidx.compose.ui.graphics.Color(0xFF94A3B8),
-            fontSize = 11.sp,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-        )
+    Surface(color = Color(0x331E293B), shape = RoundedCornerShape(4.dp)) {
+        Text(text, color = Color(0xFF94A3B8), fontSize = 11.sp,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
     }
 }
 

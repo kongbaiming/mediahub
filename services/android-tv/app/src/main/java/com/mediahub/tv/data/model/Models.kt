@@ -52,48 +52,101 @@ data class Feed(
 data class MediaDetail(
     val id: String,
     val title: String,
-    val originalTitle: String? = null,
+    @SerialName("original_title") val originalTitle: String? = null,
     val year: Int? = null,
     val type: String,
+    val kind: String = "single",
     val rating: Double = 0.0,
-    val posterUrl: String? = null,
-    val backdropUrl: String? = null,
+    @SerialName("poster_url") val posterUrl: String? = null,
+    @SerialName("backdrop_url") val backdropUrl: String? = null,
     val overview: String? = null,
     val runtime: Int? = null,
     val genres: List<String> = emptyList(),
-    val hasSubtitle: Boolean = false,
-    val videoCodec: String? = null,
-    val audioCodec: String? = null,
+    @SerialName("has_subtitle") val hasSubtitle: Boolean = false,
+    @SerialName("video_codec") val videoCodec: String? = null,
+    @SerialName("audio_codec") val audioCodec: String? = null,
     val resolution: String? = null,
-    val storagePath: String,
-)
+    @SerialName("storage_path") val storagePath: String,
+    val seasons: List<Season>? = null,
+) {
+    val isSeries: Boolean get() = kind == "series"
+}
 
 /**
  * Profile
+ *
+ * 字段命名走 @SerialName 而不是手写 alias 字段，
+ * 与服务端 snake_case 对齐（display_name / user_id / avatar_url 等）。
  */
 @Serializable
 data class Profile(
     val id: String,
-    val userId: String,
-    val name: String,
-    val avatarUrl: String? = null,
-    val isKid: Boolean = false,
-    val avatarEmoji: String? = null,
+    @SerialName("user_id") val userId: String,
+    @SerialName("display_name") val name: String,
+    @SerialName("avatar_url") val avatarUrl: String? = null,
+    @SerialName("is_kid") val isKid: Boolean = false,
+    @SerialName("avatar_emoji") val avatarEmoji: String? = null,
 ) {
-    /** 用于 UI 显示的头像（emoji 优先，没有就用首字母） */
-    val avatar_emoji: String
-        get() = avatarEmoji
-            ?: if (isKid) "🧒" else when (name.firstOrNull()?.uppercaseChar()) {
-                'A', 'B', 'C' -> "🦊"
-                'D', 'E', 'F' -> "🐼"
-                'G', 'H', 'I' -> "🦁"
-                'J', 'K', 'L' -> "🐯"
-                'M', 'N', 'O' -> "🐰"
-                'P', 'Q', 'R' -> "🐨"
-                'S', 'T', 'U' -> "🐻"
-                else -> "🐶"
-            }
+    /**
+     * UI 显示用的头像：优先用服务端返回的 emoji，
+     * 否则按名字首字母给一个 fallback。
+     */
+    val avatarEmojiResolved: String
+        get() = avatarEmoji ?: pickEmoji(name, isKid)
 
-    /** 别名：display_name -> name（保持向后兼容） */
-    val display_name: String get() = name
+    private fun pickEmoji(name: String, isKid: Boolean): String {
+        if (isKid) return KID_EMOJI
+        return when (name.firstOrNull()?.uppercaseChar()) {
+            'A', 'B', 'C' -> "\uD83E\uDD8A"   // 狐狸
+            'D', 'E', 'F' -> "\uD83D\uDC3C"   // 熊猫
+            'G', 'H', 'I' -> "\uD83E\uDD81"   // 狮子
+            'J', 'K', 'L' -> "\uD83D\uDC2F"   // 老虎
+            'M', 'N', 'O' -> "\uD83D\uDC30"   // 兔子
+            'P', 'Q', 'R' -> "\uD83D\uDC28"   // 考拉
+            'S', 'T', 'U' -> "\uD83D\uDC3B"   // 熊
+            else -> "\uD83D\uDC36"            // 狗
+        }
+    }
+
+    private companion object {
+        const val KID_EMOJI = "\uD83D\uDC78" // 小孩
+    }
 }
+/**
+ * 季
+ */
+@Serializable
+data class Season(
+    val id: String,
+    @SerialName("season_number") val seasonNumber: Int,
+    val title: String? = null,
+    @SerialName("poster_url") val posterUrl: String? = null,
+    @SerialName("episode_count") val episodeCount: Int = 0,
+    val episodes: List<Episode> = emptyList(),
+)
+
+/**
+ * 集
+ */
+@Serializable
+data class Episode(
+    val id: String,
+    @SerialName("episode_number") val episodeNumber: Int,
+    val title: String? = null,
+    val duration: Int = 0,
+    @SerialName("file_path") val filePath: String? = null,
+    @SerialName("still_url") val stillUrl: String? = null,
+)
+
+/**
+ * 字幕轨
+ */
+@Serializable
+data class SubtitleTrack(
+    val id: String,
+    val language: String = "zh",
+    val format: String = "srt",
+    val label: String? = null,
+    val source: String = "manual",
+    @SerialName("is_default") val isDefault: Boolean = false,
+)

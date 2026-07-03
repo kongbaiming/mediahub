@@ -1,11 +1,15 @@
 package com.mediahub.tv.data.api
 
+import com.mediahub.tv.data.model.Episode
 import com.mediahub.tv.data.model.Feed
 import com.mediahub.tv.data.model.MediaDetail
 import com.mediahub.tv.data.model.Profile
+import com.mediahub.tv.data.model.Season
+import com.mediahub.tv.data.model.SubtitleTrack
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -47,9 +51,8 @@ class MediaHubApi(private val baseUrl: String) {
                 val body = resp.body?.string()
                     ?: throw MediaHubException("Empty response")
                 if (!resp.isSuccessful) throw MediaHubException("HTTP ${resp.code}: $body")
-                val wrapper = json.parseToJsonElement(body).jsonObject
-                val data = wrapper["data"]
-                    ?: throw MediaHubException("Feed response missing data field")
+                val wrapper = json.parseToJsonElement(body) as JsonObject
+                val data = wrapper.dataObject("data")
                 json.decodeFromJsonElement(Feed.serializer(), data)
             }
         }
@@ -64,8 +67,9 @@ class MediaHubApi(private val baseUrl: String) {
         client.newCall(req).execute().use { resp ->
             val body = resp.body?.string() ?: throw MediaHubException("Empty response")
             if (!resp.isSuccessful) throw MediaHubException("HTTP ${resp.code}")
-            val wrapper = json.parseToJsonElement(body).jsonObject
-            json.decodeFromJsonElement(MediaDetail.serializer(), wrapper["data"]!!)
+            val wrapper = json.parseToJsonElement(body) as JsonObject
+            val data = wrapper.dataObject("data")
+            json.decodeFromJsonElement(MediaDetail.serializer(), data)
         }
     }
 
@@ -80,7 +84,7 @@ class MediaHubApi(private val baseUrl: String) {
         client.newCall(req).execute().use { resp ->
             val body = resp.body?.string() ?: throw MediaHubException("Empty response")
             if (!resp.isSuccessful) throw MediaHubException("HTTP ${resp.code}")
-            val wrapper = json.parseToJsonElement(body).jsonObject
+            val wrapper = json.parseToJsonElement(body) as JsonObject
             val data = wrapper["data"] ?: return@use emptyList<Profile>()
             json.decodeFromJsonElement(
                 kotlinx.serialization.builtins.ListSerializer(Profile.serializer()),
@@ -122,13 +126,11 @@ class MediaHubApi(private val baseUrl: String) {
         client.newCall(req).execute().use { resp ->
             val body = resp.body?.string() ?: return@use 0
             if (!resp.isSuccessful) return@use 0
-            val wrapper = json.parseToJsonElement(body).jsonObject
-            val data = wrapper["data"] ?: return@use 0
-            if (data.toString() == "null") return@use 0
-            val obj = (data as kotlinx.serialization.json.JsonObject)
-            obj["progress"]?.let { jsonPrimitive ->
-                (jsonPrimitive as kotlinx.serialization.json.JsonPrimitive).content.toIntOrNull() ?: 0
-            } ?: 0
+            val wrapper = json.parseToJsonElement(body) as JsonObject
+            val dataEl = wrapper["data"] ?: return@use 0
+            if (dataEl.toString() == "null" || dataEl !is JsonObject) return@use 0
+            val progressEl = dataEl["progress"] ?: return@use 0
+            progressEl.toString().toIntOrNull() ?: 0
         }
     }
 
@@ -142,6 +144,14 @@ class MediaHubApi(private val baseUrl: String) {
         } catch (_: Throwable) {
             false
         }
+    }
+
+    /**
+     * 构造媒资的 HLS 流地址（绝对 URL）
+     */
+    fun streamUrlHls(storagePath: String, mediaId: String): String {
+        val encoded = java.net.URLEncoder.encode(storagePath, "UTF-8")
+        return "$baseUrl/api/v1/stream/hls?path=$encoded&media_id=$mediaId"
     }
 
     /**
@@ -165,12 +175,89 @@ class MediaHubApi(private val baseUrl: String) {
         client.newCall(req).execute().use { resp ->
             val body = resp.body?.string() ?: throw MediaHubException("Empty response")
             if (!resp.isSuccessful) throw MediaHubException("HTTP ${resp.code}")
-            val wrapper = json.parseToJsonElement(body).jsonObject
+            val wrapper = json.parseToJsonElement(body) as JsonObject
             val data = wrapper["data"] ?: return@use emptyList<MediaItem>()
             if (data.toString() == "null") return@use emptyList<MediaItem>()
             json.decodeFromJsonElement(
                 kotlinx.serialization.builtins.ListSerializer(MediaItem.serializer()),
                 data,
+            )
+        }
+    }
+
+    /**
+     * 季列表
+     */
+    suspend fun getSeasons(mediaId: String): List<Season> = withContext(Dispatchers.IO) {
+        val req = Request.Builder()
+            .url("$baseUrl/api/v1/media/$mediaId")
+            .build()
+        client.newCall(req).execute().use { resp ->
+            val body = resp.body?.string() ?: throw MediaHubException("Empty response")
+            if (!resp.isSuccessful) throw MediaHubException("HTTP ${resp.code}")
+            val wrapper = json.parseToJsonElement(body) as JsonObject
+            val data = wrapper.dataObject("data")
+            val detail = json.decodeFromJsonElement(MediaDetail.serializer(), data)
+            detail.seasons ?: emptyList()
+        }
+    }
+
+    /**
+     * 下一集
+     */
+    suspend fun getNextEpisode(mediaId: String, afterEpisodeId: String): Episode? =
+        withContext(Dispatchers.IO) {
+            val req = Request.Builder()
+                .url("$baseUrl/api/v1/works/$mediaId/next-episode?after_episode_id=$afterEpisodeId")
+                .build()
+            client.newCall(req).execute().use { resp ->
+                val body = resp.body?.string() ?: return@use null
+                if (!resp.isSuccessful) return@use null
+                val wrapper = json.parseToJsonElement(body) as JsonObject
+                val data = wrapper["data"] ?: return@use null
+                if (data.toString() == "null") return@use null
+                json.decodeFromJsonElement(Episode.serializer(), data)
+            }
+        }
+
+    /**
+     * 字幕轨列表
+     */
+    suspend fun getSubtitles(mediaId: String, episodeId: String? = null): List<SubtitleTrack> =
+        withContext(Dispatchers.IO) {
+            val url = buildString {
+                append("$baseUrl/api/v1/works/$mediaId/subtitles")
+                if (episodeId != null) append("?episode_id=$episodeId")
+            }
+            val req = Request.Builder().url(url).build()
+            client.newCall(req).execute().use { resp ->
+                val body = resp.body?.string() ?: return@use emptyList()
+                if (!resp.isSuccessful) return@use emptyList()
+                val wrapper = json.parseToJsonElement(body) as JsonObject
+                val data = wrapper["data"] ?: return@use emptyList()
+                if (data.toString() == "null") return@use emptyList()
+                json.decodeFromJsonElement(
+                    kotlinx.serialization.builtins.ListSerializer(SubtitleTrack.serializer()),
+                    data,
+                )
+            }
+        }
+
+    /**
+     * 获取播放端 Profile 列表（无需 JWT）
+     */
+    suspend fun listPlaybackProfiles(): List<Profile> = withContext(Dispatchers.IO) {
+        val req = Request.Builder()
+            .url("$baseUrl/api/v1/playback/profiles")
+            .build()
+        client.newCall(req).execute().use { resp ->
+            val body = resp.body?.string() ?: throw MediaHubException("Empty response")
+            if (!resp.isSuccessful) throw MediaHubException("HTTP ${resp.code}")
+            val wrapper = json.parseToJsonElement(body) as JsonObject
+            val data = wrapper["data"] ?: return@use emptyList<Profile>()
+            json.decodeFromJsonElement(
+                kotlinx.serialization.builtins.ListSerializer(Profile.serializer()),
+                data
             )
         }
     }
@@ -190,9 +277,8 @@ class MediaHubApi(private val baseUrl: String) {
 
 class MediaHubException(message: String) : Exception(message)
 
-// JSON 辅助扩展
-private val kotlinx.serialization.json.JsonElement.jsonObject
-    get() = (this as kotlinx.serialization.json.JsonObject)
-
-private val kotlinx.serialization.json.JsonObject.string: String
-    get() = toString()
+// JSON 辅助：把响应里 data 字段安全地取出来再 decode
+private fun JsonObject.dataObject(field: String = "data"): JsonObject {
+    val el = this[field] ?: throw MediaHubException("Response missing \`"$field\`"")
+    return el as? JsonObject ?: throw MediaHubException("Response \`"$field\`" is not a JSON object")
+}

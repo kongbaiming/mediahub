@@ -99,7 +99,7 @@ fun BrowseScreen(api: MediaHubApi = MediaHubApi.get()) {
                     contentPadding = PaddingValues(vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
-                    items(rows) { row ->
+                    items(rows, key = { it.id }) { row ->
                         RowCarousel(
                             row = row,
                             onItemClick = { mediaId ->

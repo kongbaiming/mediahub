@@ -40,6 +40,8 @@ class MainActivity : ComponentActivity() {
                 finish()
                 return@launch
             }
+            // 关键：MainActivity 自己负责 init（避免与 MediaHubApp.onCreate 异步 init 竞态）
+            MediaHubApi.init(baseUrl)
             // 设置 Compose 内容
             setContent {
                 MediaHubTheme {
