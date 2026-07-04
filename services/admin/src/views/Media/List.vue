@@ -482,7 +482,7 @@ onMounted(() => {
 }
 
 .skeleton-poster {
-  background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 50%, #f1f5f9 100%);
+  background: linear-gradient(90deg, var(--mh-surface) 0%, var(--mh-surface-secondary) 50%, var(--mh-surface) 100%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
@@ -490,7 +490,7 @@ onMounted(() => {
 .skeleton-line {
   height: 12px;
   margin-top: 8px;
-  background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 50%, #f1f5f9 100%);
+  background: linear-gradient(90deg, var(--mh-surface) 0%, var(--mh-surface-secondary) 50%, var(--mh-surface) 100%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 4px;

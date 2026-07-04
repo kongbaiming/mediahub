@@ -270,58 +270,58 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: var(--mh-space-5);
 }
 
 .page-h2 {
   margin: 0;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--mh-text);
 }
 
 .header-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--mh-space-2);
 }
 
 .stats-card {
-  margin-bottom: 20px;
-  border-radius: 12px;
+  margin-bottom: var(--mh-space-5);
+  border-radius: var(--mh-radius-lg);
 }
 
 .stats-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 24px;
+  gap: var(--mh-space-6);
 }
 
 .stat-label {
   font-size: 13px;
-  color: #64748b;
-  margin-bottom: 4px;
+  color: var(--mh-text-secondary);
+  margin-bottom: var(--mh-space-1);
 }
 
 .stat-value {
   font-size: 24px;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--mh-text);
 }
 
 .name-cell {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--mh-space-2);
 }
 
 .file-icon {
-  color: #6366f1;
+  color: var(--mh-primary);
   font-size: 18px;
 }
 
 .progress-meta {
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--mh-text-tertiary);
   margin-top: 2px;
 }
 </style>

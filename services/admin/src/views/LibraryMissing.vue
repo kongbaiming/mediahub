@@ -235,11 +235,11 @@ onMounted(load)
   width: 48px;
   height: 72px;
   border-radius: 4px;
-  background: #334155;
+  background: var(--mh-surface-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #94a3b8;
+  color: var(--mh-text-tertiary);
   font-weight: 600;
 }
 
@@ -251,7 +251,7 @@ onMounted(load)
 
 .sub-meta {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--mh-text-tertiary);
   margin-top: 4px;
 }
 

@@ -43,20 +43,24 @@ const apiBase = import.meta.env.VITE_API_BASE_URL || location.origin
 </script>
 
 <style lang="scss" scoped>
+.settings-page {
+  max-width: 800px;
+}
+
 .page-h2 {
-  margin: 0 0 20px;
+  margin: 0 0 var(--mh-space-5);
   font-size: 22px;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--mh-text);
 }
 
 .panel {
-  margin-bottom: 16px;
-  border-radius: 12px;
+  margin-bottom: var(--mh-space-4);
+  border-radius: var(--mh-radius-lg);
 }
 
 .profile-tag {
-  margin-right: 8px;
+  margin-right: var(--mh-space-2);
   margin-bottom: 4px;
 }
 </style>

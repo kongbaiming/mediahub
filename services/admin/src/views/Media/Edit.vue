@@ -87,7 +87,7 @@ async function onSubmit() {
   margin: 0 0 20px;
   font-size: 22px;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--mh-text);
 }
 
 .form-card {

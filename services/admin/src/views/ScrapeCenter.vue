@@ -331,10 +331,10 @@ onBeforeUnmount(() => {
       font-family: var(--mh-font-display);
     }
 
-    &.stat-warning { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; }
-    &.stat-primary { background: linear-gradient(135deg, #e0e7ff, #c7d2fe); color: #3730a3; }
-    &.stat-danger { background: linear-gradient(135deg, #fee2e2, #fecaca); color: #991b1b; }
-    &.stat-success { background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #065f46; }
+    &.stat-warning { background: linear-gradient(135deg, #e5a855, #ffcf7c); color: #fff; }
+    &.stat-primary { background: linear-gradient(135deg, #6b8eff, #8ba3ff); color: #fff; }
+    &.stat-danger { background: linear-gradient(135deg, #e57a7a, #ff8b8b); color: #fff; }
+    &.stat-success { background: linear-gradient(135deg, #5eca9e, #7edbb5); color: #fff; }
   }
 
   .media-cell {

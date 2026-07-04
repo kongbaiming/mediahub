@@ -14,6 +14,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f8fafc;
+  background: var(--mh-bg);
 }
 </style>

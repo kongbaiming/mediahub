@@ -616,7 +616,7 @@ onMounted(load)
 .poster-large {
   width: 100%;
   aspect-ratio: 2/3;
-  background: linear-gradient(135deg, #1e293b, #0f172a);
+  background: linear-gradient(135deg, var(--mh-surface), var(--mh-bg-elevated));
   border-radius: 12px;
   display: flex;
   align-items: center;
@@ -637,11 +637,11 @@ onMounted(load)
   margin: 0;
   font-size: 28px;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--mh-text);
 }
 
 .year {
-  color: #94a3b8;
+  color: var(--mh-text-tertiary);
   font-weight: 400;
   font-size: 20px;
   margin-left: 4px;
@@ -650,7 +650,7 @@ onMounted(load)
 .original-title {
   margin-top: 4px;
   font-size: 15px;
-  color: #64748b;
+  color: var(--mh-text-secondary);
 }
 
 .meta-row {
@@ -667,20 +667,20 @@ onMounted(load)
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 12px;
   padding: 16px;
-  background: #f8fafc;
+  background: var(--mh-surface-secondary);
   border-radius: 8px;
 }
 
 .info-label {
   display: block;
   font-size: 12px;
-  color: #64748b;
+  color: var(--mh-text-secondary);
   margin-bottom: 4px;
 }
 
 .info-value {
   font-size: 14px;
-  color: #1e293b;
+  color: var(--mh-text);
   font-weight: 500;
 }
 
@@ -690,12 +690,12 @@ onMounted(load)
   h3 {
     font-size: 15px;
     margin: 0 0 8px;
-    color: #1e293b;
+    color: var(--mh-text);
   }
   p {
     margin: 0;
     line-height: 1.7;
-    color: #475569;
+    color: var(--mh-text-secondary);
     font-size: 14px;
   }
 }
@@ -713,7 +713,7 @@ onMounted(load)
 
 .scrape-error {
   font-size: 12px;
-  color: #ef4444;
+  color: var(--mh-danger);
 }
 
 .scrape-match-card {
@@ -730,7 +730,7 @@ onMounted(load)
 .match-hint {
   margin: 0 0 16px;
   font-size: 13px;
-  color: #64748b;
+  color: var(--mh-text-secondary);
 }
 
 .candidate-grid {
@@ -743,9 +743,9 @@ onMounted(load)
   display: flex;
   gap: 12px;
   padding: 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--mh-border);
   border-radius: 10px;
-  background: #fff;
+  background: var(--mh-surface);
 }
 
 .candidate-poster {
@@ -754,8 +754,8 @@ onMounted(load)
   aspect-ratio: 2/3;
   border-radius: 6px;
   overflow: hidden;
-  background: #1e293b;
-  color: rgba(255, 255, 255, 0.4);
+  background: var(--mh-surface-secondary);
+  color: var(--mh-text-tertiary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -770,25 +770,25 @@ onMounted(load)
 
 .candidate-title {
   font-weight: 600;
-  color: #1e293b;
+  color: var(--mh-text);
   line-height: 1.3;
 }
 
 .candidate-year {
-  color: #94a3b8;
+  color: var(--mh-text-tertiary);
   font-weight: 400;
 }
 
 .candidate-meta {
   margin: 6px 0;
   font-size: 12px;
-  color: #64748b;
+  color: var(--mh-text-secondary);
 }
 
 .candidate-overview {
   margin: 0 0 10px;
   font-size: 12px;
-  color: #64748b;
+  color: var(--mh-text-secondary);
   line-height: 1.5;
 }
 

@@ -218,7 +218,7 @@ onMounted(reload)
   margin: 0;
   font-size: 22px;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--mh-text);
 }
 
 .layout-list-tip {
@@ -246,7 +246,7 @@ onMounted(reload)
   .preset-desc {
     display: block;
     font-size: 12px;
-    color: #64748b;
+    color: var(--mh-text-secondary);
     font-weight: 400;
     margin-top: 4px;
   }
