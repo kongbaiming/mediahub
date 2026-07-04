@@ -87,7 +87,7 @@
           <!-- 预览播放器区域 -->
           <div class="player-preview">
             <div class="player-frame">
-              <div v-if="selectedRoom.status === 'live'" class="player-live">
+              <div v-if="selectedRoom.status === 'live'" class="player-live" @click="playLive(selectedRoom)">
                 <div class="player-placeholder">
                   <div class="play-icon">▶</div>
                   <div class="play-hint">点击播放</div>
@@ -312,6 +312,12 @@ const liveCount = computed(() => rooms.value.filter(r => r.status === 'live').le
 
 function selectRoom(room: LiveRoom) {
   selectedRoom.value = room
+}
+
+function playLive(room: LiveRoom) {
+  const playerBase = import.meta.env.VITE_WEB_PLAYER_URL || ''
+  const playerUrl = playerBase ? `${playerBase}/live/${room.id}` : `/live/${room.id}`
+  window.open(playerUrl, '_blank')
 }
 
 function statusLabel(s: string) {
