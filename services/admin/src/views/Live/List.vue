@@ -1,220 +1,158 @@
 <template>
   <div class="live-page">
-    <div class="page-header">
-      <h2 class="page-h2">直播管理</h2>
+    <!-- 顶部操作栏 -->
+    <div class="live-header">
+      <div class="header-left">
+        <h2 class="page-title">直播管理</h2>
+        <div class="live-stats">
+          <span class="stat-item">
+            <span class="stat-dot live"></span>
+            {{ liveCount }} 直播中
+          </span>
+          <span class="stat-item">
+            <span class="stat-dot"></span>
+            {{ total }} 频道
+          </span>
+        </div>
+      </div>
       <div class="header-actions">
-        <el-button @click="openImportM3U">
+        <el-button @click="openImportM3U" size="small">
           <el-icon><Upload /></el-icon>
           导入 M3U
         </el-button>
-        <el-button @click="openCreate('iptv')">
+        <el-button @click="openCreate('iptv')" size="small">
           <el-icon><Link /></el-icon>
           添加 IPTV
         </el-button>
-        <el-button type="primary" @click="openCreate('push')">
+        <el-button type="primary" @click="openCreate('push')" size="small">
           <el-icon><Plus /></el-icon>
-          创建推流间
+          创建推流
         </el-button>
       </div>
     </div>
 
-    <el-alert
-      type="info"
-      :closable="false"
-      show-icon
-      class="tip-alert"
-      title="直播类型说明"
-    >
-      <template #default>
-        <p><strong>推流直播：</strong>创建后用 OBS 推流，Stream Key 填入串流密钥。</p>
-        <p><strong>IPTV 拉流：</strong>填写外部 m3u8 地址，无需推流，创建后可直接播放。</p>
-        <p><strong>M3U 列表：</strong>支持导入 GitHub、live.zhi35.com 等托管的 M3U 频道列表（首页地址会自动解析）。</p>
-      </template>
-    </el-alert>
+    <!-- 电视墙主体 -->
+    <div class="tv-wall">
+      <!-- 频道列表 -->
+      <aside class="channel-list">
+        <!-- 搜索过滤 -->
+        <div class="list-toolbar">
+          <el-input
+            v-model="filters.search"
+            placeholder="搜索频道..."
+            clearable
+            size="small"
+            @keyup.enter="loadRooms"
+            @clear="loadRooms"
+          />
+          <el-select v-model="filters.group_title" placeholder="分组" clearable size="small" @change="loadRooms">
+            <el-option v-for="g in groupOptions" :key="g.name" :label="`${g.name}`" :value="g.name" />
+          </el-select>
+        </div>
 
-    <el-card v-if="playlists.length > 0" shadow="never" class="m3u-sync-panel">
-      <template #header>
-        <span>M3U 自动同步</span>
-      </template>
-      <el-table :data="playlists" size="small" stripe>
-        <el-table-column label="列表来源" min-width="200" show-overflow-tooltip>
-          <template #default="{ row }">
-            <el-link :href="row.url" target="_blank" type="primary">{{ shortUrl(row.url) }}</el-link>
-          </template>
-        </el-table-column>
-        <el-table-column label="频道数" width="80" prop="count" />
-        <el-table-column label="自动同步" width="100">
-          <template #default="{ row }">
-            <el-switch
-              :model-value="row.sync_enabled"
-              @change="(v) => saveSyncConfig(row as LivePlaylistStat, { sync_enabled: !!v })"
-            />
-          </template>
-        </el-table-column>
-        <el-table-column label="同步频率" width="150">
-          <template #default="{ row }">
-            <el-select
-              :model-value="row.interval_minutes"
-              size="small"
-              :disabled="!row.sync_enabled"
-              @change="(v) => saveSyncConfig(row as LivePlaylistStat, { interval_minutes: Number(v) })"
-            >
-              <el-option v-for="o in syncIntervalOptions" :key="o.value" :label="o.label" :value="o.value" />
-            </el-select>
-          </template>
-        </el-table-column>
-        <el-table-column label="上次同步" min-width="180">
-          <template #default="{ row }">
-            <span v-if="row.last_sync_at">{{ formatTime(row.last_sync_at) }}</span>
-            <span v-else class="text-muted">尚未同步</span>
-            <el-tag
-              v-if="row.last_sync_status"
-              size="small"
-              :type="row.last_sync_status === 'ok' ? 'success' : 'danger'"
-              class="sync-status-tag"
-            >
-              {{ row.last_sync_status === 'ok' ? '成功' : '失败' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="100" fixed="right">
-          <template #default="{ row }">
-            <el-button
-              link
-              type="primary"
-              size="small"
-              :loading="syncingUrl === row.url"
-              @click="onSyncM3U(row.url)"
-            >
-              立即同步
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+        <!-- 频道卡片列表 -->
+        <div class="channels">
+          <div
+            v-for="room in rooms"
+            :key="room.id"
+            class="channel-card"
+            :class="{ active: selectedRoom?.id === room.id, live: room.status === 'live' }"
+            @click="selectRoom(room)"
+          >
+            <div class="channel-thumb">
+              <img v-if="room.cover_url" :src="room.cover_url" :alt="room.title" />
+              <span v-else class="thumb-placeholder">{{ room.title.slice(0, 2) }}</span>
+              <div v-if="room.status === 'live'" class="live-badge">LIVE</div>
+            </div>
+            <div class="channel-info">
+              <div class="channel-name">{{ room.title }}</div>
+              <div class="channel-meta">
+                <el-tag :type="room.room_type === 'iptv' ? 'success' : 'info'" size="small">
+                  {{ room.room_type === 'iptv' ? 'IPTV' : '推流' }}
+                </el-tag>
+                <span v-if="room.group_title" class="group-name">{{ room.group_title }}</span>
+              </div>
+            </div>
+          </div>
 
-    <div class="filter-bar">
-      <el-input
-        v-model="filters.search"
-        placeholder="搜索标题"
-        clearable
-        style="width: 200px"
-        @keyup.enter="loadRooms"
-        @clear="loadRooms"
-      />
-      <el-select v-model="filters.room_type" placeholder="类型" clearable style="width: 110px" @change="loadRooms">
-        <el-option label="推流" value="push" />
-        <el-option label="IPTV" value="iptv" />
-      </el-select>
-      <el-select v-model="filters.group_title" placeholder="分组" clearable style="width: 140px" @change="loadRooms">
-        <el-option v-for="g in groupOptions" :key="g.name" :label="`${g.name} (${g.count})`" :value="g.name" />
-      </el-select>
-      <el-select v-model="filters.status" placeholder="状态" clearable style="width: 110px" @change="loadRooms">
-        <el-option label="直播中" value="live" />
-        <el-option label="待开播" value="idle" />
-        <el-option label="已结束" value="ended" />
-      </el-select>
-      <el-button @click="loadRooms">查询</el-button>
-      <el-button
-        v-if="selectedIds.length > 0"
-        type="danger"
-        :loading="batchDeleting"
-        @click="onBatchDelete"
-      >
-        批量删除 ({{ selectedIds.length }})
-      </el-button>
-    </div>
+          <div v-if="rooms.length === 0 && !loading" class="empty-channels">
+            <span>暂无频道</span>
+          </div>
+        </div>
+      </aside>
 
-    <el-table
-      v-loading="loading"
-      :data="rooms"
-      stripe
-      @selection-change="onSelectionChange"
-    >
-      <el-table-column type="selection" width="48" />
-      <el-table-column label="标题" min-width="200">
-        <template #default="{ row }">
-          <div class="title-cell">
-            <el-tag v-if="row.status === 'live'" type="danger" size="small" effect="dark" class="live-dot">
-              LIVE
-            </el-tag>
-            <span>{{ row.title }}</span>
+      <!-- 预览区 -->
+      <main class="preview-area">
+        <template v-if="selectedRoom">
+          <!-- 预览播放器区域 -->
+          <div class="player-preview">
+            <div class="player-frame">
+              <div v-if="selectedRoom.status === 'live'" class="player-live">
+                <div class="player-placeholder">
+                  <div class="play-icon">▶</div>
+                  <div class="play-hint">点击播放</div>
+                </div>
+              </div>
+              <div v-else class="player-idle">
+                <div class="idle-icon">📺</div>
+                <div class="idle-text">{{ selectedRoom.status === 'ended' ? '直播已结束' : '等待开播' }}</div>
+              </div>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="preview-actions">
+              <el-button v-if="selectedRoom.status === 'live'" type="danger" size="small" @click="onStop(selectedRoom)">
+                结束直播
+              </el-button>
+              <el-button size="small" @click="showStreamInfo(selectedRoom)">
+                {{ selectedRoom.room_type === 'iptv' ? '源信息' : '推流信息' }}
+              </el-button>
+              <el-button type="danger" size="small" @click="onDelete(selectedRoom)">删除</el-button>
+            </div>
+          </div>
+
+          <!-- 频道信息 -->
+          <div class="preview-info">
+            <h3 class="preview-title">{{ selectedRoom.title }}</h3>
+            <div class="preview-tags">
+              <el-tag :type="selectedRoom.room_type === 'iptv' ? 'success' : 'info'" size="small">
+                {{ selectedRoom.room_type === 'iptv' ? 'IPTV 拉流' : '推流直播' }}
+              </el-tag>
+              <el-tag v-if="selectedRoom.group_title" size="small">{{ selectedRoom.group_title }}</el-tag>
+              <el-tag :type="statusType(selectedRoom.status)" size="small">{{ statusLabel(selectedRoom.status) }}</el-tag>
+            </div>
+            <div v-if="selectedRoom.description" class="preview-desc">{{ selectedRoom.description }}</div>
+            <div class="preview-time">
+              <span v-if="selectedRoom.started_at">开始于 {{ formatTime(selectedRoom.started_at) }}</span>
+              <span v-else>创建于 {{ formatTime(selectedRoom.created_at) }}</span>
+            </div>
           </div>
         </template>
-      </el-table-column>
-      <el-table-column label="类型" width="100">
-        <template #default="{ row }">
-          <el-tag :type="row.room_type === 'iptv' ? 'success' : 'info'" size="small">
-            {{ row.room_type === 'iptv' ? 'IPTV' : '推流' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="分组" width="120" show-overflow-tooltip>
-        <template #default="{ row }">
-          {{ row.group_title || '-' }}
-        </template>
-      </el-table-column>
-      <el-table-column label="状态" width="100">
-        <template #default="{ row }">
-          <el-tag :type="statusType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="开始时间" width="170">
-        <template #default="{ row }">
-          {{ row.started_at ? formatTime(row.started_at) : '-' }}
-        </template>
-      </el-table-column>
-      <el-table-column label="创建时间" width="170">
-        <template #default="{ row }">
-          {{ formatTime(row.created_at) }}
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="300" fixed="right">
-        <template #default="{ row }">
-          <el-button size="small" @click="showStreamInfo(row as LiveRoom)">
-            {{ row.room_type === 'iptv' ? '源信息' : '推流信息' }}
-          </el-button>
-          <el-button
-            v-if="row.status === 'live'"
-            size="small"
-            type="warning"
-            @click="onStop(row as LiveRoom)"
-          >
-            结束
-          </el-button>
-          <el-button size="small" type="danger" @click="onDelete(row as LiveRoom)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
 
-    <div v-if="total > pageSize" class="pagination">
-      <el-pagination
-        v-model:current-page="page"
-        :page-size="pageSize"
-        :total="total"
-        layout="total, prev, pager, next"
-        @current-change="loadRooms"
-      />
+        <template v-else>
+          <div class="preview-empty">
+            <div class="empty-icon">📺</div>
+            <div class="empty-text">选择频道查看预览</div>
+          </div>
+        </template>
+      </main>
     </div>
 
     <!-- 创建对话框 -->
-    <el-dialog v-model="createDialog" :title="createTitle" width="520">
+    <el-dialog v-model="createDialog" :title="createTitle" width="480">
       <el-form :model="createForm" label-position="top">
         <el-form-item label="标题" required>
           <el-input v-model="createForm.title" placeholder="例如：CCTV-1 / 周末电影之夜" maxlength="200" />
         </el-form-item>
         <el-form-item v-if="createForm.room_type === 'iptv'" label="IPTV 流地址 (m3u8)" required>
-          <el-input
-            v-model="createForm.source_url"
-            placeholder="https://example.com/live/channel.m3u8"
-          />
+          <el-input v-model="createForm.source_url" placeholder="https://example.com/live/channel.m3u8" />
           <div class="field-hint">单路 HLS 流地址；若是 M3U 频道列表请使用「导入 M3U」</div>
         </el-form-item>
         <el-form-item label="简介">
-          <el-input v-model="createForm.description" type="textarea" :rows="3" placeholder="可选" />
+          <el-input v-model="createForm.description" type="textarea" :rows="2" placeholder="可选" />
         </el-form-item>
         <el-form-item label="封面 URL">
-          <el-input v-model="createForm.cover_url" placeholder="可选，http(s)://..." />
+          <el-input v-model="createForm.cover_url" placeholder="可选" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -224,122 +162,74 @@
     </el-dialog>
 
     <!-- M3U 导入对话框 -->
-    <el-dialog v-model="importDialog" title="导入 M3U 频道列表" width="560">
+    <el-dialog v-model="importDialog" title="导入 M3U 频道列表" width="520">
       <el-form label-position="top">
         <el-form-item label="M3U 列表地址">
-          <el-input
-            v-model="importForm.playlist_url"
-            placeholder="https://live.zhi35.com/ 或 https://example.com/playlist.m3u8"
-          />
-          <div class="field-hint">
-            支持聚合站首页（如 live.zhi35.com 会自动解析为 /iptv.m3u），也可填写 URL 或直接粘贴下方内容
-          </div>
+          <el-input v-model="importForm.playlist_url" placeholder="https://live.zhi35.com/" />
+          <div class="field-hint">支持聚合站首页或直接填写 M3U 地址</div>
         </el-form-item>
         <el-form-item label="或粘贴 M3U 内容">
-          <el-input
-            v-model="importForm.playlist_content"
-            type="textarea"
-            :rows="6"
-            placeholder="#EXTM3U&#10;#EXTINF:-1,频道名&#10;http://..."
-          />
-          <div class="field-hint">NAS 无法访问 GitHub 时，可在电脑浏览器打开链接复制内容粘贴到这里</div>
+          <el-input v-model="importForm.playlist_content" type="textarea" :rows="5" placeholder="#EXTM3U..." />
         </el-form-item>
         <el-form-item>
           <el-button :loading="previewing" @click="onPreviewM3U">解析预览</el-button>
         </el-form-item>
         <el-form-item v-if="preview" label="频道分组">
-          <el-select
-            v-model="importForm.groups"
-            multiple
-            collapse-tags
-            collapse-tags-tooltip
-            placeholder="不选则导入全部分组"
-            style="width: 100%"
-          >
-            <el-option
-              v-for="g in preview.groups"
-              :key="g.name"
-              :label="`${g.name} (${g.count})`"
-              :value="g.name"
-            />
+          <el-select v-model="importForm.groups" multiple collapse-tags placeholder="不选则导入全部分组" style="width: 100%">
+            <el-option v-for="g in preview.groups" :key="g.name" :label="`${g.name} (${g.count})`" :value="g.name" />
           </el-select>
-          <div v-if="preview" class="field-hint">共 {{ preview.total }} 个频道</div>
+          <div class="field-hint">共 {{ preview.total }} 个频道</div>
         </el-form-item>
         <el-form-item>
-          <el-checkbox v-model="importForm.replace">
-            替换同源频道（删除此前从该 M3U 地址导入的频道后重新导入）
-          </el-checkbox>
-        </el-form-item>
-        <el-form-item label="自动同步">
           <el-checkbox v-model="importForm.auto_sync">导入后启用定时同步</el-checkbox>
-        </el-form-item>
-        <el-form-item v-if="importForm.auto_sync" label="同步频率">
-          <el-select v-model="importForm.auto_sync_interval_minutes" style="width: 100%">
-            <el-option v-for="o in syncIntervalOptions" :key="o.value" :label="o.label" :value="o.value" />
-          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="importDialog = false">取消</el-button>
-        <el-button type="primary" :loading="importing" :disabled="!preview" @click="onImportM3U">
-          开始导入
-        </el-button>
+        <el-button type="primary" :loading="importing" :disabled="!preview" @click="onImportM3U">开始导入</el-button>
       </template>
     </el-dialog>
 
     <!-- 推流/源信息对话框 -->
-    <el-dialog v-model="streamDialog" :title="infoDialogTitle" width="560">
+    <el-dialog v-model="streamDialog" :title="infoDialogTitle" width="480">
       <template v-if="selectedRoom">
-        <el-descriptions :column="1" border>
-          <el-descriptions-item label="直播间 ID">{{ selectedRoom.id }}</el-descriptions-item>
-          <el-descriptions-item label="类型">
-            {{ selectedRoom.room_type === 'iptv' ? 'IPTV 拉流' : '推流直播' }}
-          </el-descriptions-item>
-
+        <div class="stream-info">
           <template v-if="selectedRoom.room_type === 'iptv'">
-            <el-descriptions-item label="IPTV 源地址">
-              <div class="copy-field">
-                <el-input :model-value="selectedRoom.source_url || ''" readonly />
-                <el-button @click="copy(selectedRoom.source_url || '', 'IPTV 源地址')">复制</el-button>
+            <div class="info-row">
+              <label>源地址</label>
+              <div class="copy-row">
+                <el-input :model-value="selectedRoom.source_url || ''" readonly size="small" />
+                <el-button size="small" @click="copy(selectedRoom.source_url || '', '源地址')">复制</el-button>
               </div>
-            </el-descriptions-item>
-            <el-descriptions-item label="播放地址">
-              <div class="copy-field">
-                <el-input :model-value="playUrl" readonly />
-                <el-button @click="copy(playUrl, '播放地址')">复制</el-button>
+            </div>
+            <div class="info-row">
+              <label>播放地址</label>
+              <div class="copy-row">
+                <el-input :model-value="playUrl" readonly size="small" />
+                <el-button size="small" @click="copy(playUrl, '播放地址')">复制</el-button>
               </div>
-            </el-descriptions-item>
+            </div>
           </template>
-
           <template v-else>
-            <el-descriptions-item label="RTMP 服务器">
-              <div class="copy-field">
-                <el-input :model-value="rtmpServer" readonly />
-                <el-button @click="copy(rtmpServer, 'RTMP 服务器')">复制</el-button>
+            <div class="info-row">
+              <label>RTMP 服务器</label>
+              <div class="copy-row">
+                <el-input :model-value="rtmpServer" readonly size="small" />
+                <el-button size="small" @click="copy(rtmpServer, '服务器')">复制</el-button>
               </div>
-            </el-descriptions-item>
-            <el-descriptions-item label="Stream Key">
-              <div class="copy-field">
-                <el-input :model-value="selectedRoom.stream_key" readonly />
-                <el-button @click="copy(selectedRoom.stream_key, 'Stream Key')">复制</el-button>
+            </div>
+            <div class="info-row">
+              <label>Stream Key</label>
+              <div class="copy-row">
+                <el-input :model-value="selectedRoom.stream_key" readonly size="small" />
+                <el-button size="small" @click="copy(selectedRoom.stream_key, 'Key')">复制</el-button>
               </div>
-            </el-descriptions-item>
-            <el-descriptions-item label="完整 RTMP 地址">
-              <div class="copy-field">
-                <el-input :model-value="selectedRoom.rtmp_url || ''" readonly />
-                <el-button @click="copy(selectedRoom.rtmp_url || '', 'RTMP 地址')">复制</el-button>
-              </div>
-            </el-descriptions-item>
+            </div>
           </template>
-        </el-descriptions>
-
-        <div v-if="selectedRoom.room_type !== 'iptv'" class="obs-tip">
-          <p><strong>OBS 设置：</strong></p>
-          <ul>
-            <li>设置 → 推流 → 服务选「自定义」</li>
-            <li>服务器：<code>{{ rtmpServer }}</code></li>
-            <li>串流密钥：<code>{{ selectedRoom.stream_key }}</code></li>
-          </ul>
+        </div>
+        <div v-if="selectedRoom.room_type !== 'iptv'" class="obs-hint">
+          <p><strong>OBS 推流设置</strong></p>
+          <p>服务：自定义 | 服务器：<code>{{ rtmpServer }}</code> | 串流密钥：<code>{{ selectedRoom.stream_key }}</code></p>
         </div>
       </template>
     </el-dialog>
@@ -417,6 +307,12 @@ const rtmpServer = computed(() => {
   const idx = url.lastIndexOf('/')
   return idx > 0 ? url.slice(0, idx) : url
 })
+
+const liveCount = computed(() => rooms.value.filter(r => r.status === 'live').length)
+
+function selectRoom(room: LiveRoom) {
+  selectedRoom.value = room
+}
 
 function statusLabel(s: string) {
   return { idle: '待开播', live: '直播中', ended: '已结束' }[s] || s
@@ -689,11 +585,62 @@ onBeforeUnmount(() => {
 </script>
 
 <style lang="scss" scoped>
-.page-header {
+.live-page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--mh-space-4);
+}
+
+// 顶部栏
+.live-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: var(--mh-space-4);
+  flex-shrink: 0;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--mh-space-6);
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--mh-text);
+  margin: 0;
+}
+
+.live-stats {
+  display: flex;
+  gap: var(--mh-space-4);
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--mh-text-secondary);
+}
+
+.stat-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--mh-text-tertiary);
+
+  &.live {
+    background: var(--mh-danger);
+    animation: blink 1.5s infinite;
+  }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 .header-actions {
@@ -701,90 +648,325 @@ onBeforeUnmount(() => {
   gap: var(--mh-space-2);
 }
 
-.tip-alert {
-  margin-bottom: var(--mh-space-4);
-
-  p {
-    margin: 0 0 4px;
-    font-size: 13px;
-  }
+// 电视墙布局
+.tv-wall {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: var(--mh-space-4);
+  min-height: 0;
 }
 
-.m3u-sync-panel {
-  margin-bottom: var(--mh-space-4);
-  border-radius: var(--mh-radius-sm);
-}
-
-.sync-status-tag {
-  margin-left: 8px;
-}
-
-.text-muted {
-  color: var(--mh-text-muted, #888);
-}
-
-.filter-bar {
+// 频道列表
+.channel-list {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--mh-space-2);
-  margin-bottom: var(--mh-space-4);
+  flex-direction: column;
+  background: var(--mh-surface);
+  border: 1px solid var(--mh-border);
+  border-radius: var(--mh-radius-lg);
+  overflow: hidden;
 }
 
-.pagination {
-  margin-top: var(--mh-space-4);
-  display: flex;
-  justify-content: flex-end;
-}
-
-.title-cell {
-  display: flex;
-  align-items: center;
-  gap: var(--mh-space-2);
-}
-
-.live-dot {
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
-
-code {
-  font-family: var(--mh-font-mono, monospace);
-  font-size: 13px;
-  background: var(--mh-admin-surface-muted);
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-
-.field-hint {
-  margin-top: 4px;
-  font-size: 12px;
-  color: var(--mh-text-muted, #888);
-}
-
-.copy-field {
+.list-toolbar {
   display: flex;
   gap: var(--mh-space-2);
-  width: 100%;
+  padding: var(--mh-space-3);
+  border-bottom: 1px solid var(--mh-border);
+  flex-shrink: 0;
 
   .el-input {
     flex: 1;
   }
 }
 
-.obs-tip {
+.channels {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--mh-space-2);
+}
+
+.channel-card {
+  display: flex;
+  gap: var(--mh-space-3);
+  padding: var(--mh-space-3);
+  border-radius: var(--mh-radius-md);
+  cursor: pointer;
+  transition: background var(--mh-duration-fast) var(--mh-ease);
+  margin-bottom: var(--mh-space-1);
+
+  &:hover {
+    background: var(--mh-surface-secondary);
+  }
+
+  &.active {
+    background: var(--mh-primary-muted);
+  }
+
+  &.live .channel-thumb {
+    border-color: var(--mh-danger);
+  }
+}
+
+.channel-thumb {
+  width: 64px;
+  height: 48px;
+  border-radius: var(--mh-radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--mh-surface-secondary);
+  border: 2px solid transparent;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.thumb-placeholder {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mh-text-tertiary);
+}
+
+.live-badge {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  background: var(--mh-danger);
+  color: #fff;
+  font-size: 8px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.channel-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
+
+.channel-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--mh-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.channel-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.group-name {
+  font-size: 11px;
+  color: var(--mh-text-tertiary);
+}
+
+.empty-channels {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--mh-space-8);
+  color: var(--mh-text-tertiary);
+  font-size: 13px;
+}
+
+// 预览区
+.preview-area {
+  display: flex;
+  flex-direction: column;
+  background: var(--mh-surface);
+  border: 1px solid var(--mh-border);
+  border-radius: var(--mh-radius-lg);
+  overflow: hidden;
+}
+
+.player-preview {
+  background: #000;
+  aspect-ratio: 16/9;
+  display: flex;
+  flex-direction: column;
+}
+
+.player-frame {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.player-live {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.player-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--mh-space-2);
+}
+
+.play-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: #fff;
+}
+
+.play-hint {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.player-idle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--mh-space-2);
+}
+
+.idle-icon {
+  font-size: 48px;
+  opacity: 0.3;
+}
+
+.idle-text {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.preview-actions {
+  display: flex;
+  gap: var(--mh-space-2);
+  padding: var(--mh-space-3);
+  background: var(--mh-bg-elevated);
+  border-top: 1px solid var(--mh-border);
+}
+
+.preview-info {
+  padding: var(--mh-space-4);
+  border-top: 1px solid var(--mh-border);
+}
+
+.preview-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--mh-text);
+  margin: 0 0 var(--mh-space-2);
+}
+
+.preview-tags {
+  display: flex;
+  gap: var(--mh-space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--mh-space-3);
+}
+
+.preview-desc {
+  font-size: 13px;
+  color: var(--mh-text-secondary);
+  margin-bottom: var(--mh-space-2);
+}
+
+.preview-time {
+  font-size: 12px;
+  color: var(--mh-text-tertiary);
+}
+
+.preview-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mh-space-3);
+}
+
+.empty-icon {
+  font-size: 64px;
+  opacity: 0.2;
+}
+
+.empty-text {
+  font-size: 14px;
+  color: var(--mh-text-tertiary);
+}
+
+// 信息弹窗
+.stream-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mh-space-3);
+}
+
+.info-row {
+  label {
+    display: block;
+    font-size: 12px;
+    color: var(--mh-text-secondary);
+    margin-bottom: 4px;
+  }
+}
+
+.copy-row {
+  display: flex;
+  gap: var(--mh-space-2);
+
+  .el-input {
+    flex: 1;
+  }
+}
+
+.obs-hint {
   margin-top: var(--mh-space-4);
   padding: var(--mh-space-3);
-  background: var(--mh-admin-surface-muted);
-  border-radius: var(--mh-radius-sm);
+  background: var(--mh-surface-secondary);
+  border-radius: var(--mh-radius-md);
   font-size: 13px;
 
-  ul {
-    margin: var(--mh-space-2) 0 0;
-    padding-left: 1.2em;
+  p {
+    margin: 0 0 var(--mh-space-1);
+    color: var(--mh-text-secondary);
   }
+
+  strong {
+    color: var(--mh-text);
+  }
+
+  code {
+    font-family: monospace;
+    font-size: 12px;
+    background: var(--mh-surface);
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+}
+
+.field-hint {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--mh-text-tertiary);
 }
 </style>
