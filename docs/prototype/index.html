@@ -1,0 +1,1890 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1280" />
+<title>MediaHub · 产品原型图</title>
+<style>
+  :root{
+    --bg:#0b0d12;
+    --bg2:#11141c;
+    --bg3:#181c26;
+    --line:#222734;
+    --line2:#2c3242;
+    --text:#e8ebf2;
+    --text2:#a5acbd;
+    --text3:#6c7384;
+    --brand:#7c5cff;
+    --brand2:#4ad7ff;
+    --brand3:#ff5d8f;
+    --green:#46d39a;
+    --amber:#ffb547;
+    --red:#ff5c5c;
+    --cyan:#4ad7ff;
+    --violet:#9b6cff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  .topbar{position:sticky;top:0;z-index:100;background:rgba(11,13,18,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+  .topbar-inner{max-width:1400px;margin:0 auto;padding:14px 28px;display:flex;align-items:center;justify-content:space-between}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;letter-spacing:.5px}
+  .logo-dot{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--brand),var(--brand2));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px}
+  .logo small{color:var(--text3);font-weight:400;margin-left:6px;font-size:12px;letter-spacing:.5px}
+  .nav{display:flex;gap:4px}
+  .nav a{padding:8px 14px;border-radius:8px;color:var(--text2);font-size:13px;font-weight:500;transition:all .15s}
+  .nav a:hover{background:var(--bg3);color:var(--text)}
+  .nav a.active{background:linear-gradient(135deg,rgba(124,92,255,.2),rgba(74,215,255,.15));color:#fff;border:1px solid rgba(124,92,255,.35)}
+  .ver{font-size:12px;color:var(--text3);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+
+  .hero{max-width:1400px;margin:0 auto;padding:60px 28px 40px}
+  .hero h1{font-size:48px;font-weight:800;margin:0 0 14px;background:linear-gradient(135deg,#fff 0%,var(--brand2) 60%,var(--brand) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-1px}
+  .hero p{font-size:17px;color:var(--text2);max-width:780px;line-height:1.65;margin:0}
+  .meta{display:flex;gap:10px;margin-top:24px;flex-wrap:wrap}
+  .chip{padding:5px 12px;border-radius:999px;background:var(--bg3);border:1px solid var(--line2);font-size:12px;color:var(--text2)}
+  .chip b{color:var(--text);font-weight:600}
+
+  .section{max-width:1400px;margin:0 auto;padding:30px 28px 80px}
+  .section-head{display:flex;align-items:baseline;gap:14px;margin:30px 0 22px;border-top:1px solid var(--line);padding-top:30px}
+  .section-head h2{font-size:24px;margin:0;font-weight:700}
+  .section-head .sub{color:var(--text3);font-size:13px}
+  .section-head .num{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--brand);font-size:13px;letter-spacing:1px}
+
+  .frame{margin:24px 0;background:var(--bg2);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .frame-head{padding:12px 18px;background:var(--bg3);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+  .dots{display:flex;gap:6px}
+  .dot{width:10px;height:10px;border-radius:50%}
+  .dot.r{background:#ff5f57}.dot.y{background:#febc2e}.dot.g{background:#28c840}
+  .frame-title{font-size:13px;color:var(--text2);margin-left:10px;font-weight:600}
+  .frame-tag{font-size:11px;padding:2px 8px;border-radius:4px;background:rgba(124,92,255,.15);color:var(--brand);font-weight:600;letter-spacing:.5px}
+  .frame-canvas{padding:0}
+
+  .grid{display:grid;gap:18px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+
+  /* ============================ ADMIN ============================ */
+  .admin{background:#0f1219;min-height:680px;display:grid;grid-template-columns:220px 1fr;font-size:13px}
+  .side{background:#0a0c12;border-right:1px solid var(--line);padding:14px 0}
+  .side-brand{padding:0 18px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line);margin-bottom:8px}
+  .side-brand .logo-dot{width:26px;height:26px;font-size:12px}
+  .side-brand span{font-weight:700;font-size:14px}
+  .side-group{padding:10px 18px 4px;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:600}
+  .side a{display:flex;align-items:center;gap:10px;padding:9px 18px;color:var(--text2);font-size:13px;border-left:3px solid transparent}
+  .side a:hover{background:var(--bg2);color:var(--text)}
+  .side a.active{background:linear-gradient(90deg,rgba(124,92,255,.15),transparent);color:#fff;border-left-color:var(--brand)}
+  .side a .ic{width:16px;text-align:center;opacity:.7}
+  .topbar2{padding:10px 24px;background:var(--bg2);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+  .crumbs{color:var(--text3);font-size:12px}
+  .crumbs b{color:var(--text);font-weight:600}
+  .top-actions{display:flex;align-items:center;gap:8px}
+  .btn{padding:6px 12px;border-radius:6px;border:1px solid var(--line2);background:var(--bg3);color:var(--text);font-size:12px;cursor:pointer}
+  .btn.pri{background:linear-gradient(135deg,var(--brand),#5e3df0);border-color:transparent;color:#fff;font-weight:600}
+  .btn.ghost{background:transparent}
+  .avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#ffb86c,#ff5d8f);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px}
+  .admin-body{padding:22px 24px}
+
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+  .stat{background:var(--bg3);border:1px solid var(--line);border-radius:10px;padding:14px;position:relative}
+  .stat .lbl{color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+  .stat .val{font-size:24px;font-weight:700;margin:6px 0 4px;color:#fff}
+  .stat .delta{font-size:11px;color:var(--green);display:flex;align-items:center;gap:4px}
+  .stat .delta.dn{color:var(--red)}
+  .stat .ic-bg{position:absolute;top:10px;right:12px;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;opacity:.6}
+
+  .panel{background:var(--bg3);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .panel-h{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .panel-h h3{margin:0;font-size:13px;font-weight:600;color:#fff}
+  .panel-h .tabs{display:flex;gap:4px}
+  .panel-h .tabs a{padding:4px 10px;font-size:12px;color:var(--text2);border-radius:5px}
+  .panel-h .tabs a.on{background:rgba(124,92,255,.15);color:#fff}
+  .panel-b{padding:14px 16px}
+
+  .row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px dashed var(--line);font-size:12px}
+  .row:last-child{border-bottom:0}
+  .row .meta-c{color:var(--text3);font-size:11px}
+  .pill{padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;letter-spacing:.3px}
+  .pill.ok{background:rgba(70,211,154,.15);color:var(--green)}
+  .pill.warn{background:rgba(255,181,71,.15);color:var(--amber)}
+  .pill.err{background:rgba(255,92,92,.15);color:var(--red)}
+  .pill.run{background:rgba(74,215,255,.15);color:var(--cyan)}
+  .pill.mut{background:rgba(108,115,132,.15);color:var(--text3)}
+
+  table.tbl{width:100%;border-collapse:collapse;font-size:12px}
+  table.tbl th{text-align:left;padding:10px 12px;background:var(--bg2);color:var(--text3);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--line)}
+  table.tbl td{padding:11px 12px;border-bottom:1px solid var(--line);color:var(--text)}
+  table.tbl tr:hover td{background:rgba(124,92,255,.04)}
+  table.tbl .ck{width:30px}
+  table.tbl .ck input{accent-color:var(--brand)}
+
+  .spark{height:36px;width:100%;display:block}
+
+  /* library grid */
+  .lib-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+  .poster{position:relative;border-radius:8px;overflow:hidden;background:var(--bg2);aspect-ratio:2/3}
+  .poster .grad{position:absolute;inset:0;background:linear-gradient(135deg,#3a2a7a,#1a2a5c);display:flex;align-items:flex-end;padding:8px;color:#fff;font-size:11px;font-weight:600;line-height:1.2}
+  .poster .tag{position:absolute;top:6px;left:6px;background:rgba(0,0,0,.6);padding:2px 6px;border-radius:4px;font-size:9px;color:#fff;letter-spacing:.5px}
+  .poster .rating{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.6);padding:2px 6px;border-radius:4px;font-size:10px;color:var(--amber);font-weight:700}
+
+  .login{background:radial-gradient(ellipse at top,rgba(124,92,255,.15),transparent 60%),#0a0c12;height:640px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+  .login::before{content:'';position:absolute;inset:0;background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60'><circle cx='30' cy='30' r='1' fill='%237c5cff' opacity='0.3'/></svg>");opacity:.4}
+  .login-card{background:rgba(15,18,25,.85);border:1px solid var(--line);border-radius:14px;padding:40px 36px;width:380px;backdrop-filter:blur(20px);box-shadow:0 20px 60px rgba(0,0,0,.5);position:relative;z-index:1}
+  .login-card .logo-dot{width:48px;height:48px;font-size:20px;margin:0 auto 16px;border-radius:12px}
+  .login-card h2{text-align:center;margin:0 0 6px;font-size:22px}
+  .login-card .sub{text-align:center;color:var(--text3);font-size:12px;margin-bottom:24px}
+  .fg{margin-bottom:14px}
+  .fg label{display:block;font-size:11px;color:var(--text3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+  .fg input{width:100%;padding:10px 12px;background:var(--bg);border:1px solid var(--line2);border-radius:7px;color:#fff;font-size:13px;outline:none}
+  .fg input:focus{border-color:var(--brand)}
+  .login-card .btn.pri{width:100%;padding:11px;margin-top:6px;font-size:13px}
+
+  /* layout editor */
+  .le{background:#0f1219;min-height:680px;display:grid;grid-template-columns:240px 280px 1fr;font-size:12px}
+  .le .lsec{border-right:1px solid var(--line);padding:14px;overflow:hidden}
+  .le .lsec .sec-h{font-size:11px;color:var(--text3);text-transform:uppercase;font-weight:600;letter-spacing:.5px;margin:0 0 10px;display:flex;justify-content:space-between;align-items:center}
+  .row-item{display:flex;align-items:center;gap:8px;padding:8px;background:var(--bg3);border:1px solid var(--line);border-radius:6px;margin-bottom:6px;cursor:grab}
+  .row-item .grip{color:var(--text3);font-size:10px}
+  .row-item .ttl{flex:1;font-size:12px;color:var(--text)}
+  .row-item .meta-c{font-size:10px;color:var(--text3)}
+  .row-item.on{border-color:var(--brand);background:rgba(124,92,255,.1)}
+  .palette{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+  .pcard{aspect-ratio:16/10;border-radius:6px;background:var(--bg3);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:10px;flex-direction:column;gap:4px}
+  .canvas-area{background:repeating-linear-gradient(45deg,transparent,transparent 10px,rgba(255,255,255,.01) 10px,rgba(255,255,255,.01) 20px),var(--bg2);padding:18px;overflow:auto}
+  .dropzone{border:2px dashed var(--line2);border-radius:10px;padding:30px;text-align:center;color:var(--text3);font-size:12px}
+
+  /* scrape center */
+  .scrape-tabs{display:flex;background:var(--bg2);padding:4px;border-radius:8px;gap:2px;margin-bottom:14px}
+  .scrape-tabs a{padding:6px 12px;border-radius:5px;font-size:12px;color:var(--text2);font-weight:500;display:flex;align-items:center;gap:6px}
+  .scrape-tabs a.on{background:var(--bg3);color:#fff;box-shadow:0 1px 2px rgba(0,0,0,.4)}
+  .scrape-tabs a .cnt{font-size:10px;padding:1px 6px;background:rgba(124,92,255,.2);color:var(--brand);border-radius:99px;font-weight:700}
+  .scrape-tabs a.err .cnt{background:rgba(255,92,92,.2);color:var(--red)}
+
+  /* ============================ WEB PLAYER ============================ */
+  .wp-shell{background:#08090c;color:#fff;font-size:13px;min-height:680px}
+  .wp-nav{display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:rgba(8,9,12,.9);backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,.05);position:sticky;top:0;z-index:10}
+  .wp-nav .l{display:flex;align-items:center;gap:28px}
+  .wp-nav .logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px}
+  .wp-nav .logo .logo-dot{width:26px;height:26px;font-size:12px}
+  .wp-nav .links a{padding:6px 12px;font-size:13px;color:#a5acbd;font-weight:500;border-radius:6px}
+  .wp-nav .links a.on{color:#fff;background:rgba(255,255,255,.06)}
+  .wp-nav .r{display:flex;align-items:center;gap:10px}
+  .search-box{display:flex;align-items:center;gap:8px;padding:7px 14px;background:rgba(255,255,255,.06);border-radius:99px;color:var(--text3);font-size:12px;width:240px}
+  .profile-pill{display:flex;align-items:center;gap:6px;padding:4px 10px 4px 4px;background:rgba(255,255,255,.06);border-radius:99px;font-size:12px}
+  .profile-pill .av{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#9b6cff,#4ad7ff);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700}
+
+  .hero2{position:relative;height:380px;overflow:hidden;display:flex;align-items:flex-end}
+  .hero2 .bg{position:absolute;inset:0;background:linear-gradient(135deg,#1a1f3a 0%,#3a1f5c 50%,#0a0c12 100%)}
+  .hero2 .bg::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,#08090c 5%,transparent 60%),linear-gradient(to right,#08090c 0%,transparent 40%)}
+  .hero2 .content{position:relative;padding:0 50px 36px;max-width:680px;z-index:1}
+  .hero2 .badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(124,92,255,.2);border:1px solid rgba(124,92,255,.4);border-radius:99px;font-size:11px;color:var(--brand);margin-bottom:14px;font-weight:600}
+  .hero2 h1{font-size:42px;font-weight:800;margin:0 0 10px;letter-spacing:-1px;line-height:1.1;text-shadow:0 4px 20px rgba(0,0,0,.5)}
+  .hero2 .facts{display:flex;gap:14px;color:var(--text3);font-size:12px;margin-bottom:14px;align-items:center}
+  .hero2 .facts .dot{width:3px;height:3px;background:var(--text3);border-radius:50%}
+  .hero2 .desc{color:var(--text2);font-size:14px;line-height:1.6;margin-bottom:18px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .hero2 .acts{display:flex;gap:10px}
+  .hero2 .acts .b1{padding:11px 26px;background:#fff;color:#000;border-radius:6px;font-weight:700;display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}
+  .hero2 .acts .b2{padding:11px 22px;background:rgba(255,255,255,.15);color:#fff;border-radius:6px;font-weight:600;display:flex;align-items:center;gap:8px;font-size:14px;backdrop-filter:blur(10px);cursor:pointer}
+
+  .row-shelf{margin:28px 0 0}
+  .row-shelf .head{display:flex;align-items:baseline;justify-content:space-between;padding:0 32px;margin-bottom:12px}
+  .row-shelf .head h3{margin:0;font-size:17px;font-weight:700}
+  .row-shelf .head a{color:var(--brand);font-size:12px;font-weight:600}
+  .cards{display:flex;gap:12px;padding:0 32px;overflow:hidden}
+  .card{flex:0 0 160px;cursor:pointer;transition:transform .2s}
+  .card:hover{transform:translateY(-4px)}
+  .card .p{aspect-ratio:2/3;border-radius:8px;overflow:hidden;background:linear-gradient(135deg,#3a2a7a,#1a2a5c);position:relative}
+  .card .p .lbl{position:absolute;inset:auto 0 0 0;padding:8px;background:linear-gradient(to top,rgba(0,0,0,.9),transparent);font-size:11px;color:#fff;font-weight:600}
+  .card .p .badge{position:absolute;top:6px;left:6px;background:rgba(0,0,0,.7);padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;letter-spacing:.5px}
+  .card .p .rating{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.7);padding:2px 6px;border-radius:4px;font-size:10px;color:var(--amber);font-weight:700}
+  .card .t{font-size:12px;color:#fff;margin-top:8px;font-weight:500;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .card .s{font-size:10px;color:var(--text3);margin-top:2px}
+
+  .wp-detail{background:#08090c;min-height:680px;color:#fff}
+  .dp-top{display:grid;grid-template-columns:300px 1fr;gap:30px;padding:40px 50px 30px}
+  .dp-top .pcover{aspect-ratio:2/3;border-radius:12px;background:linear-gradient(135deg,#3a2a7a,#1a2a5c);box-shadow:0 30px 60px rgba(0,0,0,.6);position:relative;overflow:hidden}
+  .dp-top h1{font-size:38px;font-weight:800;margin:0 0 8px;letter-spacing:-.5px}
+  .dp-top .sub{color:var(--text3);font-size:13px;margin-bottom:14px}
+  .dp-top .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .dp-top .chips span{padding:3px 9px;background:rgba(255,255,255,.06);border-radius:5px;font-size:11px;color:var(--text2)}
+  .dp-top .desc{color:var(--text2);font-size:14px;line-height:1.7;margin-bottom:20px}
+  .dp-top .row-acts{display:flex;gap:10px;margin-bottom:24px}
+  .dp-top .row-acts .b1{padding:11px 26px;background:#fff;color:#000;border-radius:6px;font-weight:700;display:flex;align-items:center;gap:8px;font-size:14px}
+  .dp-top .row-acts .b2{padding:11px 22px;background:rgba(255,255,255,.15);color:#fff;border-radius:6px;font-weight:600;display:flex;align-items:center;gap:8px;font-size:14px;backdrop-filter:blur(10px)}
+  .meta-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px 36px;font-size:13px}
+  .meta-grid dt{color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+  .meta-grid dd{margin:0;color:#fff;font-weight:500}
+
+  .season-bar{display:flex;gap:6px;padding:0 50px;margin-top:10px;border-bottom:1px solid rgba(255,255,255,.06)}
+  .season-bar a{padding:8px 14px;color:var(--text2);font-size:13px;font-weight:600;border-bottom:2px solid transparent;margin-bottom:-1px}
+  .season-bar a.on{color:#fff;border-bottom-color:var(--brand)}
+  .episode-list{padding:8px 50px 30px}
+  .ep{display:grid;grid-template-columns:30px 220px 1fr 80px 100px 80px;gap:14px;align-items:center;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer}
+  .ep:hover{background:rgba(255,255,255,.02)}
+  .ep .num{color:var(--text3);font-size:14px;font-weight:600;text-align:right}
+  .ep .thumb{aspect-ratio:16/9;background:linear-gradient(135deg,#2a3a6a,#1a2a4a);border-radius:6px;position:relative;overflow:hidden}
+  .ep .thumb::after{content:'▶';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:18px;color:rgba(255,255,255,.6)}
+  .ep .ttl{font-size:14px;font-weight:600;color:#fff;margin-bottom:4px}
+  .ep .syn{font-size:12px;color:var(--text3);line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .ep .dur{font-size:11px;color:var(--text3);text-align:right}
+  .ep .rate{color:var(--amber);font-size:11px;font-weight:700}
+  .ep .prog{font-size:10px;color:var(--cyan);font-weight:600}
+  .ep .prog .pbar{height:3px;background:rgba(255,255,255,.1);border-radius:99px;margin-top:4px;overflow:hidden}
+  .ep .prog .pbar i{display:block;height:100%;background:var(--cyan)}
+
+  .player-stage{background:#000;height:680px;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .player-stage .bg{position:absolute;inset:0;background:linear-gradient(135deg,#0a1530,#0a0a0a);opacity:.7}
+  .player-stage .center-img{position:relative;width:60%;aspect-ratio:16/9;background:radial-gradient(ellipse at center,#2a3a6a 0%,#000 70%);border-radius:8px;box-shadow:0 30px 80px rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center}
+  .center-img::after{content:'';position:absolute;inset:0;border:1px solid rgba(255,255,255,.05);border-radius:8px}
+  .top-controls{position:absolute;top:0;left:0;right:0;padding:18px 24px;display:flex;justify-content:space-between;background:linear-gradient(to bottom,rgba(0,0,0,.6),transparent);z-index:3}
+  .top-controls .left,.top-controls .right{display:flex;align-items:center;gap:14px;font-size:13px;color:#fff}
+  .player-stage .overlay-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;background:rgba(0,0,0,.85);z-index:5}
+  .overlay-loading .spin{width:48px;height:48px;border:3px solid rgba(255,255,255,.15);border-top-color:var(--brand);border-radius:50%;animation:spin 1s linear infinite;margin-bottom:18px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .overlay-loading .ttl{font-size:15px;color:#fff;font-weight:600;margin-bottom:8px}
+  .overlay-loading .pbar{width:280px;height:4px;background:rgba(255,255,255,.1);border-radius:99px;overflow:hidden;margin-top:12px}
+  .overlay-loading .pbar i{display:block;height:100%;background:linear-gradient(90deg,var(--brand),var(--brand2));width:62%;border-radius:99px}
+  .overlay-loading .pct{font-size:12px;color:var(--text3);margin-top:6px;font-family:ui-monospace,monospace}
+
+  .ctrl-bar{position:absolute;bottom:0;left:0;right:0;padding:14px 24px 18px;background:linear-gradient(to top,rgba(0,0,0,.9),transparent);z-index:3}
+  .ctrl-bar .timeline{height:5px;background:rgba(255,255,255,.2);border-radius:99px;position:relative;margin-bottom:10px;cursor:pointer}
+  .ctrl-bar .timeline .played{position:absolute;left:0;top:0;height:100%;width:42%;background:var(--brand);border-radius:99px}
+  .ctrl-bar .timeline .played::after{content:'';position:absolute;right:-6px;top:-4px;width:13px;height:13px;background:#fff;border-radius:50%;box-shadow:0 0 10px rgba(255,255,255,.4)}
+  .ctrl-bar .row{display:flex;justify-content:space-between;align-items:center;color:#fff}
+  .ctrl-bar .left,.ctrl-bar .right{display:flex;align-items:center;gap:14px;font-size:13px}
+  .ctrl-bar .ic{font-size:18px;cursor:pointer;opacity:.9}
+  .ctrl-bar .time{font-family:ui-monospace,monospace;font-size:12px;color:#ddd}
+  .ctrl-bar .quality{font-size:11px;padding:2px 8px;border:1px solid rgba(255,255,255,.3);border-radius:4px;font-weight:600}
+
+  .search-page{background:#08090c;color:#fff;padding:40px 50px;min-height:680px}
+  .search-bar-l{display:flex;align-items:center;gap:10px;padding:14px 22px;background:rgba(255,255,255,.06);border-radius:99px;width:560px;margin-bottom:8px}
+  .search-bar-l input{background:none;border:0;color:#fff;outline:none;flex:1;font-size:14px}
+  .search-tags{display:flex;gap:6px;margin:18px 0 24px;flex-wrap:wrap}
+  .search-tags a{padding:5px 12px;background:rgba(255,255,255,.06);border-radius:99px;font-size:11px;color:var(--text2)}
+  .search-tags a.on{background:var(--brand);color:#fff}
+
+  .wp-library{background:#08090c;color:#fff;padding:24px 32px;min-height:680px}
+  .lib-filter{display:flex;gap:8px;margin-bottom:18px;align-items:center}
+  .lib-filter select{padding:6px 12px;background:rgba(255,255,255,.06);border:0;border-radius:6px;color:#fff;font-size:12px;outline:none}
+  .lib-grid2{display:grid;grid-template-columns:repeat(7,1fr);gap:14px}
+
+  .person-hero{background:linear-gradient(135deg,#3a2a5c,#0a0c12);padding:40px 50px;display:grid;grid-template-columns:160px 1fr;gap:30px;align-items:end}
+  .person-hero .av{width:160px;height:160px;border-radius:50%;background:linear-gradient(135deg,#9b6cff,#4ad7ff);display:flex;align-items:center;justify-content:center;font-size:60px;font-weight:800;color:#fff;box-shadow:0 10px 40px rgba(0,0,0,.6)}
+
+  .live-stage{background:radial-gradient(ellipse at top,#1a1f3a,#08090c);color:#fff;padding:30px 50px;min-height:680px}
+  .live-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  .live-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:10px;overflow:hidden;cursor:pointer}
+  .live-card .thumb{aspect-ratio:16/9;background:linear-gradient(135deg,#5c2a4a,#2a1f3a);position:relative}
+  .live-card .live{position:absolute;top:8px;left:8px;background:var(--red);color:#fff;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.5px;display:flex;align-items:center;gap:4px}
+  .live-card .live::before{content:'';width:6px;height:6px;background:#fff;border-radius:50%;animation:blink 1.5s infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+  .live-card .info{padding:10px 12px}
+  .live-card .info .ttl{font-size:13px;font-weight:600;color:#fff;margin-bottom:4px}
+
+  .ps-stage{background:#08090c;min-height:680px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff}
+  .ps-stage h2{font-size:28px;font-weight:700;margin-bottom:30px}
+  .ps-list{display:flex;gap:24px}
+  .ps-card{display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer}
+  .ps-card .av{width:96px;height:96px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:800;color:#fff;position:relative}
+  .ps-card .av.kid::after{content:'🔒';position:absolute;top:-6px;right:-6px;background:var(--brand);width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px}
+  .ps-card .nm{font-size:14px;font-weight:600;color:#fff}
+  .ps-card .add{border:2px dashed rgba(255,255,255,.2);background:transparent;color:rgba(255,255,255,.5)}
+
+  /* ============================ ANDROID TV ============================ */
+  .tv-stage{background:#000;color:#fff;padding:60px 80px;min-height:680px;font-size:16px}
+  .tv-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:50px}
+  .tv-nav .l{display:flex;align-items:center;gap:40px}
+  .tv-nav .l .it{padding:10px 18px;border-radius:8px;font-size:18px;font-weight:600;color:#aaa}
+  .tv-nav .l .it.on{color:#fff;background:rgba(255,255,255,.1)}
+  .tv-nav .profile{font-size:14px;color:var(--text3);display:flex;align-items:center;gap:10px}
+  .tv-hero{display:flex;gap:40px;align-items:flex-end;margin-bottom:50px}
+  .tv-hero .info{flex:1}
+  .tv-hero h1{font-size:56px;font-weight:800;margin:0 0 14px;letter-spacing:-1px;line-height:1.05}
+  .tv-hero .meta{color:var(--text3);font-size:16px;margin-bottom:14px}
+  .tv-hero .desc{font-size:18px;color:var(--text2);line-height:1.5;margin-bottom:24px;max-width:800px}
+  .tv-hero .b1{padding:14px 32px;background:#fff;color:#000;border-radius:8px;font-size:18px;font-weight:700;display:inline-flex;align-items:center;gap:10px}
+  .tv-hero .b2{padding:14px 28px;background:rgba(255,255,255,.15);color:#fff;border-radius:8px;font-size:18px;font-weight:600;display:inline-flex;align-items:center;gap:10px;backdrop-filter:blur(10px);margin-left:10px}
+  .tv-poster{width:280px;aspect-ratio:2/3;background:linear-gradient(135deg,#3a2a7a,#1a2a5c);border-radius:14px;box-shadow:0 30px 60px rgba(0,0,0,.7);flex-shrink:0}
+  .tv-row{margin-top:36px}
+  .tv-row h3{font-size:20px;font-weight:700;margin:0 0 16px}
+  .tv-row .r{display:flex;gap:18px;overflow:hidden}
+  .tv-row .r .c{flex:0 0 220px}
+  .tv-row .r .c .p{aspect-ratio:16/9;background:linear-gradient(135deg,#2a3a6a,#1a2a4a);border-radius:8px;margin-bottom:8px;position:relative}
+  .tv-row .r .c .p .badge{position:absolute;top:6px;left:6px;background:rgba(0,0,0,.7);padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600}
+  .tv-row .r .c .t{font-size:14px;font-weight:600;color:#fff}
+  .tv-row .r .c.on .p{outline:3px solid var(--brand);outline-offset:2px;transform:scale(1.05)}
+
+  .tv-player{background:#000;color:#fff;height:680px;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .tv-player .stage{position:relative;width:75%;aspect-ratio:16/9;background:radial-gradient(ellipse at center,#2a3a6a 0%,#000 70%);border-radius:14px}
+  .tv-player .ctrl-bar2{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:24px;padding:14px 28px;background:rgba(0,0,0,.7);border-radius:14px;backdrop-filter:blur(10px);font-size:18px}
+  .tv-player .ctrl-bar2 .ic{font-size:22px;cursor:pointer}
+
+  .legend{margin:30px 0 0;padding:18px 22px;background:var(--bg2);border:1px solid var(--line);border-radius:12px;color:var(--text2);font-size:13px;line-height:1.7}
+  .legend h4{margin:0 0 10px;color:#fff;font-size:14px}
+  .legend code{background:var(--bg3);padding:1px 6px;border-radius:4px;font-size:11px;color:var(--brand2);font-family:ui-monospace,monospace}
+
+  footer{max-width:1400px;margin:0 auto;padding:30px 28px 60px;color:var(--text3);font-size:12px;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="logo">
+      <div class="logo-dot">M</div>
+      <span>MediaHub</span>
+      <small>· 产品原型图</small>
+    </div>
+    <nav class="nav">
+      <a href="#admin" class="active">Admin CMS</a>
+      <a href="#webplayer">Web Player</a>
+      <a href="#androidtv">Android TV</a>
+      <a href="#flow">用户流程</a>
+    </nav>
+    <div class="ver">v0.4.0 · 2026-07-04</div>
+  </div>
+</div>
+
+<div class="hero">
+  <h1>MediaHub · 产品原型图</h1>
+  <p>家庭自建媒资中心的三端设计参考：<b>Admin CMS</b> 负责库管理、布局编排、刮削运维；<b>Web Player</b> 是日常观看的浏览器入口；<b>Android TV</b> 是客厅 10 英尺 UI。设计风格：影院级暗色，主色紫蓝青渐变，强调"海报即信息"。</p>
+  <div class="meta">
+    <span class="chip">设计目标 · <b>端到端体验闭环</b></span>
+    <span class="chip">品牌色 · <b>#7c5cff → #4ad7ff</b></span>
+    <span class="chip">参考 · <b>Netflix / Plex / Jellyfin / TMDB</b></span>
+    <span class="chip">组件库 · <b>Element Plus · Vue 3 · TS</b></span>
+    <span class="chip">分辨率 · <b>Desktop 1280+ / Mobile 375 / TV 1920×1080</b></span>
+  </div>
+</div>
+
+<!-- ====================== ADMIN CMS ====================== -->
+<section class="section" id="admin">
+  <div class="section-head">
+    <span class="num">01</span>
+    <h2>Admin CMS · 家庭管理后台</h2>
+    <span class="sub">Element Plus · 桌面端优先 · 单角色家庭管理员</span>
+  </div>
+
+  <!-- Login -->
+  <h3 style="margin:18px 0 10px;font-size:15px;color:#fff">登录页 · Login</h3>
+  <div class="frame">
+    <div class="frame-head">
+      <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+      <div class="frame-title">/admin/login</div>
+      <span class="frame-tag">登录</span>
+    </div>
+    <div class="frame-canvas">
+      <div class="login">
+        <div class="login-card">
+          <div class="logo-dot">M</div>
+          <h2>欢迎回来</h2>
+          <div class="sub">登录到 MediaHub 后台管理</div>
+          <div class="fg">
+            <label>用户名</label>
+            <input value="admin" />
+          </div>
+          <div class="fg">
+            <label>密码</label>
+            <input type="password" value="••••••••" />
+          </div>
+          <button class="btn pri">登录</button>
+          <div style="margin-top:14px;text-align:center;font-size:11px;color:var(--text3)">首次使用? <a href="#" style="color:var(--brand)">初始化账号</a> · <a href="#" style="color:var(--brand2)">README</a></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <h3 style="margin:30px 0 10px;font-size:15px;color:#fff">仪表盘 · Dashboard</h3>
+  <div class="frame">
+    <div class="frame-head">
+      <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+      <div class="frame-title">/admin/dashboard</div>
+      <span class="frame-tag">总览</span>
+    </div>
+    <div class="frame-canvas">
+      <div class="admin">
+        <aside class="side">
+          <div class="side-brand"><div class="logo-dot">M</div><span>MediaHub</span></div>
+          <a class="active"><span class="ic">▦</span> 仪表盘</a>
+          <div class="side-group">媒资</div>
+          <a><span class="ic">🎬</span> 媒资库</a>
+          <a><span class="ic">🎭</span> 布局编排</a>
+          <a><span class="ic">📡</span> 直播源</a>
+          <div class="side-group">运营</div>
+          <a><span class="ic">🔍</span> 刮削中心</a>
+          <a><span class="ic">⬇</span> 下载管理</a>
+          <a><span class="ic">⭐</span> 想看清单</a>
+          <a><span class="ic">⚠</span> 缺失入库</a>
+          <div class="side-group">系统</div>
+          <a><span class="ic">⚙</span> 设置</a>
+        </aside>
+        <div>
+          <div class="topbar2">
+            <div class="crumbs"><b>仪表盘</b> · 实时概览</div>
+            <div class="top-actions">
+              <button class="btn ghost">导出报表</button>
+              <button class="btn pri">+ 新增媒资</button>
+              <div class="avatar">A</div>
+            </div>
+          </div>
+          <div class="admin-body">
+            <div class="stats">
+              <div class="stat"><div class="ic-bg" style="background:rgba(124,92,255,.15);color:var(--brand)">🎬</div>
+                <div class="lbl">媒资总数</div><div class="val">2,847</div><div class="delta">▲ 12 本周新增</div></div>
+              <div class="stat"><div class="ic-bg" style="background:rgba(74,215,255,.15);color:var(--cyan)">📺</div>
+                <div class="lbl">正在转码</div><div class="val">3</div><div class="delta">4K HEVC × 2 · 1080p × 1</div></div>
+              <div class="stat"><div class="ic-bg" style="background:rgba(255,92,140,.15);color:var(--brand3)">⬇</div>
+                <div class="lbl">下载中</div><div class="val">8</div><div class="delta">▲ 245 GB · 12.3 MB/s</div></div>
+              <div class="stat"><div class="ic-bg" style="background:rgba(70,211,154,.15);color:var(--green)">👁</div>
+                <div class="lbl">本周观看</div><div class="val">42h</div><div class="delta">▲ 18% vs 上周</div></div>
+            </div>
+
+            <div class="grid g2" style="margin-bottom:18px">
+              <div class="panel">
+                <div class="panel-h"><h3>近 14 天观看趋势</h3>
+                  <div class="tabs"><a class="on">14D</a><a>30D</a><a>90D</a></div>
+                </div>
+                <div class="panel-b">
+                  <svg class="spark" viewBox="0 0 400 80" preserveAspectRatio="none">
+                    <defs><linearGradient id="g1" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#7c5cff" stop-opacity=".4"/><stop offset="1" stop-color="#7c5cff" stop-opacity="0"/></linearGradient></defs>
+                    <path d="M0,60 L30,55 L60,40 L90,45 L120,30 L150,35 L180,20 L210,28 L240,15 L270,22 L300,10 L330,18 L360,8 L400,12 L400,80 L0,80 Z" fill="url(#g1)"/>
+                    <path d="M0,60 L30,55 L60,40 L90,45 L120,30 L150,35 L180,20 L210,28 L240,15 L270,22 L300,10 L330,18 L360,8 L400,12" fill="none" stroke="#7c5cff" stroke-width="2"/>
+                    <circle cx="360" cy="8" r="3.5" fill="#fff" stroke="#7c5cff" stroke-width="2"/>
+                  </svg>
+                </div>
+              </div>
+              <div class="panel">
+                <div class="panel-h"><h3>存储分布</h3><span class="meta-c" style="font-size:11px;color:var(--text3)">总容量 18TB</span></div>
+                <div class="panel-b">
+                  <div style="display:flex;height:10px;border-radius:99px;overflow:hidden;margin-bottom:14px">
+                    <div style="flex:0 0 45%;background:#7c5cff"></div>
+                    <div style="flex:0 0 30%;background:#4ad7ff"></div>
+                    <div style="flex:0 0 15%;background:#ffb547"></div>
+                    <div style="flex:0 0 10%;background:#46d39a"></div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
+                    <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)"><span style="display:inline-block;width:8px;height:8px;background:#7c5cff;border-radius:2px;margin-right:6px"></span>4K 蓝光</span><b>8.1 TB</b></div>
+                    <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)"><span style="display:inline-block;width:8px;height:8px;background:#4ad7ff;border-radius:2px;margin-right:6px"></span>1080p</span><b>5.4 TB</b></div>
+                    <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)"><span style="display:inline-block;width:8px;height:8px;background:#ffb547;border-radius:2px;margin-right:6px"></span>720p</span><b>2.7 TB</b></div>
+                    <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)"><span style="display:inline-block;width:8px;height:8px;background:#46d39a;border-radius:2px;margin-right:6px"></span>其他</span><b>1.8 TB</b></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid g2">
+              <div class="panel">
+                <div class="panel-h"><h3>刮削队列状态</h3><a style="font-size:11px;color:var(--brand)">查看全部 →</a></div>
+                <div class="panel-b">
+                  <div class="row"><span style="width:60px;color:var(--text3)">● Pending</span><span class="pill run">128</span><span class="meta-c">/ +12 1h</span></div>
+                  <div class="row"><span style="width:60px;color:var(--text3)">● Running</span><span class="pill ok">3</span><span class="meta-c">平均 4.2s</span></div>
+                  <div class="row"><span style="width:60px;color:var(--text3)">● Failed</span><span class="pill err">12</span><span class="meta-c">TMDB 限流 5 · 网络 4</span></div>
+                  <div class="row"><span style="width:60px;color:var(--text3)">● Done 24h</span><span class="pill ok">1,567</span><span class="meta-c">▲ 8% 较昨日</span></div>
+                </div>
+              </div>
+              <div class="panel">
+                <div class="panel-h"><h3>系统健康</h3><a style="font-size:11px;color:var(--brand)">运行手册 →</a></div>
+                <div class="panel-b">
+                  <div class="row"><span style="width:80px;color:var(--text3)">API</span><span class="pill ok">● 运行中</span><span class="meta-c">P95 145ms</span></div>
+                  <div class="row"><span style="width:80px;color:var(--text3)">Transcoder</span><span class="pill ok">● QSV OK</span><span class="meta-c">3 任务</span></div>
+                  <div class="row"><span style="width:80px;color:var(--text3)">Scanner</span><span class="pill warn">● 限速中</span><span class="meta-c">队列 28</span></div>
+                  <div class="row"><span style="width:80px;color:var(--text3)">qBittorrent</span><span class="pill ok">● 已连接</span><span class="meta-c">v4.6.4</span></div>
+                  <div class="row"><span style="width:80px;color:var(--text3)">Redis</span><span class="pill ok">● 稳定</span><span class="meta-c">缓存 84MB</span></div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- placeholder --><!-- 媒资库列表 -->
+  <h3 style="margin:30px 0 10px;font-size:15px;color:#fff">媒资库列表 · Library</h3>
+  <div class="frame">
+    <div class="frame-head">
+      <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+      <div class="frame-title">/admin/library</div>
+      <span class="frame-tag">媒资管理</span>
+    </div>
+    <div class="frame-canvas">
+      <div class="admin">
+        <aside class="side">
+          <div class="side-brand"><div class="logo-dot">M</div><span>MediaHub</span></div>
+          <a><span class="ic">▦</span> 仪表盘</a>
+          <div class="side-group">媒资</div>
+          <a class="active"><span class="ic">🎬</span> 媒资库</a>
+          <a><span class="ic">🎭</span> 布局编排</a>
+          <a><span class="ic">📡</span> 直播源</a>
+          <div class="side-group">运营</div>
+          <a><span class="ic">🔍</span> 刮削中心</a>
+          <a><span class="ic">⬇</span> 下载管理</a>
+          <a><span class="ic">⭐</span> 想看清单</a>
+          <a><span class="ic">⚠</span> 缺失入库</a>
+          <div class="side-group">系统</div>
+          <a><span class="ic">⚙</span> 设置</a>
+        </aside>
+        <div>
+          <div class="topbar2">
+            <div class="crumbs"><b>媒资库</b> · 共 2,847 部 · 已筛选 1,245</div>
+            <div class="top-actions">
+              <button class="btn ghost">导入</button>
+              <button class="btn ghost">导出</button>
+              <button class="btn pri">+ 新增媒资</button>
+              <div class="avatar">A</div>
+            </div>
+          </div>
+          <div class="admin-body">
+            <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center;flex-wrap:wrap">
+              <input placeholder="🔍 标题 / TMDB ID / 文件路径" style="flex:1;min-width:240px;padding:8px 12px;background:var(--bg3);border:1px solid var(--line);border-radius:6px;color:#fff;font-size:12px;outline:none" />
+              <select style="padding:8px 12px;background:var(--bg3);border:1px solid var(--line);border-radius:6px;color:#fff;font-size:12px;outline:none"><option>类型:全部</option><option>电影</option><option>剧集</option><option>动漫</option><option>纪录片</option></select>
+              <select style="padding:8px 12px;background:var(--bg3);border:1px solid var(--line);border-radius:6px;color:#fff;font-size:12px;outline:none"><option>来源:全部</option><option>TMDB</option><option>Bangumi</option><option>Manual</option></select>
+              <select style="padding:8px 12px;background:var(--bg3);border:1px solid var(--line);border-radius:6px;color:#fff;font-size:12px;outline:none"><option>分辨率:全部</option><option>4K</option><option>1080p</option><option>720p</option></select>
+              <button class="btn ghost" style="padding:8px 12px">⊞ 卡片</button>
+              <button class="btn pri" style="padding:8px 12px">≡ 列表</button>
+            </div>
+
+            <div class="panel">
+              <table class="tbl">
+                <thead>
+                  <tr>
+                    <th class="ck"><input type="checkbox" /></th>
+                    <th style="width:80px">海报</th>
+                    <th>标题 / 类型</th>
+                    <th style="width:80px">评分</th>
+                    <th style="width:100px">TMDB</th>
+                    <th style="width:120px">文件 / 分辨率</th>
+                    <th style="width:100px">状态</th>
+                    <th style="width:140px">入库时间</th>
+                    <th style="width:80px">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td><input type="checkbox" /></td><td><div style="width:50px;height:70px;border-radius:4px;background:linear-gradient(135deg,#3a2a7a,#1a2a5c)"></div></td><td><b style="color:#fff">蝙蝠侠:黑暗骑士</b><div style="font-size:11px;color:var(--text3);margin-top:2px">电影 · 2008 · 美国 · 152 分钟</div></td><td><b style="color:var(--amber)">★ 9.0</b></td><td>155</td><td><span class="pill ok">4K HEVC</span><div style="font-size:10px;color:var(--text3);margin-top:3px">52.4 GB · HDR10</div></td><td><span class="pill ok">● 已发布</span></td><td>2026-07-04 14:23</td><td><a style="color:var(--brand);font-size:11px">编辑</a> · <a style="color:var(--text3);font-size:11px">删除</a></td></tr>
+                  <tr><td><input type="checkbox" /></td><td><div style="width:50px;height:70px;border-radius:4px;background:linear-gradient(135deg,#5c2a4a,#2a1f3a)"></div></td><td><b style="color:#fff">沙丘:第二部</b><div style="font-size:11px;color:var(--text3);margin-top:2px">电影 · 2024 · 美国 · 166 分钟</div></td><td><b style="color:var(--amber)">★ 8.5</b></td><td>693134</td><td><span class="pill ok">4K HEVC</span><div style="font-size:10px;color:var(--text3);margin-top:3px">48.1 GB · Dolby Vision</div></td><td><span class="pill ok">● 已发布</span></td><td>2026-07-04 09:12</td><td><a style="color:var(--brand);font-size:11px">编辑</a> · <a style="color:var(--text3);font-size:11px">删除</a></td></tr>
+                  <tr><td><input type="checkbox" /></td><td><div style="width:50px;height:70px;border-radius:4px;background:linear-gradient(135deg,#2a5c4a,#1f3a2a)"></div></td><td><b style="color:#fff">低智商犯罪</b><div style="font-size:11px;color:var(--text3);margin-top:2px">剧集 · 共 3 季 · 32 集</div></td><td><b style="color:var(--amber)">★ 8.8</b></td><td>60625</td><td><span class="pill ok">1080p</span><div style="font-size:10px;color:var(--text3);margin-top:3px">28.4 GB · H.264</div></td><td><span class="pill warn">● 转码中 60%</span></td><td>2026-07-04 07:45</td><td><a style="color:var(--brand);font-size:11px">编辑</a> · <a style="color:var(--text3);font-size:11px">删除</a></td></tr>
+                  <tr><td><input type="checkbox" /></td><td><div style="width:50px;height:70px;border-radius:4px;background:linear-gradient(135deg,#7a5a2a,#5c3a1a)"></div></td><td><b style="color:#fff">进击的巨人</b><div style="font-size:11px;color:var(--text3);margin-top:2px">动漫 · 共 4 季 · 87 集</div></td><td><b style="color:var(--amber)">★ 9.2</b></td><td>1429</td><td><span class="pill ok">1080p</span><div style="font-size:10px;color:var(--text3);margin-top:3px">42.7 GB · HEVC</div></td><td><span class="pill ok">● 已发布</span></td><td>2026-07-03 22:18</td><td><a style="color:var(--brand);font-size:11px">编辑</a> · <a style="color:var(--text3);font-size:11px">删除</a></td></tr>
+                  <tr><td><input type="checkbox" /></td><td><div style="width:50px;height:70px;border-radius:4px;background:linear-gradient(135deg,#2a3a7a,#1a2a4c)"></div></td><td><b style="color:#fff">奥本海默</b><div style="font-size:11px;color:var(--text3);margin-top:2px">电影 · 2023 · 美国 · 180 分钟</div></td><td><b style="color:var(--amber)">★ 8.3</b></td><td>872585</td><td><span class="pill ok">4K HEVC</span><div style="font-size:10px;color:var(--text3);margin-top:3px">62.8 GB · HDR10</div></td><td><span class="pill err">● 元数据失败</span></td><td>2026-07-03 18:02</td><td><a style="color:var(--brand);font-size:11px">编辑</a> · <a style="color:var(--text3);font-size:11px">删除</a></td></tr>
+                  <tr><td><input type="checkbox" /></td><td><div style="width:50px;height:70px;border-radius:4px;background:linear-gradient(135deg,#5c2a7a,#3a1f5c)"></div></td><td><b style="color:#fff">继承之战</b><div style="font-size:11px;color:var(--text3);margin-top:2px">剧集 · 共 4 季 · 39 集</div></td><td><b style="color:var(--amber)">★ 9.0</b></td><td>76331</td><td><span class="pill ok">1080p</span><div style="font-size:10px;color:var(--text3);margin-top:3px">31.2 GB · HEVC</div></td><td><span class="pill ok">● 已发布</span></td><td>2026-07-03 14:30</td><td><a style="color:var(--brand);font-size:11px">编辑</a> · <a style="color:var(--text3);font-size:11px">删除</a></td></tr>
+                </tbody>
+              </table>
+              <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);font-size:11px;color:var(--text3)">
+                <div>已选 0 项 · 共 1,245 条</div>
+                <div style="display:flex;gap:6px;align-items:center">每页
+                  <select style="padding:3px 8px;background:var(--bg2);border:1px solid var(--line);border-radius:4px;color:#fff"><option>20</option><option>50</option><option>100</option></select>
+                  <button class="btn" style="padding:3px 10px">«</button>
+                  <button class="btn pri" style="padding:3px 10px">1</button>
+                  <button class="btn" style="padding:3px 10px">2</button>
+                  <button class="btn" style="padding:3px 10px">3</button>
+                  <button class="btn" style="padding:3px 10px">…</button>
+                  <button class="btn" style="padding:3px 10px">63</button>
+                  <button class="btn" style="padding:3px 10px">»</button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 媒资详情编辑 -->
+  <h3 style="margin:30px 0 10px;font-size:15px;color:#fff">媒资详情编辑 · Media Detail / Edit</h3>
+  <div class="frame">
+    <div class="frame-head">
+      <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+      <div class="frame-title">/admin/library/:id</div>
+      <span class="frame-tag">详情 · 编辑</span>
+    </div>
+    <div class="frame-canvas">
+      <div class="admin">
+        <aside class="side">
+          <div class="side-brand"><div class="logo-dot">M</div><span>MediaHub</span></div>
+          <a><span class="ic">▦</span> 仪表盘</a>
+          <div class="side-group">媒资</div>
+          <a class="active"><span class="ic">🎬</span> 媒资库</a>
+          <a><span class="ic">🎭</span> 布局编排</a>
+          <a><span class="ic">📡</span> 直播源</a>
+          <div class="side-group">运营</div>
+          <a><span class="ic">🔍</span> 刮削中心</a>
+          <a><span class="ic">⬇</span> 下载管理</a>
+          <a><span class="ic">⭐</span> 想看清单</a>
+          <a><span class="ic">⚠</span> 缺失入库</a>
+          <div class="side-group">系统</div>
+          <a><span class="ic">⚙</span> 设置</a>
+        </aside>
+        <div>
+          <div class="topbar2">
+            <div class="crumbs">媒资库 / <b>蝙蝠侠:黑暗骑士</b></div>
+            <div class="top-actions">
+              <button class="btn ghost">取消</button>
+              <button class="btn ghost">重新刮削</button>
+              <button class="btn pri">保存修改</button>
+              <div class="avatar">A</div>
+            </div>
+          </div>
+          <div class="admin-body">
+            <div class="grid" style="grid-template-columns:240px 1fr;gap:24px">
+              <div class="panel" style="padding:14px">
+                <div style="aspect-ratio:2/3;border-radius:8px;background:linear-gradient(135deg,#3a2a7a,#1a2a5c);position:relative;margin-bottom:14px;display:flex;align-items:flex-end;padding:10px;color:#fff;font-size:12px;font-weight:700">The Dark Knight</div>
+                <div style="font-size:12px;color:var(--text3);line-height:1.8">
+                  <div>TMDB ID <b style="color:#fff;float:right">155</b></div>
+                  <div>来源 <b style="color:#fff;float:right">TMDB</b></div>
+                  <div>类型 <b style="color:#fff;float:right">电影</b></div>
+                  <div>评分 <b style="color:var(--amber);float:right">★ 9.0</b></div>
+                  <div>状态 <b style="color:var(--green);float:right">● 已发布</b></div>
+                  <div>入库时间 <b style="color:#fff;float:right">07-04</b></div>
+                </div>
+                <button class="btn" style="width:100%;margin-top:12px">查看元数据 JSON</button>
+              </div>
+              <div>
+                <div class="panel" style="margin-bottom:14px">
+                  <div class="panel-h"><h3>基础信息</h3></div>
+                  <div class="panel-b" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;font-size:12px">
+                    <div><div style="color:var(--text3);margin-bottom:4px">中文标题</div><input value="蝙蝠侠:黑暗骑士" style="width:100%;padding:7px 10px;background:var(--bg2);border:1px solid var(--line);border-radius:5px;color:#fff;font-size:12px"/></div>
+                    <div><div style="color:var(--text3);margin-bottom:4px">英文标题</div><input value="The Dark Knight" style="width:100%;padding:7px 10px;background:var(--bg2);border:1px solid var(--line);border-radius:5px;color:#fff;font-size:12px"/></div>
+                    <div style="grid-column:span 2"><div style="color:var(--text3);margin-bottom:4px">简介</div><textarea rows="3" style="width:100%;padding:7px 10px;background:var(--bg2);border:1px solid var(--line);border-radius:5px;color:#fff;font-size:12px;resize:vertical">从亲眼目睹父母被人杀死的童年阴影中走出来的布鲁斯·韦恩,在笼罩哥谭市的阴影下,以蝙蝠侠的身份与罪犯们战斗...</textarea></div>
+                    <div><div style="color:var(--text3);margin-bottom:4px">导演</div><input value="克里斯托弗·诺兰" style="width:100%;padding:7px 10px;background:var(--bg2);border:1px solid var(--line);border-radius:5px;color:#fff;font-size:12px"/></div>
+                    <div><div style="color:var(--text3);margin-bottom:4px">主演</div><input value="克里斯蒂安·贝尔, 希斯·莱杰" style="width:100%;padding:7px 10px;background:var(--bg2);border:1px solid var(--line);border-radius:5px;color:#fff;font-size:12px"/></div>
+                    <div><div style="color:var(--text3);margin-bottom:4px">类型 (逗号分隔)</div><input value="动作, 犯罪, 剧情" style="width:100%;padding:7px 10px;background:var(--bg2);border:1px solid var(--line);border-radius:5px;color:#fff;font-size:12px"/></div>
+                    <div><div style="color:var(--text3);margin-bottom:4px">标签</div><input value="超级英雄, 暗黑, 经典" style="width:100%;padding:7px 10px;background:var(--bg2);border:1px solid var(--line);border-radius:5px;color:#fff;font-size:12px"/></div>
+                    <div><div style="color:var(--text3);margin-bottom:4px">上映年份</div><input value="2008" style="width:100%;padding:7px 10px;background:var(--bg2);border:1px solid var(--line);border-radius:5px;color:#fff;font-size:12px"/></div>
+                    <div><div style="color:var(--text3);margin-bottom:4px">时长(分钟)</div><input value="152" style="width:100%;padding:7px 10px;background:var(--bg2);border:1px solid var(--line);border-radius:5px;color:#fff;font-size:12px"/></div>
+                    <div><div style="color:var(--text3);margin-bottom:4px">分级</div><select style="width:100%;padding:7px 10px;background:var(--bg2);border:1px solid var(--line);border-radius:5px;color:#fff;font-size:12px"><option>PG-13</option></select></div>
+                    <div><div style="color:var(--text3);margin-bottom:4px">地区</div><select style="width:100%;padding:7px 10px;background:var(--bg2);border:1px solid var(--line);border-radius:5px;color:#fff;font-size:12px"><option>美国</option></select></div>
+                  </div>
+                </div>
+
+                <div class="panel" style="margin-bottom:14px">
+                  <div class="panel-h"><h3>文件信息 (ffprobe)</h3><span style="font-size:11px;color:var(--text3)">自动读取 · 5 分钟前刷新</span></div>
+                  <div class="panel-b" style="font-size:12px">
+                    <table class="tbl" style="font-size:11px">
+                      <thead><tr><th>文件名</th><th>分辨率</th><th>视频</th><th>音频</th><th>HDR</th><th>大小</th><th>时长</th></tr></thead>
+                      <tbody>
+                        <tr><td>The.Dark.Knight.2008.2160p.BluRay.HEVC.mkv</td><td>3840×2160</td><td>HEVC Main10</td><td>TrueHD Atmos 7.1</td><td><span class="pill ok">HDR10</span></td><td>52.4 GB</td><td>2:32:14</td></tr>
+                        <tr><td>The.Dark.Knight.2008.1080p.BDRip.x264.mp4</td><td>1920×1080</td><td>H.264 High</td><td>AAC 5.1</td><td><span class="pill mut">SDR</span></td><td>4.2 GB</td><td>2:32:14</td></tr>
+                      </tbody>
+                    </table>
+                    <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+                      <button class="btn" style="font-size:11px">📂 在 Finder 中定位</button>
+                      <button class="btn" style="font-size:11px">▶ 在播放器中预览</button>
+                      <button class="btn" style="font-size:11px">🔄 重新 ffprobe</button>
+                      <button class="btn" style="font-size:11px">+ 添加文件</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="panel">
+                  <div class="panel-h"><h3>发布设置</h3></div>
+                  <div class="panel-b" style="font-size:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--bg2);border-radius:6px"><span>显示在首页 Feed</span><div style="width:32px;height:18px;background:var(--brand);border-radius:99px;position:relative"><div style="width:14px;height:14px;background:#fff;border-radius:50%;position:absolute;top:2px;right:2px"></div></div></div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--bg2);border-radius:6px"><span>允许儿童 Profile 观看</span><div style="width:32px;height:18px;background:var(--line2);border-radius:99px;position:relative"><div style="width:14px;height:14px;background:#fff;border-radius:50%;position:absolute;top:2px;left:2px"></div></div></div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--bg2);border-radius:6px"><span>4K 直连优先</span><div style="width:32px;height:18px;background:var(--brand);border-radius:99px;position:relative"><div style="width:14px;height:14px;background:#fff;border-radius:50%;position:absolute;top:2px;right:2px"></div></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- placeholder --><!-- 布局编辑器 -->
+  <h3 style="margin:30px 0 10px;font-size:15px;color:#fff">布局编辑器 · Layout Editor (三栏拖拽)</h3>
+  <div class="frame">
+    <div class="frame-head">
+      <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+      <div class="frame-title">/admin/layout/editor?family=default</div>
+      <span class="frame-tag">布局编排</span>
+    </div>
+    <div class="frame-canvas">
+      <div class="le">
+        <div class="lsec" style="background:#0a0c12">
+          <div class="sec-h">布局模板 <span style="font-size:10px;color:var(--brand)">default</span></div>
+          <div class="row-item on"><span class="grip">⋮⋮</span><span class="ttl">默认家庭版</span><span class="meta-c">v3</span></div>
+          <div class="row-item"><span class="grip">⋮⋮</span><span class="ttl">儿童模式</span><span class="meta-c">v2</span></div>
+          <div class="row-item"><span class="grip">⋮⋮</span><span class="ttl">影院精选</span><span class="meta-c">v1</span></div>
+          <div class="row-item" style="border-style:dashed;color:var(--text3)"><span class="grip">+</span><span class="ttl">新建模板</span></div>
+
+          <div class="sec-h" style="margin-top:18px">Profile 维度</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <span class="pill ok" style="font-size:10px">Adult</span>
+            <span class="pill warn" style="font-size:10px">Teen</span>
+            <span class="pill" style="font-size:10px;background:rgba(124,92,255,.15);color:var(--brand)">Kid</span>
+            <span class="pill mut" style="font-size:10px">+ 添加</span>
+          </div>
+
+          <div class="sec-h" style="margin-top:18px">AB 测试</div>
+          <div style="font-size:11px;color:var(--text3);line-height:1.6">当前 <b style="color:var(--brand)">100%</b> 流量在 default。<br/>启用 A/B 测试 → <a style="color:var(--brand)">配置</a></div>
+        </div>
+
+        <div class="lsec" style="background:#0a0c12;border-left:1px solid var(--line);border-right:1px solid var(--line)">
+          <div class="sec-h">首页 Feed 行 <span style="font-size:10px;color:var(--text3)">6 行</span></div>
+          <div class="row-item on"><span class="grip">⋮⋮</span><span class="ttl">🟣 Hero 推荐</span><span class="meta-c">1 × 1</span></div>
+          <div class="row-item"><span class="grip">⋮⋮</span><span class="ttl">继续观看</span><span class="meta-c">横向</span></div>
+          <div class="row-item"><span class="grip">⋮⋮</span><span class="ttl">🔥 猜你喜欢</span><span class="meta-c">3 × N</span></div>
+          <div class="row-item"><span class="grip">⋮⋮</span><span class="ttl">4K UHD 大作</span><span class="meta-c">2 × N</span></div>
+          <div class="row-item"><span class="grip">⋮⋮</span><span class="ttl">最近入库</span><span class="meta-c">横向</span></div>
+          <div class="row-item"><span class="grip">⋮⋮</span><span class="ttl">📡 正在直播</span><span class="meta-c">4 × N</span></div>
+          <div class="row-item" style="border-style:dashed;color:var(--text3);margin-top:10px"><span class="grip">+</span><span class="ttl">从组件库拖入</span></div>
+
+          <div class="sec-h" style="margin-top:18px">组件库</div>
+          <div class="palette">
+            <div class="pcard"><div style="font-size:18px">▦</div>海报墙</div>
+            <div class="pcard"><div style="font-size:18px">▶</div>Hero 单图</div>
+            <div class="pcard"><div style="font-size:18px">≡</div>列表</div>
+            <div class="pcard"><div style="font-size:18px">⊞</div>九宫格</div>
+            <div class="pcard"><div style="font-size:18px">▤</div>分类卡</div>
+            <div class="pcard"><div style="font-size:18px">📡</div>直播</div>
+          </div>
+        </div>
+
+        <div class="canvas-area">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+            <div style="font-size:13px;color:#fff;font-weight:600">实时预览 · Desktop 1280px</div>
+            <div style="display:flex;gap:6px">
+              <button class="btn">⊞</button>
+              <button class="btn">▭</button>
+              <button class="btn pri">▣ Desktop</button>
+              <button class="btn">📱 Mobile</button>
+              <button class="btn">📺 TV</button>
+            </div>
+          </div>
+
+          <div style="background:#0a0c12;border:1px solid var(--line);border-radius:10px;overflow:hidden">
+            <div style="height:120px;background:linear-gradient(135deg,#3a1f5c,#1a2a5c);position:relative;display:flex;align-items:flex-end;padding:10px">
+              <div style="position:absolute;top:6px;left:6px;font-size:9px;background:rgba(124,92,255,.3);color:#fff;padding:2px 6px;border-radius:3px">HERO</div>
+              <div style="color:#fff;font-size:14px;font-weight:700">沙丘:第二部</div>
+            </div>
+            <div style="padding:8px 10px">
+              <div style="font-size:10px;color:var(--text3);margin-bottom:6px">继续观看</div>
+              <div style="display:flex;gap:6px">
+                <div style="flex:0 0 80px;aspect-ratio:2/3;border-radius:3px;background:linear-gradient(135deg,#3a2a7a,#1a2a5c)"></div>
+                <div style="flex:0 0 80px;aspect-ratio:2/3;border-radius:3px;background:linear-gradient(135deg,#5c2a4a,#2a1f3a)"></div>
+                <div style="flex:0 0 80px;aspect-ratio:2/3;border-radius:3px;background:linear-gradient(135deg,#2a5c4a,#1f3a2a)"></div>
+              </div>
+            </div>
+            <div style="padding:8px 10px">
+              <div style="font-size:10px;color:var(--text3);margin-bottom:6px">🔥 猜你喜欢</div>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+                <div style="aspect-ratio:2/3;border-radius:3px;background:linear-gradient(135deg,#3a2a7a,#1a2a5c)"></div>
+                <div style="aspect-ratio:2/3;border-radius:3px;background:linear-gradient(135deg,#5c2a4a,#2a1f3a)"></div>
+                <div style="aspect-ratio:2/3;border-radius:3px;background:linear-gradient(135deg,#2a5c4a,#1f3a2a)"></div>
+              </div>
+            </div>
+            <div class="dropzone" style="margin:10px;border-radius:6px;padding:14px;font-size:10px">
+              拖拽组件到这里 · 或点击中间面板的行项目
+            </div>
+          </div>
+
+          <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center">
+            <div style="font-size:11px;color:var(--text3)">预览模式 · Profile: <b style="color:#fff">默认家庭</b></div>
+            <div style="display:flex;gap:8px">
+              <button class="btn">放弃修改</button>
+              <button class="btn pri">✓ 发布布局</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 刮削中心 -->
+  <h3 style="margin:30px 0 10px;font-size:15px;color:#fff">刮削中心 · Scrape Center</h3>
+  <div class="frame">
+    <div class="frame-head">
+      <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+      <div class="frame-title">/admin/scrape</div>
+      <span class="frame-tag">核心运维</span>
+    </div>
+    <div class="frame-canvas">
+      <div class="admin">
+        <aside class="side">
+          <div class="side-brand"><div class="logo-dot">M</div><span>MediaHub</span></div>
+          <a><span class="ic">▦</span> 仪表盘</a>
+          <div class="side-group">媒资</div>
+          <a><span class="ic">🎬</span> 媒资库</a>
+          <a><span class="ic">🎭</span> 布局编排</a>
+          <a><span class="ic">📡</span> 直播源</a>
+          <div class="side-group">运营</div>
+          <a class="active"><span class="ic">🔍</span> 刮削中心</a>
+          <a><span class="ic">⬇</span> 下载管理</a>
+          <a><span class="ic">⭐</span> 想看清单</a>
+          <a><span class="ic">⚠</span> 缺失入库</a>
+          <div class="side-group">系统</div>
+          <a><span class="ic">⚙</span> 设置</a>
+        </aside>
+        <div>
+          <div class="topbar2">
+            <div class="crumbs"><b>刮削中心</b> · Scraping Center</div>
+            <div class="top-actions">
+              <button class="btn">↻ 刷新</button>
+              <button class="btn">批量重试</button>
+              <button class="btn pri">全部失败重试</button>
+              <div class="avatar">A</div>
+            </div>
+          </div>
+          <div class="admin-body">
+            <div class="stats" style="grid-template-columns:repeat(5,1fr)">
+              <div class="stat" style="border-left:3px solid var(--cyan)"><div class="lbl">Pending</div><div class="val">128</div><div class="delta">+12 过去 1h</div></div>
+              <div class="stat" style="border-left:3px solid var(--brand)"><div class="lbl">Running</div><div class="val">3</div><div class="delta">平均 4.2s</div></div>
+              <div class="stat" style="border-left:3px solid var(--red)"><div class="lbl">Failed</div><div class="val">12</div><div class="delta dn">▲ 5 待处理</div></div>
+              <div class="stat" style="border-left:3px solid var(--green)"><div class="lbl">Done 24h</div><div class="val">1,567</div><div class="delta">▲ 8%</div></div>
+              <div class="stat" style="border-left:3px solid var(--amber)"><div class="lbl">成功率 7D</div><div class="val">98.4%</div><div class="delta">▲ 0.3%</div></div>
+            </div>
+
+            <div class="scrape-tabs">
+              <a class="on">● 全部 <span class="cnt">143</span></a>
+              <a>● Pending <span class="cnt">128</span></a>
+              <a>● Running <span class="cnt">3</span></a>
+              <a class="err">● Failed <span class="cnt">12</span></a>
+              <a>● Done 24h</a>
+              <div style="flex:1"></div>
+              <a style="color:var(--text3)">⚙ 失败重试策略</a>
+            </div>
+
+            <div class="panel" style="margin-bottom:14px">
+              <div class="panel-b" style="padding:10px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <input placeholder="🔍 标题 / 路径关键字" style="flex:1;min-width:240px;padding:6px 10px;background:var(--bg2);border:1px solid var(--line);border-radius:5px;color:#fff;font-size:12px;outline:none" />
+                <select style="padding:6px 10px;background:var(--bg2);border:1px solid var(--line);border-radius:5px;color:#fff;font-size:12px"><option>来源:全部</option><option>TMDB</option><option>Bangumi</option></select>
+                <select style="padding:6px 10px;background:var(--bg2);border:1px solid var(--line);border-radius:5px;color:#fff;font-size:12px"><option>错误码:全部</option><option>tmdb_no_match</option><option>tmdb_rate_limit</option><option>network_error</option></select>
+                <select style="padding:6px 10px;background:var(--bg2);border:1px solid var(--line);border-radius:5px;color:#fff;font-size:12px"><option>尝试次数:全部</option><option>≥ 3</option></select>
+              </div>
+            </div>
+
+            <div class="panel">
+              <table class="tbl">
+                <thead>
+                  <tr>
+                    <th class="ck"><input type="checkbox" /></th>
+                    <th style="width:60px">ID</th>
+                    <th>标题</th>
+                    <th style="width:90px">来源</th>
+                    <th style="width:80px">尝试</th>
+                    <th>失败原因</th>
+                    <th style="width:140px">更新时间</th>
+                    <th style="width:160px">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td><input type="checkbox" /></td><td><span style="color:var(--text3)">1001</span></td><td><b style="color:#fff">蝙蝠侠:黑暗骑士</b><div style="font-size:10px;color:var(--text3);margin-top:2px">/downloads/The.Dark.Knight.2008.2160p.mkv</div></td><td><span class="pill ok">TMDB</span></td><td><b style="color:var(--green)">1</b></td><td><span class="pill ok">● -</span></td><td>2 分钟前</td><td><a style="color:var(--brand);font-size:11px">查看</a> · <a style="color:var(--brand);font-size:11px">重试</a> · <a style="color:var(--text3);font-size:11px">删除</a></td></tr>
+                  <tr><td><input type="checkbox" /></td><td><span style="color:var(--text3)">1002</span></td><td><b style="color:#fff">低智商犯罪 S03E08</b><div style="font-size:10px;color:var(--text3);margin-top:2px">/downloads/低智商犯罪/S03/E08.mp4</div></td><td><span class="pill ok">TMDB</span></td><td><b style="color:var(--amber)">3</b></td><td><span class="pill err">tmdb_rate_limit (429)</span></td><td>4 分钟前</td><td><a style="color:var(--brand);font-size:11px">查看</a> · <a style="color:var(--brand);font-size:11px">重试</a> · <a style="color:var(--text3);font-size:11px">删除</a></td></tr>
+                  <tr><td><input type="checkbox" /></td><td><span style="color:var(--text3)">1003</span></td><td><b style="color:#fff">进击的巨人 最终季</b><div style="font-size:10px;color:var(--text3);margin-top:2px">/downloads/进击的巨人/Final/E12.mkv</div></td><td><span class="pill ok">Bangumi</span></td><td><b style="color:var(--red)">5</b></td><td><span class="pill err">tmdb_no_match</span></td><td>8 分钟前</td><td><a style="color:var(--brand);font-size:11px">查看</a> · <a style="color:var(--brand);font-size:11px">重试</a> · <a style="color:var(--text3);font-size:11px">删除</a></td></tr>
+                  <tr><td><input type="checkbox" /></td><td><span style="color:var(--text3)">1004</span></td><td><b style="color:#fff">沙丘:第二部</b><div style="font-size:10px;color:var(--text3);margin-top:2px">/downloads/Dune.Part.Two.mkv</div></td><td><span class="pill run">运行中</span></td><td><b style="color:var(--green)">1</b></td><td><span class="pill run">⟳ 正在匹配</span></td><td>刚刚</td><td><a style="color:var(--text3);font-size:11px">查看</a> · <a style="color:var(--text3);font-size:11px">取消</a></td></tr>
+                  <tr><td><input type="checkbox" /></td><td><span style="color:var(--text3)">1005</span></td><td><b style="color:#fff">未知剧集 - 待匹配</b><div style="font-size:10px;color:var(--text3);margin-top:2px">/downloads/Unknown.2024.x265.mkv</div></td><td><span class="pill ok">Auto</span></td><td><b style="color:var(--red)">8</b></td><td><span class="pill err">parse_error: 文件名无 season</span></td><td>15 分钟前</td><td><a style="color:var(--brand);font-size:11px">手动匹配</a> · <a style="color:var(--text3);font-size:11px">放弃</a></td></tr>
+                </tbody>
+              </table>
+              <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);font-size:11px;color:var(--text3)">
+                <div>已选 2 项 · 共 143 条</div>
+                <div style="display:flex;gap:6px;align-items:center">每页
+                  <select style="padding:3px 8px;background:var(--bg2);border:1px solid var(--line);border-radius:4px;color:#fff"><option>20</option></select>
+                  <button class="btn" style="padding:3px 10px">«</button>
+                  <button class="btn pri" style="padding:3px 10px">1</button>
+                  <button class="btn" style="padding:3px 10px">2</button>
+                  <button class="btn" style="padding:3px 10px">»</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- placeholder --><!-- 下载管理 + 想看 + 缺失入库 -->
+  <h3 style="margin:30px 0 10px;font-size:15px;color:#fff">下载管理 · 想看清单 · 缺失入库 (运维三件套)</h3>
+  <div class="frame">
+    <div class="frame-head">
+      <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+      <div class="frame-title">/admin/downloads · /admin/want-to-watch · /admin/library-missing</div>
+      <span class="frame-tag">运维</span>
+    </div>
+    <div class="frame-canvas">
+      <div class="grid g3">
+        <div class="admin" style="min-height:520px;grid-template-columns:60px 1fr">
+          <aside class="side" style="padding:14px 0">
+            <div class="logo-dot" style="width:30px;height:30px;font-size:12px;margin:0 auto 14px">M</div>
+            <a style="padding:10px 0;justify-content:center">⬇</a>
+          </aside>
+          <div>
+            <div class="topbar2">
+              <div class="crumbs"><b>下载管理</b></div>
+              <button class="btn pri" style="font-size:11px">+ 任务</button>
+            </div>
+            <div class="admin-body" style="padding:12px">
+              <div class="panel">
+                <div class="panel-h" style="padding:8px 12px"><h3 style="font-size:12px">活跃任务</h3><span class="pill run" style="font-size:9px">8 进行</span></div>
+                <div style="padding:6px 12px">
+                  <div style="padding:8px 0;border-bottom:1px dashed var(--line)">
+                    <div style="font-size:11px;color:#fff;font-weight:600">沙丘:第二部</div>
+                    <div style="font-size:10px;color:var(--text3);margin:2px 0">52.4 GB · 4K</div>
+                    <div style="height:4px;background:rgba(255,255,255,.08);border-radius:99px;margin:4px 0"><div style="height:100%;width:64%;background:var(--cyan);border-radius:99px"></div></div>
+                    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3)"><span>64%</span><span>12.3 MB/s</span></div>
+                  </div>
+                  <div style="padding:8px 0;border-bottom:1px dashed var(--line)">
+                    <div style="font-size:11px;color:#fff;font-weight:600">进击的巨人 E12</div>
+                    <div style="font-size:10px;color:var(--text3);margin:2px 0">1.2 GB · 1080p</div>
+                    <div style="height:4px;background:rgba(255,255,255,.08);border-radius:99px;margin:4px 0"><div style="height:100%;width:99%;background:var(--amber);border-radius:99px"></div></div>
+                    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--amber)"><span>99% · 排队入库</span><span>0 B/s</span></div>
+                  </div>
+                  <div style="padding:8px 0;border-bottom:1px dashed var(--line)">
+                    <div style="font-size:11px;color:#fff;font-weight:600">低智商犯罪 全季</div>
+                    <div style="font-size:10px;color:var(--green);margin:2px 0">✓ 已入库</div>
+                    <div style="height:4px;background:rgba(255,255,255,.08);border-radius:99px;margin:4px 0"><div style="height:100%;width:100%;background:var(--green);border-radius:99px"></div></div>
+                  </div>
+                  <div style="padding:8px 0">
+                    <div style="font-size:11px;color:#fff;font-weight:600">奥本海默</div>
+                    <div style="font-size:10px;color:var(--red);margin:2px 0">✗ Tracker 失败</div>
+                    <div style="height:4px;background:rgba(255,255,255,.08);border-radius:99px;margin:4px 0"><div style="height:100%;width:12%;background:var(--red);border-radius:99px"></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin" style="min-height:520px;grid-template-columns:60px 1fr">
+          <aside class="side" style="padding:14px 0">
+            <div class="logo-dot" style="width:30px;height:30px;font-size:12px;margin:0 auto 14px">M</div>
+            <a style="padding:10px 0;justify-content:center">⭐</a>
+          </aside>
+          <div>
+            <div class="topbar2">
+              <div class="crumbs"><b>想看清单</b></div>
+              <button class="btn pri" style="font-size:11px">+ 入库</button>
+            </div>
+            <div class="admin-body" style="padding:12px">
+              <div class="panel">
+                <div class="panel-h" style="padding:8px 12px"><h3 style="font-size:12px">TMDB 推荐</h3><span class="pill" style="font-size:9px;background:rgba(124,92,255,.15);color:var(--brand)">5 待入库</span></div>
+                <div style="padding:6px 12px">
+                  <div style="padding:8px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;align-items:center">
+                    <div style="flex:1"><div style="font-size:11px;color:#fff;font-weight:600">三体</div><div style="font-size:10px;color:var(--text3)">Netflix · 2023</div></div>
+                    <span style="color:var(--green);font-weight:700;font-size:10px">★ 92%</span>
+                    <span class="pill ok" style="font-size:9px;margin-left:6px">已找到</span>
+                  </div>
+                  <div style="padding:8px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;align-items:center">
+                    <div style="flex:1"><div style="font-size:11px;color:#fff;font-weight:600">Severance S2</div><div style="font-size:10px;color:var(--text3)">Apple TV+ · 2025</div></div>
+                    <span style="color:var(--amber);font-weight:700;font-size:10px">★ 88%</span>
+                    <span class="pill run" style="font-size:9px;margin-left:6px">下载中</span>
+                  </div>
+                  <div style="padding:8px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;align-items:center">
+                    <div style="flex:1"><div style="font-size:11px;color:#fff;font-weight:600">The Bear S4</div><div style="font-size:10px;color:var(--text3)">FX · 2025</div></div>
+                    <span style="color:var(--green);font-weight:700;font-size:10px">★ 90%</span>
+                    <span class="pill ok" style="font-size:9px;margin-left:6px">已入库</span>
+                  </div>
+                  <div style="padding:8px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;align-items:center">
+                    <div style="flex:1"><div style="font-size:11px;color:#fff;font-weight:600">F1 电影</div><div style="font-size:10px;color:var(--text3)">Apple · 2025</div></div>
+                    <span style="color:var(--amber);font-weight:700;font-size:10px">★ 85%</span>
+                    <span class="pill warn" style="font-size:9px;margin-left:6px">无种子</span>
+                  </div>
+                  <div style="padding:8px 0;display:flex;justify-content:space-between;align-items:center">
+                    <div style="flex:1"><div style="font-size:11px;color:#fff;font-weight:600">Interstellar 2</div><div style="font-size:10px;color:var(--text3)">传闻</div></div>
+                    <span style="color:var(--text3);font-weight:700;font-size:10px">— </span>
+                    <span class="pill warn" style="font-size:9px;margin-left:6px">等待</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin" style="min-height:520px;grid-template-columns:60px 1fr">
+          <aside class="side" style="padding:14px 0">
+            <div class="logo-dot" style="width:30px;height:30px;font-size:12px;margin:0 auto 14px">M</div>
+            <a style="padding:10px 0;justify-content:center">⚠</a>
+          </aside>
+          <div>
+            <div class="topbar2">
+              <div class="crumbs"><b>缺失入库</b></div>
+            </div>
+            <div class="admin-body" style="padding:12px">
+              <div class="panel">
+                <div class="panel-h" style="padding:8px 12px"><h3 style="font-size:12px">季集不完整</h3><span class="pill warn" style="font-size:9px">7 部</span></div>
+                <div style="padding:6px 12px">
+                  <div style="padding:8px 0;border-bottom:1px dashed var(--line)">
+                    <div style="font-size:11px;color:#fff;font-weight:600">进击的巨人 S04</div>
+                    <div style="font-size:10px;color:var(--text3);margin:2px 0">12 / 12 集 ✓</div>
+                  </div>
+                  <div style="padding:8px 0;border-bottom:1px dashed var(--line)">
+                    <div style="font-size:11px;color:#fff;font-weight:600">继承之战 S04</div>
+                    <div style="font-size:10px;color:var(--amber);margin:2px 0">8 / 10 集 · 缺 E02 E05</div>
+                  </div>
+                  <div style="padding:8px 0;border-bottom:1px dashed var(--line)">
+                    <div style="font-size:11px;color:#fff;font-weight:600">低智商犯罪 S03</div>
+                    <div style="font-size:10px;color:var(--amber);margin:2px 0">7 / 8 集 · 缺 E08 (刮削失败)</div>
+                  </div>
+                  <div style="padding:8px 0">
+                    <div style="font-size:11px;color:#fff;font-weight:600">Severance S01</div>
+                    <div style="font-size:10px;color:var(--red);margin:2px 0">2 / 10 集 · ⚠ 元数据损坏</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ====================== WEB PLAYER ====================== -->
+<section class="section" id="webplayer">
+  <div class="section-head">
+    <span class="num">02</span>
+    <h2>Web Player · 浏览器播放器</h2>
+    <span class="sub">Vue 3 + Video.js · 桌面 / 移动适配 · Profile 维度隔离</span>
+  </div>
+
+  <h3 style="margin:18px 0 10px;font-size:15px;color:#fff">Profile 切换 · Profile Switcher</h3>
+  <div class="frame">
+    <div class="frame-head">
+      <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+      <div class="frame-title">/profiles</div>
+      <span class="frame-tag">入口</span>
+    </div>
+    <div class="frame-canvas">
+      <div class="wp-shell">
+        <div class="ps-stage">
+          <h2>谁在观看？</h2>
+          <div class="ps-list">
+            <div class="ps-card">
+              <div class="av" style="background:linear-gradient(135deg,#7c5cff,#4ad7ff)">A</div>
+              <div class="nm">Admin</div>
+            </div>
+            <div class="ps-card">
+              <div class="av" style="background:linear-gradient(135deg,#ff5d8f,#ffb547)">L</div>
+              <div class="nm">Lily</div>
+            </div>
+            <div class="ps-card">
+              <div class="av" style="background:linear-gradient(135deg,#46d39a,#4ad7ff)">T</div>
+              <div class="nm">Tom</div>
+            </div>
+            <div class="ps-card">
+              <div class="av kid" style="background:linear-gradient(135deg,#ffb547,#ff5d8f)">K</div>
+              <div class="nm">Kids</div>
+            </div>
+            <div class="ps-card">
+              <div class="av add">+</div>
+              <div class="nm" style="color:var(--text3)">添加</div>
+            </div>
+          </div>
+          <div style="margin-top:30px;font-size:12px;color:var(--text3)">管理 Profile · PIN 码锁</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- placeholder --><h3 style="margin:30px 0 10px;font-size:15px;color:#fff">首页 · Home Feed (Hero + 横向轮播)</h3>
+  <div class="frame">
+    <div class="frame-head">
+      <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+      <div class="frame-title">/home</div>
+      <span class="frame-tag">核心入口</span>
+    </div>
+    <div class="frame-canvas">
+      <div class="wp-shell">
+        <div class="wp-nav">
+          <div class="l">
+            <div class="logo"><div class="logo-dot">M</div>MediaHub</div>
+            <div class="links"><a class="on">首页</a><a>库</a><a>搜索</a><a>直播</a><a>我的</a></div>
+          </div>
+          <div class="r">
+            <div class="search-box">🔍 搜索电影、剧集、人物…</div>
+            <div class="profile-pill"><div class="av">A</div>Admin</div>
+          </div>
+        </div>
+
+        <div class="hero2">
+          <div class="bg"></div>
+          <div class="content">
+            <div class="badge">★ 9.0 · 4K UHD · HDR10</div>
+            <h1>沙丘:第二部</h1>
+            <div class="facts"><span>2024</span><span class="dot"></span><span>166 分钟</span><span class="dot"></span><span>动作 / 科幻 / 冒险</span><span class="dot"></span><span>美国</span></div>
+            <div class="desc">保罗·亚崔迪携手契妮与弗雷曼人,共同对抗毁灭银河系的阴谋。史诗般的第二部,Villeneuve 导演的视觉巅峰,Dolby Vision + IMAX 摄影,搭配 Hans Zimmer 的配乐震撼全场。</div>
+            <div class="acts">
+              <div class="b1">▶ 立即播放</div>
+              <div class="b2">ⓘ 详细信息</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row-shelf">
+          <div class="head"><h3>继续观看</h3><a>查看全部 →</a></div>
+          <div class="cards">
+            <div class="card"><div class="p" style="background:linear-gradient(135deg,#3a2a7a,#1a2a5c);position:relative"><div class="lbl">剩余 42:18 / 152 分钟</div><div class="badge" style="left:6px;top:auto;bottom:32px">42%</div><div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:rgba(0,0,0,.5)"><div style="height:100%;width:42%;background:#4ad7ff"></div></div></div><div class="t">蝙蝠侠:黑暗骑士</div><div class="s">▶ 继续 · 昨天 22:14</div></div>
+            <div class="card"><div class="p" style="background:linear-gradient(135deg,#2a5c4a,#1f3a2a);position:relative"><div class="lbl">剩余 18:42 / 50 分钟</div></div><div class="t">进击的巨人 Final E11</div><div class="s">▶ 继续 · 07-03</div></div>
+            <div class="card"><div class="p" style="background:linear-gradient(135deg,#5c2a4a,#2a1f3a);position:relative"><div class="lbl">剩余 1:32:11 / 3 集</div></div><div class="t">低智商犯罪 S02</div><div class="s">▶ 继续 · 07-02</div></div>
+            <div class="card"><div class="p" style="background:linear-gradient(135deg,#7a5a2a,#5c3a1a);position:relative"><div class="lbl">剩余 28:00 / 28 集</div></div><div class="t">三体 (Netflix)</div><div class="s">▶ 继续 · 07-01</div></div>
+            <div class="card"><div class="p" style="background:linear-gradient(135deg,#2a3a7a,#1a2a4c);position:relative"><div class="lbl">剩余 56:22 / 180 分钟</div></div><div class="t">奥本海默</div><div class="s">▶ 继续 · 06-30</div></div>
+            <div class="card"><div class="p" style="background:linear-gradient(135deg,#5c2a7a,#3a1f5c);position:relative"><div class="lbl">剩余 12:14 / 39 集</div></div><div class="t">继承之战 S03</div><div class="s">▶ 继续 · 06-28</div></div>
+            <div class="card"><div class="p" style="background:linear-gradient(135deg,#3a4a5c,#1f2a3a);position:relative"><div class="lbl">剩余 05:42 / 45 分钟</div></div><div class="t">The Bear S03E07</div><div class="s">▶ 继续 · 06-26</div></div>
+          </div>
+        </div>
+
+        <div class="row-shelf">
+          <div class="head"><h3>🔥 猜你喜欢 · AI 个性化</h3><a>查看全部 →</a></div>
+          <div class="cards">
+            <div class="card"><div class="p"><div class="lbl">降临</div><div class="rating">★ 7.9</div></div><div class="t">降临</div><div class="s">科幻 · 2016</div></div>
+            <div class="card"><div class="p"><div class="lbl">银翼杀手 2049</div><div class="rating">★ 8.0</div></div><div class="t">银翼杀手 2049</div><div class="s">科幻 · 2017</div></div>
+            <div class="card"><div class="p"><div class="lbl">Blade Runner</div><div class="rating">★ 8.1</div></div><div class="t">银翼杀手</div><div class="s">科幻 · 1982</div></div>
+            <div class="card"><div class="p"><div class="lbl">Her</div><div class="rating">★ 8.0</div></div><div class="t">她</div><div class="s">科幻 · 2013</div></div>
+            <div class="card"><div class="p"><div class="lbl">Ex Machina</div><div class="rating">★ 7.7</div></div><div class="t">机械姬</div><div class="s">科幻 · 2014</div></div>
+            <div class="card"><div class="p"><div class="lbl">Arrival 2</div><div class="rating">★ -</div></div><div class="t">降临 2 (传闻)</div><div class="s">科幻 · 待定</div></div>
+          </div>
+        </div>
+
+        <div class="row-shelf">
+          <div class="head"><h3>🎬 4K UHD 大作 · 家庭影院</h3><a>查看全部 →</a></div>
+          <div class="cards">
+            <div class="card"><div class="p"><div class="badge" style="background:linear-gradient(135deg,#7c5cff,#4ad7ff);color:#fff">4K HDR</div><div class="lbl">沙丘:第二部</div><div class="rating">★ 8.5</div></div><div class="t">沙丘:第二部</div><div class="s">2024 · 4K · 166 分钟</div></div>
+            <div class="card"><div class="p"><div class="badge" style="background:linear-gradient(135deg,#7c5cff,#4ad7ff);color:#fff">4K HDR</div><div class="lbl">奥本海默</div><div class="rating">★ 8.3</div></div><div class="t">奥本海默</div><div class="s">2023 · 4K · 180 分钟</div></div>
+            <div class="card"><div class="p"><div class="badge" style="background:linear-gradient(135deg,#7c5cff,#4ad7ff);color:#fff">4K HDR</div><div class="lbl">蝙蝠侠:黑暗骑士</div><div class="rating">★ 9.0</div></div><div class="t">蝙蝠侠:黑暗骑士</div><div class="s">2008 · 4K · 152 分钟</div></div>
+            <div class="card"><div class="p"><div class="badge" style="background:linear-gradient(135deg,#7c5cff,#4ad7ff);color:#fff">4K HDR</div><div class="lbl">1917</div><div class="rating">★ 8.2</div></div><div class="t">1917</div><div class="s">2019 · 4K · 119 分钟</div></div>
+            <div class="card"><div class="p"><div class="badge" style="background:linear-gradient(135deg,#7c5cff,#4ad7ff);color:#fff">4K HDR</div><div class="lbl">Mad Max</div><div class="rating">★ 8.1</div></div><div class="t">疯狂麦克斯</div><div class="s">2015 · 4K · 120 分钟</div></div>
+            <div class="card"><div class="p"><div class="badge" style="background:linear-gradient(135deg,#7c5cff,#4ad7ff);color:#fff">4K HDR</div><div class="lbl">Tenet</div><div class="rating">★ 7.4</div></div><div class="t">信条</div><div class="s">2020 · 4K · 150 分钟</div></div>
+          </div>
+        </div>
+
+        <div class="row-shelf">
+          <div class="head"><h3>📡 正在直播 · Live Now</h3><a>查看全部 →</a></div>
+          <div class="cards">
+            <div class="card"><div class="p" style="background:linear-gradient(135deg,#5c2a4a,#2a1f3a)"><div class="badge" style="background:#ff5c5c;color:#fff">● LIVE</div><div class="lbl">CCTV-1 综合</div></div><div class="t">新闻联播 · 7:00</div><div class="s">👁 1.2k 观看</div></div>
+            <div class="card"><div class="p" style="background:linear-gradient(135deg,#2a5c4a,#1f3a2a)"><div class="badge" style="background:#ff5c5c;color:#fff">● LIVE</div><div class="lbl">CCTV-6 电影</div></div><div class="t">红色娘子军</div><div class="s">👁 432 观看</div></div>
+            <div class="card"><div class="p" style="background:linear-gradient(135deg,#2a3a5c,#1f2a3a)"><div class="badge" style="background:#ff5c5c;color:#fff">● LIVE</div><div class="lbl">湖南卫视</div></div><div class="t">歌手 2025</div><div class="s">👁 8.5k 观看</div></div>
+            <div class="card"><div class="p" style="background:linear-gradient(135deg,#3a3a5c,#1f1f3a)"><div class="badge" style="background:#ff5c5c;color:#fff">● LIVE</div><div class="lbl">家庭摄像头</div></div><div class="t">客厅</div><div class="s">👁 2 观看</div></div>
+          </div>
+        </div>
+
+        <div class="row-shelf" style="margin-bottom:30px">
+          <div class="head"><h3>🆕 最近入库</h3><a>查看全部 →</a></div>
+          <div class="cards">
+            <div class="card"><div class="p"><div class="lbl">蝙蝠侠:黑暗骑士</div><div class="rating">★ 9.0</div></div><div class="t">蝙蝠侠:黑暗骑士</div><div class="s">2026-07-04</div></div>
+            <div class="card"><div class="p"><div class="lbl">沙丘:第二部</div><div class="rating">★ 8.5</div></div><div class="t">沙丘:第二部</div><div class="s">2026-07-04</div></div>
+            <div class="card"><div class="p"><div class="lbl">低智商犯罪</div><div class="rating">★ 8.8</div></div><div class="t">低智商犯罪</div><div class="s">2026-07-04</div></div>
+            <div class="card"><div class="p"><div class="lbl">进击的巨人</div><div class="rating">★ 9.2</div></div><div class="t">进击的巨人</div><div class="s">2026-07-03</div></div>
+            <div class="card"><div class="p"><div class="lbl">奥本海默</div><div class="rating">★ 8.3</div></div><div class="t">奥本海默</div><div class="s">2026-07-03</div></div>
+            <div class="card"><div class="p"><div class="lbl">继承之战</div><div class="rating">★ 9.0</div></div><div class="t">继承之战</div><div class="s">2026-07-03</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- placeholder --><h3 style="margin:30px 0 10px;font-size:15px;color:#fff">详情页 · Detail (剧集选季/集 + 深链)</h3>
+  <div class="frame">
+    <div class="frame-head">
+      <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+      <div class="frame-title">/detail/:id · /player/:id?episode=:eid</div>
+      <span class="frame-tag">剧集选季/集</span>
+    </div>
+    <div class="frame-canvas">
+      <div class="wp-shell">
+        <div class="wp-nav">
+          <div class="l">
+            <div class="logo"><div class="logo-dot">M</div>MediaHub</div>
+            <div class="links"><a>首页</a><a>库</a><a class="on">详情</a><a>搜索</a></div>
+          </div>
+          <div class="r">
+            <div class="search-box">🔍</div>
+            <div class="profile-pill"><div class="av">A</div>Admin</div>
+          </div>
+        </div>
+        <div class="wp-detail">
+          <div class="dp-top">
+            <div class="pcover"></div>
+            <div>
+              <h1>进击的巨人</h1>
+              <div class="sub">進撃の巨人 · Attack on Titan · 共 4 季 · 87 集 · 日本</div>
+              <div class="chips">
+                <span>★ 9.2 / 10</span>
+                <span>动作</span><span>动漫</span><span>黑暗奇幻</span><span>血腥</span>
+                <span style="background:rgba(70,211,154,.15);color:var(--green)">1080p HEVC</span>
+                <span style="background:rgba(74,215,255,.15);color:var(--cyan)">日语 · 中字</span>
+              </div>
+              <div class="desc">故事发生在人类居住的封闭世界,面对突然出现的巨人,人类建造了高墙保护自己,但墙外的真相远比想象中残酷。艾伦·耶格尔目睹母亲被巨人吞噬后,加入调查兵团,誓要消灭所有巨人。</div>
+              <div class="row-acts">
+                <div class="b1">▶ 立即观看 S04E12</div>
+                <div class="b2">+ 我的片单</div>
+                <div class="b2">📋 复制深链</div>
+              </div>
+              <dl class="meta-grid">
+                <div><dt>导演</dt><dd>諫山創 (原作) · 林祐一郎</dd></div>
+                <div><dt>主演</dt><dd>梶裕貴 · 石川由依 · 井上麻里奈</dd></div>
+                <div><dt>首播</dt><dd>2013 年 4 月 7 日</dd></div>
+                <div><dt>季数</dt><dd>4 季 · 87 集 · 平均 24 分钟</dd></div>
+                <div><dt>TMDB ID</dt><dd><a style="color:var(--brand)">1429</a></dd></div>
+                <div><dt>上次观看</dt><dd>S04E11 · 18:42 / 24:00</dd></div>
+              </dl>
+            </div>
+          </div>
+
+          <div class="season-bar">
+            <a class="on">第 1 季</a>
+            <a>第 2 季</a>
+            <a>第 3 季</a>
+            <a>第 4 季 · The Final Season</a>
+            <div style="flex:1"></div>
+            <a style="color:var(--brand)">⤓ 下载全季</a>
+          </div>
+
+          <div class="episode-list">
+            <div class="ep"><div class="num">1</div><div class="thumb"></div><div><div class="ttl">第二季: 绝望之壁</div><div class="syn">艾伦巨人化后被人类囚禁,调查兵团陷入前所未有的信任危机。城墙被超大型巨人破坏,人类面临灭绝。</div></div><div class="dur">24:32</div><div class="rate">★ 8.7</div><div class="prog">已看完<div class="pbar"><i style="width:100%"></i></div></div></div>
+            <div class="ep"><div class="num">2</div><div class="thumb"></div><div><div class="ttl">第 57 次壁外调查</div><div class="syn">韩吉带领新兵团进行第一次墙外调查,遭遇女巨人。同时,艾伦的巨人能力被进一步测试。</div></div><div class="dur">24:30</div><div class="rate">★ 8.9</div><div class="prog">已看完<div class="pbar"><i style="width:100%"></i></div></div></div>
+            <div class="ep"><div class="num">3</div><div class="thumb"></div><div><div class="ttl">亚妮 · 女巨人</div><div class="syn">调查兵团对艾伦的训练逐步加深,但亚妮的真实身份开始浮出水面。战斗在托洛斯特区内爆发。</div></div><div class="dur">24:31</div><div class="rate">★ 9.1</div><div class="prog" style="color:var(--amber)">未观看</div></div>
+            <div class="ep"><div class="num">4</div><div class="thumb"></div><div><div class="ttl">历史 · 乌德之书</div><div class="syn">韩吉在地下室发现关键证据。铠之巨人莱纳的真实身份即将揭晓。</div></div><div class="dur">24:30</div><div class="rate">★ 9.0</div><div class="prog" style="color:var(--amber)">未观看</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3 style="margin:30px 0 10px;font-size:15px;color:#fff">播放器 · Player (加载态 + 播放态 + 4K 直连/转码 fallback)</h3>
+  <div class="frame">
+    <div class="frame-head">
+      <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+      <div class="frame-title">/player/:id</div>
+      <span class="frame-tag">核心</span>
+    </div>
+    <div class="frame-canvas">
+      <div class="grid g2">
+        <div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">加载态 · 4K 转码中</div>
+          <div class="player-stage" style="border-radius:10px;overflow:hidden">
+            <div class="bg"></div>
+            <div class="overlay-loading">
+              <div class="spin"></div>
+              <div class="ttl">正在准备 4K 流…</div>
+              <div style="font-size:12px;color:var(--text3)">直连失败 · 切换流复制</div>
+              <div class="pbar"><i></i></div>
+              <div class="pct">60% · 已用 02:13 · 切片就绪中</div>
+            </div>
+          </div>
+          <div style="margin-top:10px;padding:10px;background:var(--bg2);border-radius:8px;font-size:11px;color:var(--text3);line-height:1.7">
+            <b style="color:var(--text)">策略链路：</b><br/>
+            ① probe API → 检测 HEVC Main10 + HDR10<br/>
+            ② 客户端 codec 检测 → 不支持 HEVC<br/>
+            ③ fallback HLS 流复制 (-c:v copy)<br/>
+            ④ 仍失败 → 480p H.264 转码 (兜底)<br/>
+            ⑤ 进度通过 <code style="background:var(--bg3);padding:1px 4px;border-radius:3px;color:var(--brand2)">/transcode/:task_id</code> 1Hz 轮询
+          </div>
+        </div>
+
+        <div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">播放态 · Video.js 控制条</div>
+          <div class="player-stage" style="border-radius:10px;overflow:hidden">
+            <div class="bg"></div>
+            <div class="center-img"></div>
+            <div class="top-controls">
+              <div class="left">← 蝙蝠侠:黑暗骑士 · 2008 · 4K HDR</div>
+              <div class="right">
+                <span style="font-size:11px;padding:2px 6px;background:rgba(0,0,0,.5);border-radius:3px">字幕: 中文</span>
+                <span style="font-size:11px;padding:2px 6px;background:rgba(0,0,0,.5);border-radius:3px">音轨: 原声</span>
+                <span style="cursor:pointer">⚙</span>
+                <span style="cursor:pointer">⛶</span>
+              </div>
+            </div>
+            <div class="ctrl-bar">
+              <div class="timeline"><div class="played"></div></div>
+              <div class="row">
+                <div class="left">
+                  <span class="ic">⏯</span>
+                  <span class="ic">⏮</span>
+                  <span class="ic">⏭</span>
+                  <span class="time">01:03:42 / 02:32:14</span>
+                </div>
+                <div class="right">
+                  <span class="ic">🔊</span>
+                  <span class="ic">CC</span>
+                  <span class="quality">4K HDR</span>
+                  <span class="ic">⚙</span>
+                  <span class="ic">⛶</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:10px;padding:10px;background:var(--bg2);border-radius:8px;font-size:11px;color:var(--text3);line-height:1.7">
+            <b style="color:var(--text)">控制条：</b><br/>
+            播放/暂停 · 上下集 · 时间码 · 进度条(可拖拽) · 音量 · 字幕切换 · 音轨切换 · 码率(4K/1080p/720p/480p) · 设置 · 全屏
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- placeholder --><h3 style="margin:30px 0 10px;font-size:15px;color:#fff">搜索页 · Search · 库 · 人物 · 直播</h3>
+  <div class="frame">
+    <div class="frame-head">
+      <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+      <div class="frame-title">/search · /library · /person/:id · /live</div>
+      <span class="frame-tag">浏览 · 查找</span>
+    </div>
+    <div class="frame-canvas">
+      <div class="grid g2">
+
+        <!-- 搜索 -->
+        <div class="wp-shell" style="border-radius:10px;overflow:hidden">
+          <div class="wp-nav" style="padding:10px 20px">
+            <div class="l"><div class="logo"><div class="logo-dot">M</div>MediaHub</div></div>
+          </div>
+          <div class="search-page">
+            <div class="search-bar-l">
+              <span style="color:var(--text3)">🔍</span>
+              <input value="诺兰" />
+              <span style="color:var(--text3);font-size:11px">28 个结果 · 0.18s</span>
+            </div>
+            <div class="search-tags">
+              <a class="on">全部 28</a>
+              <a>电影 8</a>
+              <a>剧集 0</a>
+              <a>动漫 0</a>
+              <a>人物 3</a>
+              <a>直播 0</a>
+              <a style="background:rgba(255,255,255,.04)">导演: 诺兰</a>
+              <a style="background:rgba(255,255,255,.04)">2010-2024</a>
+              <a style="background:rgba(255,255,255,.04)">7.0+</a>
+            </div>
+
+            <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin:18px 0 10px">电影 · 8 个</div>
+            <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px">
+              <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#3a2a7a,#1a2a5c);position:relative;margin-bottom:6px"><div class="pill ok" style="position:absolute;top:4px;left:4px;font-size:8px">4K</div><div style="position:absolute;bottom:4px;left:4px;font-size:10px;color:#fff;font-weight:700">奥本海默</div></div><div style="font-size:10px;color:var(--text3)">★ 8.3 · 2023</div></div>
+              <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#5c2a4a,#2a1f3a);position:relative;margin-bottom:6px"><div class="pill ok" style="position:absolute;top:4px;left:4px;font-size:8px">4K</div><div style="position:absolute;bottom:4px;left:4px;font-size:10px;color:#fff;font-weight:700">黑暗骑士</div></div><div style="font-size:10px;color:var(--text3)">★ 9.0 · 2008</div></div>
+              <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#2a3a7a,#1a2a4c);position:relative;margin-bottom:6px"><div style="position:absolute;bottom:4px;left:4px;font-size:10px;color:#fff;font-weight:700">信条</div></div><div style="font-size:10px;color:var(--text3)">★ 7.4 · 2020</div></div>
+              <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#7a5a2a,#5c3a1a);position:relative;margin-bottom:6px"><div style="position:absolute;bottom:4px;left:4px;font-size:10px;color:#fff;font-weight:700">敦刻尔克</div></div><div style="font-size:10px;color:var(--text3)">★ 7.9 · 2017</div></div>
+              <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#3a4a5c,#1f2a3a);position:relative;margin-bottom:6px"><div style="position:absolute;bottom:4px;left:4px;font-size:10px;color:#fff;font-weight:700">星际穿越</div></div><div style="font-size:10px;color:var(--text3)">★ 9.4 · 2014</div></div>
+              <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#2a5c4a,#1f3a2a);position:relative;margin-bottom:6px"><div style="position:absolute;bottom:4px;left:4px;font-size:10px;color:#fff;font-weight:700">盗梦空间</div></div><div style="font-size:10px;color:var(--text3)">★ 9.3 · 2010</div></div>
+            </div>
+
+            <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin:24px 0 10px">人物 · 3 个</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+              <div style="display:flex;gap:10px;padding:10px;background:rgba(255,255,255,.04);border-radius:8px;align-items:center">
+                <div style="width:50px;height:50px;border-radius:50%;background:linear-gradient(135deg,#7c5cff,#4ad7ff);display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;font-weight:700">C</div>
+                <div><div style="font-size:12px;color:#fff;font-weight:600">克里斯托弗·诺兰</div><div style="font-size:10px;color:var(--text3)">导演 · 8 部作品</div></div>
+              </div>
+              <div style="display:flex;gap:10px;padding:10px;background:rgba(255,255,255,.04);border-radius:8px;align-items:center">
+                <div style="width:50px;height:50px;border-radius:50%;background:linear-gradient(135deg,#ff5d8f,#ffb547);display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;font-weight:700">C</div>
+                <div><div style="font-size:12px;color:#fff;font-weight:600">克里斯蒂安·贝尔</div><div style="font-size:10px;color:var(--text3)">演员 · 主演 3 部</div></div>
+              </div>
+              <div style="display:flex;gap:10px;padding:10px;background:rgba(255,255,255,.04);border-radius:8px;align-items:center">
+                <div style="width:50px;height:50px;border-radius:50%;background:linear-gradient(135deg,#46d39a,#4ad7ff);display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;font-weight:700">H</div>
+                <div><div style="font-size:12px;color:#fff;font-weight:600">希斯·莱杰</div><div style="font-size:10px;color:var(--text3)">演员 · 已故</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 库浏览 -->
+        <div class="wp-shell" style="border-radius:10px;overflow:hidden">
+          <div class="wp-nav" style="padding:10px 20px">
+            <div class="l"><div class="logo"><div class="logo-dot">M</div>MediaHub</div><div class="links"><a class="on">库</a></div></div>
+          </div>
+          <div class="wp-library">
+            <div class="lib-filter">
+              <select><option>类型:全部</option><option>电影</option><option>剧集</option><option>动漫</option></select>
+              <select><option>年份:全部</option><option>2024</option><option>2023</option></select>
+              <select><option>分辨率:全部</option><option>4K</option><option>1080p</option></select>
+              <select><option>排序:入库时间</option><option>评分</option><option>年份</option></select>
+              <select><option>分类:全部</option><option>动作</option><option>科幻</option><option>剧情</option></select>
+              <div style="flex:1"></div>
+              <span style="font-size:11px;color:var(--text3)">2,847 部</span>
+            </div>
+
+            <div class="lib-grid2">
+              <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#3a2a7a,#1a2a5c);position:relative"><div class="pill ok" style="position:absolute;top:5px;left:5px;font-size:9px">4K</div><div class="pill" style="position:absolute;top:5px;right:5px;font-size:9px;background:rgba(0,0,0,.6);color:var(--amber)">★ 9.0</div></div><div style="font-size:11px;color:#fff;margin-top:4px">蝙蝠侠:黑暗骑士</div><div style="font-size:10px;color:var(--text3)">2008 · 电影</div></div>
+              <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#5c2a4a,#2a1f3a);position:relative"><div class="pill ok" style="position:absolute;top:5px;left:5px;font-size:9px">4K</div><div class="pill" style="position:absolute;top:5px;right:5px;font-size:9px;background:rgba(0,0,0,.6);color:var(--amber)">★ 8.5</div></div><div style="font-size:11px;color:#fff;margin-top:4px">沙丘:第二部</div><div style="font-size:10px;color:var(--text3)">2024 · 电影</div></div>
+              <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#2a5c4a,#1f3a2a);position:relative"><div class="pill" style="position:absolute;top:5px;right:5px;font-size:9px;background:rgba(0,0,0,.6);color:var(--amber)">★ 8.8</div></div><div style="font-size:11px;color:#fff;margin-top:4px">低智商犯罪</div><div style="font-size:10px;color:var(--text3)">剧集 · 3 季</div></div>
+              <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#7a5a2a,#5c3a1a);position:relative"><div class="pill" style="position:absolute;top:5px;right:5px;font-size:9px;background:rgba(0,0,0,.6);color:var(--amber)">★ 9.2</div></div><div style="font-size:11px;color:#fff;margin-top:4px">进击的巨人</div><div style="font-size:10px;color:var(--text3)">动漫 · 4 季</div></div>
+              <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#2a3a7a,#1a2a4c);position:relative"><div class="pill ok" style="position:absolute;top:5px;left:5px;font-size:9px">4K</div><div class="pill" style="position:absolute;top:5px;right:5px;font-size:9px;background:rgba(0,0,0,.6);color:var(--amber)">★ 8.3</div></div><div style="font-size:11px;color:#fff;margin-top:4px">奥本海默</div><div style="font-size:10px;color:var(--text3)">2023 · 电影</div></div>
+              <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#5c2a7a,#3a1f5c);position:relative"><div class="pill" style="position:absolute;top:5px;right:5px;font-size:9px;background:rgba(0,0,0,.6);color:var(--amber)">★ 9.0</div></div><div style="font-size:11px;color:#fff;margin-top:4px">继承之战</div><div style="font-size:10px;color:var(--text3)">剧集 · 4 季</div></div>
+              <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#3a4a5c,#1f2a3a);position:relative"><div class="pill" style="position:absolute;top:5px;right:5px;font-size:9px;background:rgba(0,0,0,.6);color:var(--amber)">★ 8.0</div></div><div style="font-size:11px;color:#fff;margin-top:4px">The Bear</div><div style="font-size:10px;color:var(--text3)">剧集 · 3 季</div></div>
+              <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#2a4a7a,#1a2a5c);position:relative"><div class="pill" style="position:absolute;top:5px;right:5px;font-size:9px;background:rgba(0,0,0,.6);color:var(--amber)">★ 8.7</div></div><div style="font-size:11px;color:#fff;margin-top:4px">三体</div><div style="font-size:10px;color:var(--text3)">剧集 · 1 季</div></div>
+              <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#7a3a2a,#5c1a1a);position:relative"><div class="pill" style="position:absolute;top:5px;right:5px;font-size:9px;background:rgba(0,0,0,.6);color:var(--amber)">★ 8.5</div></div><div style="font-size:11px;color:#fff;margin-top:4px">Severance</div><div style="font-size:10px;color:var(--text3)">剧集 · 2 季</div></div>
+              <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#2a2a4a,#1a1a2a);position:relative"><div class="pill" style="position:absolute;top:5px;right:5px;font-size:9px;background:rgba(0,0,0,.6);color:var(--amber)">★ 7.9</div></div><div style="font-size:11px;color:#fff;margin-top:4px">True Detective</div><div style="font-size:10px;color:var(--text3)">剧集 · 4 季</div></div>
+              <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#4a2a4a,#2a1a2a);position:relative"><div class="pill" style="position:absolute;top:5px;right:5px;font-size:9px;background:rgba(0,0,0,.6);color:var(--amber)">★ 8.2</div></div><div style="font-size:11px;color:#fff;margin-top:4px">Fargo</div><div style="font-size:10px;color:var(--text3)">剧集 · 5 季</div></div>
+              <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#5a4a2a,#3a2a1a);position:relative"><div class="pill" style="position:absolute;top:5px;right:5px;font-size:9px;background:rgba(0,0,0,.6);color:var(--amber)">★ 7.5</div></div><div style="font-size:11px;color:#fff;margin-top:4px">黄石</div><div style="font-size:10px;color:var(--text3)">剧集 · 5 季</div></div>
+              <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#3a2a4a,#1a1a2a);position:relative"><div class="pill" style="position:absolute;top:5px;right:5px;font-size:9px;background:rgba(0,0,0,.6);color:var(--amber)">★ 9.4</div></div><div style="font-size:11px;color:#fff;margin-top:4px">星际穿越</div><div style="font-size:10px;color:var(--text3)">2014 · 电影</div></div>
+              <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#2a3a5a,#1a2a3a);position:relative"><div class="pill" style="position:absolute;top:5px;right:5px;font-size:9px;background:rgba(0,0,0,.6);color:var(--amber)">★ 9.3</div></div><div style="font-size:11px;color:#fff;margin-top:4px">盗梦空间</div><div style="font-size:10px;color:var(--text3)">2010 · 电影</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 人物页 -->
+        <div class="wp-shell" style="border-radius:10px;overflow:hidden">
+          <div class="wp-nav" style="padding:10px 20px"><div class="l"><div class="logo"><div class="logo-dot">M</div>MediaHub</div></div></div>
+          <div class="wp-detail" style="padding:0">
+            <div class="person-hero">
+              <div class="av">C</div>
+              <div>
+                <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:8px">导演 / 编剧 / 制片</div>
+                <h1 style="font-size:36px;font-weight:800;margin:0 0 8px;letter-spacing:-.5px">克里斯托弗·诺兰</h1>
+                <div style="color:var(--text3);font-size:12px;margin-bottom:14px">Christopher Nolan · 1970 · 英国 · 8 部作品在库</div>
+                <div style="font-size:13px;color:var(--text2);line-height:1.7;max-width:700px">英国电影导演、编剧、制片人。以非线性叙事、对时间与感知的独特处理、以及将哲学思辨融入商业大片而闻名。代表作《盗梦空间》《星际穿越》《黑暗骑士》三部曲。奥斯卡最佳导演(2024,《奥本海默》)。</div>
+              </div>
+            </div>
+            <div style="padding:24px 50px">
+              <h3 style="font-size:16px;font-weight:700;margin:0 0 14px">导演作品 · 8 部</h3>
+              <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:14px">
+                <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#3a2a7a,#1a2a5c);margin-bottom:6px"></div><div style="font-size:11px;color:#fff">奥本海默</div><div style="font-size:10px;color:var(--text3)">2023 · ★ 8.3</div></div>
+                <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#5c2a4a,#2a1f3a);margin-bottom:6px"></div><div style="font-size:11px;color:#fff">黑暗骑士</div><div style="font-size:10px;color:var(--text3)">2008 · ★ 9.0</div></div>
+                <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#2a3a7a,#1a2a4c);margin-bottom:6px"></div><div style="font-size:11px;color:#fff">信条</div><div style="font-size:10px;color:var(--text3)">2020 · ★ 7.4</div></div>
+                <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#7a5a2a,#5c3a1a);margin-bottom:6px"></div><div style="font-size:11px;color:#fff">敦刻尔克</div><div style="font-size:10px;color:var(--text3)">2017 · ★ 7.9</div></div>
+                <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#3a4a5c,#1f2a3a);margin-bottom:6px"></div><div style="font-size:11px;color:#fff">星际穿越</div><div style="font-size:10px;color:var(--text3)">2014 · ★ 9.4</div></div>
+                <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#2a5c4a,#1f3a2a);margin-bottom:6px"></div><div style="font-size:11px;color:#fff">盗梦空间</div><div style="font-size:10px;color:var(--text3)">2010 · ★ 9.3</div></div>
+                <div><div style="aspect-ratio:2/3;border-radius:6px;background:linear-gradient(135deg,#5c2a7a,#3a1f5c);margin-bottom:6px"></div><div style="font-size:11px;color:#fff">蝙蝠侠:侠影之谜</div><div style="font-size:10px;color:var(--text3)">2005 · ★ 8.2</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 直播 -->
+        <div class="wp-shell" style="border-radius:10px;overflow:hidden">
+          <div class="wp-nav" style="padding:10px 20px"><div class="l"><div class="logo"><div class="logo-dot">M</div>MediaHub</div><div class="links"><a class="on">直播</a></div></div></div>
+          <div class="live-stage">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+              <h2 style="margin:0;font-size:22px">📡 直播频道 <span style="font-size:12px;color:var(--text3);font-weight:400">· 32 个频道 · 8 正在直播</span></h2>
+              <div style="display:flex;gap:6px">
+                <a style="padding:6px 12px;background:rgba(255,255,255,.06);border-radius:6px;font-size:11px;color:var(--text2)">全部</a>
+                <a style="padding:6px 12px;background:rgba(255,255,255,.06);border-radius:6px;font-size:11px;color:var(--text2)">央视</a>
+                <a style="padding:6px 12px;background:rgba(255,255,255,.06);border-radius:6px;font-size:11px;color:var(--text2)">卫视</a>
+                <a style="padding:6px 12px;background:rgba(124,92,255,.15);border-radius:6px;font-size:11px;color:var(--brand)">监控</a>
+              </div>
+            </div>
+            <div class="live-grid">
+              <div class="live-card"><div class="thumb"><div class="live">LIVE</div></div><div class="info"><div class="ttl">CCTV-1 综合频道</div><div style="font-size:11px;color:var(--text3)">新闻联播 · 19:00</div><div style="font-size:10px;color:var(--green);margin-top:4px">● 1,234 在线</div></div></div>
+              <div class="live-card"><div class="thumb"><div class="live">LIVE</div></div><div class="info"><div class="ttl">CCTV-6 电影频道</div><div style="font-size:11px;color:var(--text3)">红色娘子军</div><div style="font-size:10px;color:var(--green);margin-top:4px">● 432 在线</div></div></div>
+              <div class="live-card"><div class="thumb"><div class="live">LIVE</div></div><div class="info"><div class="ttl">湖南卫视</div><div style="font-size:11px;color:var(--text3)">歌手 2025 · 决赛</div><div style="font-size:10px;color:var(--green);margin-top:4px">● 8,521 在线</div></div></div>
+              <div class="live-card"><div class="thumb"><div class="live">LIVE</div></div><div class="info"><div class="ttl">浙江卫视</div><div style="font-size:11px;color:var(--text3)">奔跑吧</div><div style="font-size:10px;color:var(--green);margin-top:4px">● 1,023 在线</div></div></div>
+              <div class="live-card"><div class="thumb"><div class="live">LIVE</div></div><div class="info"><div class="ttl">客厅监控</div><div style="font-size:11px;color:var(--text3)">Reolink · 1080p</div><div style="font-size:10px;color:var(--green);margin-top:4px">● 2 在线</div></div></div>
+              <div class="live-card"><div class="thumb"><div class="live">LIVE</div></div><div class="info"><div class="ttl">车库</div><div style="font-size:11px;color:var(--text3)">Reolink · 720p</div><div style="font-size:10px;color:var(--green);margin-top:4px">● 1 在线</div></div></div>
+              <div class="live-card"><div class="thumb" style="opacity:.5"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:11px">离线</div></div><div class="info"><div class="ttl" style="color:var(--text3)">东方卫视</div><div style="font-size:11px;color:var(--text3)">--:--</div></div></div>
+              <div class="live-card"><div class="thumb" style="opacity:.5"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:11px">离线</div></div><div class="info"><div class="ttl" style="color:var(--text3)">江苏卫视</div><div style="font-size:11px;color:var(--text3)">--:--</div></div></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<!-- placeholder --><!-- ====================== ANDROID TV ====================== -->
+<section class="section" id="androidtv">
+  <div class="section-head">
+    <span class="num">03</span>
+    <h2>Android TV · 客厅 10 英尺 UI</h2>
+    <span class="sub">Compose for TV · 遥控器焦点导航 · 1920×1080 远距离观看</span>
+  </div>
+
+  <h3 style="margin:18px 0 10px;font-size:15px;color:#fff">主页 · TV Home (聚焦态显示)</h3>
+  <div class="frame">
+    <div class="frame-head">
+      <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+      <div class="frame-title">com.mediahub.tv · HomeActivity</div>
+      <span class="frame-tag">远场观看</span>
+    </div>
+    <div class="frame-canvas">
+      <div class="tv-stage">
+        <div class="tv-nav">
+          <div class="l">
+            <div style="display:flex;align-items:center;gap:10px"><div class="logo-dot">M</div><span style="font-weight:700;font-size:20px">MediaHub</span></div>
+            <div class="it on">首页</div>
+            <div class="it">电影</div>
+            <div class="it">剧集</div>
+            <div class="it">动漫</div>
+            <div class="it">4K</div>
+            <div class="it">直播</div>
+            <div class="it">搜索</div>
+            <div class="it">设置</div>
+          </div>
+          <div class="profile"><div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#7c5cff,#4ad7ff);display:flex;align-items:center;justify-content:center;font-weight:700">A</div>Admin · 14:32</div>
+        </div>
+
+        <div class="tv-hero">
+          <div class="info">
+            <div class="badge" style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:rgba(124,92,255,.2);border:1px solid rgba(124,92,255,.4);border-radius:99px;font-size:12px;color:var(--brand);margin-bottom:14px;font-weight:600">★ 9.0 · 4K UHD · HDR10 · Dolby Atmos</div>
+            <h1>沙丘:第二部</h1>
+            <div class="meta">2024 · 166 分钟 · 动作 / 科幻 / 冒险 · 美国 · <span style="color:var(--amber)">★ 8.5</span></div>
+            <div class="desc">保罗·亚崔迪携手契妮与弗雷曼人,共同对抗毁灭银河系的阴谋。史诗般的第二部,Villeneuve 导演的视觉巅峰,Dolby Vision + IMAX 摄影。</div>
+            <div>
+              <span class="b1">▶ 立即播放</span>
+              <span class="b2">ⓘ 详细信息</span>
+              <span class="b2">+ 我的片单</span>
+            </div>
+          </div>
+          <div class="tv-poster"></div>
+        </div>
+
+        <div class="tv-row">
+          <h3>继续观看 · Continue Watching</h3>
+          <div class="r">
+            <div class="c on"><div class="p"><div class="badge">42%</div></div><div class="t">蝙蝠侠:黑暗骑士</div></div>
+            <div class="c"><div class="p"></div><div class="t">进击的巨人 Final E11</div></div>
+            <div class="c"><div class="p"></div><div class="t">低智商犯罪 S02</div></div>
+            <div class="c"><div class="p"></div><div class="t">三体 E18</div></div>
+            <div class="c"><div class="p"></div><div class="t">奥本海默</div></div>
+            <div class="c"><div class="p"></div><div class="t">继承之战 S03</div></div>
+          </div>
+        </div>
+
+        <div class="tv-row">
+          <h3>🔥 猜你喜欢 · AI 推荐</h3>
+          <div class="r">
+            <div class="c"><div class="p"></div><div class="t">降临</div></div>
+            <div class="c"><div class="p"></div><div class="t">银翼杀手 2049</div></div>
+            <div class="c"><div class="p"></div><div class="t">Her</div></div>
+            <div class="c"><div class="p"></div><div class="t">Ex Machina</div></div>
+            <div class="c"><div class="p"></div><div class="t">机械姬</div></div>
+            <div class="c"><div class="p"></div><div class="t">Arrival</div></div>
+          </div>
+        </div>
+
+        <div class="tv-row">
+          <h3>4K HDR 大作</h3>
+          <div class="r">
+            <div class="c"><div class="p"><div class="badge" style="background:linear-gradient(135deg,#7c5cff,#4ad7ff);color:#fff">4K</div></div><div class="t">沙丘:第二部</div></div>
+            <div class="c"><div class="p"><div class="badge" style="background:linear-gradient(135deg,#7c5cff,#4ad7ff);color:#fff">4K</div></div><div class="t">奥本海默</div></div>
+            <div class="c"><div class="p"><div class="badge" style="background:linear-gradient(135deg,#7c5cff,#4ad7ff);color:#fff">4K</div></div><div class="t">黑暗骑士</div></div>
+            <div class="c"><div class="p"><div class="badge" style="background:linear-gradient(135deg,#7c5cff,#4ad7ff);color:#fff">4K</div></div><div class="t">1917</div></div>
+            <div class="c"><div class="p"><div class="badge" style="background:linear-gradient(135deg,#7c5cff,#4ad7ff);color:#fff">4K</div></div><div class="t">Mad Max</div></div>
+            <div class="c"><div class="p"><div class="badge" style="background:linear-gradient(135deg,#7c5cff,#4ad7ff);color:#fff">4K</div></div><div class="t">Tenet</div></div>
+          </div>
+        </div>
+
+        <div style="margin-top:24px;padding:14px 20px;background:rgba(255,255,255,.04);border-radius:10px;font-size:13px;color:var(--text3);display:flex;justify-content:space-between;align-items:center">
+          <div>⌨ 遥控器: ← ↑ → ↓ 选择 · OK 确认 · 返回上一级 · 长按 OK 显示详情</div>
+          <div>当前焦点: <b style="color:var(--brand)">首页</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3 style="margin:30px 0 10px;font-size:15px;color:#fff">剧集选季/集 · TV Detail (D-pad 焦点)</h3>
+  <div class="frame">
+    <div class="frame-head">
+      <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+      <div class="frame-title">DetailActivity · 季/集</div>
+      <span class="frame-tag">遥控器</span>
+    </div>
+    <div class="frame-canvas">
+      <div class="tv-stage">
+        <div class="tv-nav">
+          <div class="l">
+            <div style="display:flex;align-items:center;gap:10px"><div class="logo-dot">M</div><span style="font-weight:700;font-size:20px">MediaHub</span></div>
+            <div class="it">首页</div>
+            <div class="it">电影</div>
+            <div class="it">剧集</div>
+            <div class="it">动漫</div>
+            <div class="it on">4K</div>
+            <div class="it">直播</div>
+            <div class="it">搜索</div>
+          </div>
+          <div class="profile"><div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#7c5cff,#4ad7ff);display:flex;align-items:center;justify-content:center;font-weight:700">A</div>Admin</div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:380px 1fr;gap:50px;margin-bottom:40px;align-items:flex-start">
+          <div class="tv-poster" style="width:380px;height:570px"></div>
+          <div>
+            <div style="font-size:13px;color:var(--brand);font-weight:600;margin-bottom:10px">★ 9.2 · 共 4 季 · 87 集 · 1080p HEVC</div>
+            <h1 style="font-size:64px;font-weight:800;margin:0 0 14px;letter-spacing:-1.5px;line-height:1.0">进击的巨人</h1>
+            <div style="color:var(--text3);font-size:16px;margin-bottom:18px">進撃の巨人 · Attack on Titan · 2013 · 日本</div>
+            <div style="font-size:18px;color:var(--text2);line-height:1.55;margin-bottom:24px;max-width:900px">故事发生在人类居住的封闭世界,面对突然出现的巨人,人类建造了高墙保护自己,但墙外的真相远比想象中残酷。艾伦·耶格尔目睹母亲被巨人吞噬后,加入调查兵团,誓要消灭所有巨人。</div>
+            <div style="display:flex;gap:12px;margin-bottom:24px">
+              <span class="b1" style="background:linear-gradient(135deg,#7c5cff,#4ad7ff);color:#fff;border:0">▶ 立即观看 S04E12</span>
+              <span class="b2">+ 我的片单</span>
+              <span class="b2">📋 复制深链</span>
+            </div>
+            <dl style="display:grid;grid-template-columns:repeat(2,1fr);gap:18px 50px;font-size:14px">
+              <div><dt style="color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">原作</dt><dd style="margin:0;color:#fff;font-weight:500">諫山創</dd></div>
+              <div><dt style="color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">导演</dt><dd style="margin:0;color:#fff;font-weight:500">林祐一郎</dd></div>
+              <div><dt style="color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">主演</dt><dd style="margin:0;color:#fff;font-weight:500">梶裕貴 · 石川由依</dd></div>
+              <div><dt style="color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">TMDB</dt><dd style="margin:0;color:var(--brand);font-weight:500">1429</dd></div>
+            </dl>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-bottom:20px">
+          <span class="it on" style="font-size:18px">第 1 季 · 25 集</span>
+          <span class="it" style="font-size:18px">第 2 季 · 12 集</span>
+          <span class="it" style="font-size:18px">第 3 季 · 22 集</span>
+          <span class="it" style="font-size:18px;background:rgba(124,92,255,.2);color:#fff">第 4 季 · Final · 28 集</span>
+        </div>
+
+        <div class="tv-row" style="margin-top:0">
+          <h3 style="color:var(--brand)">第 4 季 · The Final Season</h3>
+          <div class="r">
+            <div class="c on"><div class="p" style="position:relative"><div class="badge" style="background:var(--green)">✓ 已看</div></div><div class="t">E11 · 自由之翼</div><div class="s" style="font-size:11px;color:var(--text3);margin-top:2px">24:00 · ★ 9.5</div></div>
+            <div class="c"><div class="p" style="position:relative"><div class="badge" style="background:linear-gradient(135deg,#7c5cff,#4ad7ff);color:#fff;font-weight:700">▶ 下一集</div></div><div class="t">E12 · 终幕</div><div class="s" style="font-size:11px;color:var(--text3);margin-top:2px">24:00 · ★ ?</div></div>
+            <div class="c"><div class="p"></div><div class="t">E13 · 完结篇</div></div>
+            <div class="c"><div class="p"></div><div class="t">E14 · 番外</div></div>
+            <div class="c"><div class="p"></div><div class="t">E15 · 番外</div></div>
+            <div class="c"><div class="p"></div><div class="t">E16 · 番外</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3 style="margin:30px 0 10px;font-size:15px;color:#fff">TV 播放器 · 大屏控制条</h3>
+  <div class="frame">
+    <div class="frame-head">
+      <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+      <div class="frame-title">PlayerActivity</div>
+      <span class="frame-tag">大屏</span>
+    </div>
+    <div class="frame-canvas">
+      <div class="tv-player" style="border-radius:10px;overflow:hidden">
+        <div style="position:absolute;inset:0;background:radial-gradient(ellipse at center,#2a3a6a 0%,#000 70%)"></div>
+        <div class="stage"></div>
+        <div style="position:absolute;top:40px;left:60px;font-size:18px;color:#fff;font-weight:600">← 进击的巨人 S04E12 · 终幕 · 1080p</div>
+        <div style="position:absolute;top:40px;right:60px;display:flex;gap:18px;font-size:14px;color:#fff;align-items:center">
+          <span style="padding:4px 10px;background:rgba(0,0,0,.5);border-radius:4px">字幕: 中文</span>
+          <span style="padding:4px 10px;background:rgba(0,0,0,.5);border-radius:4px">音轨: 日语</span>
+          <span style="padding:4px 10px;background:rgba(0,0,0,.5);border-radius:4px">1080p HEVC</span>
+          <span style="font-size:20px;cursor:pointer">⚙</span>
+        </div>
+        <div class="ctrl-bar2">
+          <span class="ic">⏮</span>
+          <span class="ic">⏪</span>
+          <span class="ic">⏸</span>
+          <span class="ic">⏩</span>
+          <span class="ic">⏭</span>
+          <span style="width:1px;height:24px;background:rgba(255,255,255,.2)"></span>
+          <span style="font-family:ui-monospace,monospace;font-size:18px">01:03:42 / 02:32:14</span>
+          <span style="width:1px;height:24px;background:rgba(255,255,255,.2)"></span>
+          <span class="ic">CC</span>
+          <span class="ic">🔊</span>
+          <span class="ic">⛶</span>
+        </div>
+        <div style="position:absolute;bottom:110px;left:50%;transform:translateX(-50%);width:60%;height:6px;background:rgba(255,255,255,.2);border-radius:99px;position:relative">
+          <div style="position:absolute;left:0;top:0;height:100%;width:42%;background:linear-gradient(90deg,#7c5cff,#4ad7ff);border-radius:99px"></div>
+          <div style="position:absolute;right:-8px;top:-7px;width:20px;height:20px;background:#fff;border-radius:50%;box-shadow:0 0 20px rgba(255,255,255,.6)"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<!-- placeholder --><!-- ====================== USER FLOW ====================== -->
+<section class="section" id="flow">
+  <div class="section-head">
+    <span class="num">04</span>
+    <h2>关键用户流程 · User Flows</h2>
+    <span class="sub">从下载到观看的端到端体验闭环</span>
+  </div>
+
+  <!-- 流程图1：入库闭环 -->
+  <h3 style="margin:18px 0 10px;font-size:15px;color:#fff">流程 A · 下载到入库的自动闭环</h3>
+  <div class="frame">
+    <div class="frame-head">
+      <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+      <div class="frame-title">download → library · A1+A2+B4</div>
+      <span class="frame-tag">端到端</span>
+    </div>
+    <div class="frame-canvas">
+      <div style="padding:30px;background:var(--bg3);overflow-x:auto">
+        <div style="display:flex;align-items:center;gap:14px;min-width:1100px">
+          <div style="text-align:center;min-width:140px">
+            <div style="width:80px;height:80px;border-radius:16px;background:linear-gradient(135deg,#5c2a4a,#2a1f3a);margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:32px">⬇</div>
+            <div style="font-size:13px;color:#fff;font-weight:600">qBittorrent</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:4px">下载完成<br/>progress=100%</div>
+          </div>
+          <div style="color:var(--brand);font-size:20px">→</div>
+          <div style="text-align:center;min-width:140px">
+            <div style="width:80px;height:80px;border-radius:16px;background:linear-gradient(135deg,#3a2a7a,#1a2a5c);margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:32px">📡</div>
+            <div style="font-size:13px;color:#fff;font-weight:600">watcher</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:4px">监听事件<br/>跳过 .part/.!qB</div>
+          </div>
+          <div style="color:var(--brand);font-size:20px">→</div>
+          <div style="text-align:center;min-width:140px">
+            <div style="width:80px;height:80px;border-radius:16px;background:linear-gradient(135deg,#2a3a6a,#1a2a4a);margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:32px">🔍</div>
+            <div style="font-size:13px;color:#fff;font-weight:600">scanner</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:4px">扫描路径<br/>ffprobe 抽取</div>
+          </div>
+          <div style="color:var(--brand);font-size:20px">→</div>
+          <div style="text-align:center;min-width:140px">
+            <div style="width:80px;height:80px;border-radius:16px;background:linear-gradient(135deg,#7c5cff,#4ad7ff);margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:32px">🎯</div>
+            <div style="font-size:13px;color:#fff;font-weight:600">scraper</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:4px">TMDB/Bangumi<br/>入队 → 匹配</div>
+          </div>
+          <div style="color:var(--brand);font-size:20px">→</div>
+          <div style="text-align:center;min-width:140px">
+            <div style="width:80px;height:80px;border-radius:16px;background:linear-gradient(135deg,#46d39a,#4ad7ff);margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:32px">✓</div>
+            <div style="font-size:13px;color:#fff;font-weight:600">media_files</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:4px">入库 · 海报<br/>季/集 · 评分</div>
+          </div>
+          <div style="color:var(--brand);font-size:20px">→</div>
+          <div style="text-align:center;min-width:140px">
+            <div style="width:80px;height:80px;border-radius:16px;background:linear-gradient(135deg,#ffb547,#ff5d8f);margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:32px">🎬</div>
+            <div style="font-size:13px;color:#fff;font-weight:600">Web Player</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:4px">出现在 Feed<br/>立刻可看</div>
+          </div>
+        </div>
+
+        <div style="margin-top:30px;padding:16px 20px;background:rgba(124,92,255,.1);border:1px solid rgba(124,92,255,.3);border-radius:10px;font-size:12px;color:var(--text2);line-height:1.7">
+          <b style="color:var(--brand)">SLA:</b> <code style="background:var(--bg);padding:2px 6px;border-radius:3px;color:var(--brand2)">downloader.done → media.exist</code> P95 ≤ <b style="color:var(--green)">60 秒</b> · 当前实测:平均 24 秒
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 流程图2：观看闭环 -->
+  <h3 style="margin:30px 0 10px;font-size:15px;color:#fff">流程 B · 点开即播的观看闭环 (含 4K 决策)</h3>
+  <div class="frame">
+    <div class="frame-head">
+      <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+      <div class="frame-title">click → play · A3+A4+B3</div>
+      <span class="frame-tag">端到端</span>
+    </div>
+    <div class="frame-canvas">
+      <div style="padding:30px;background:var(--bg3);overflow-x:auto">
+        <div style="display:flex;align-items:flex-start;gap:14px;min-width:1200px">
+          <div style="text-align:center;min-width:130px">
+            <div style="width:70px;height:70px;border-radius:14px;background:linear-gradient(135deg,#7c5cff,#4ad7ff);margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-size:28px">▶</div>
+            <div style="font-size:12px;color:#fff;font-weight:600">点击播放</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:3px">客户端</div>
+          </div>
+          <div style="color:var(--brand);font-size:18px;margin-top:26px">→</div>
+          <div style="text-align:center;min-width:130px">
+            <div style="width:70px;height:70px;border-radius:14px;background:linear-gradient(135deg,#4ad7ff,#46d39a);margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-size:28px">🔎</div>
+            <div style="font-size:12px;color:#fff;font-weight:600">probe API</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:3px">ffprobe 元数据<br/>4K HEVC HDR10</div>
+          </div>
+          <div style="color:var(--brand);font-size:18px;margin-top:26px">→</div>
+          <div style="text-align:center;min-width:150px">
+            <div style="width:70px;height:70px;border-radius:14px;background:linear-gradient(135deg,#9b6cff,#7c5cff);margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-size:24px">⚖</div>
+            <div style="font-size:12px;color:#fff;font-weight:600">决策</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:3px">codec 白名单<br/>网络带宽</div>
+          </div>
+          <div style="color:var(--brand);font-size:18px;margin-top:26px">→</div>
+          <div style="text-align:center;min-width:130px">
+            <div style="width:70px;height:70px;border-radius:14px;background:linear-gradient(135deg,#46d39a,#4ad7ff);margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-size:26px">⚡</div>
+            <div style="font-size:12px;color:#fff;font-weight:600">① 直连</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:3px">支持 → 立即<br/>播放 4K 原盘</div>
+            <div style="margin-top:6px"><span class="pill ok" style="font-size:9px">80% 命中</span></div>
+          </div>
+          <div style="color:var(--brand);font-size:18px;margin-top:26px">↓失败</div>
+          <div style="text-align:center;min-width:130px">
+            <div style="width:70px;height:70px;border-radius:14px;background:linear-gradient(135deg,#ffb547,#ff5d8f);margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-size:26px">📋</div>
+            <div style="font-size:12px;color:#fff;font-weight:600">② 流复制</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:3px">HLS -c:v copy<br/>3 秒出片</div>
+            <div style="margin-top:6px"><span class="pill warn" style="font-size:9px">15%</span></div>
+          </div>
+          <div style="color:var(--brand);font-size:18px;margin-top:26px">↓失败</div>
+          <div style="text-align:center;min-width:140px">
+            <div style="width:70px;height:70px;border-radius:14px;background:linear-gradient(135deg,#ff5c5c,#ff5d8f);margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-size:26px">🔄</div>
+            <div style="font-size:12px;color:#fff;font-weight:600">③ 转码</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:3px">480p H.264<br/>QSV 加速</div>
+            <div style="margin-top:6px"><span class="pill err" style="font-size:9px">5%</span></div>
+          </div>
+          <div style="color:var(--brand);font-size:18px;margin-top:26px">→</div>
+          <div style="text-align:center;min-width:130px">
+            <div style="width:70px;height:70px;border-radius:14px;background:linear-gradient(135deg,#46d39a,#4ad7ff);margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-size:28px">🎉</div>
+            <div style="font-size:12px;color:#fff;font-weight:600">播放中</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:3px">进度上报<br/>Redis 持久化</div>
+          </div>
+        </div>
+
+        <div style="margin-top:30px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div style="padding:14px;background:rgba(70,211,154,.1);border:1px solid rgba(70,211,154,.3);border-radius:8px;font-size:12px;color:var(--text2)">
+            <b style="color:var(--green)">✓ 转码 Loading</b><br/>
+            "正在准备 4K 流… 60% · 02:13"<br/>
+            1Hz 轮询 · 进度条可视化
+          </div>
+          <div style="padding:14px;background:rgba(74,215,255,.1);border:1px solid rgba(74,215,255,.3);border-radius:8px;font-size:12px;color:var(--text2)">
+            <b style="color:var(--cyan)">✓ docker restart 不丢任务</b><br/>
+            Redis rehydrate · 客户端续轮询<br/>
+            不白屏 · 不重新开始
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 流程图3：Admin 发布闭环 -->
+  <h3 style="margin:30px 0 10px;font-size:15px;color:#fff">流程 C · Admin 发布 → 全端 5s 刷新 (A6)</h3>
+  <div class="frame">
+    <div class="frame-head">
+      <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+      <div class="frame-title">publish → refresh · A6 Feed/布局一致</div>
+      <span class="frame-tag">实时一致</span>
+    </div>
+    <div class="frame-canvas">
+      <div style="padding:30px;background:var(--bg3)">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:18px;align-items:center">
+          <div style="text-align:center;padding:14px;background:var(--bg2);border-radius:10px;border:1px solid var(--line)">
+            <div style="font-size:28px;margin-bottom:6px">🎭</div>
+            <div style="font-size:12px;color:#fff;font-weight:600">Admin 编辑</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:4px">布局编辑器<br/>保存</div>
+          </div>
+          <div style="color:var(--brand);font-size:20px;text-align:center">→</div>
+          <div style="text-align:center;padding:14px;background:var(--bg2);border-radius:10px;border:1px solid var(--line)">
+            <div style="font-size:28px;margin-bottom:6px">💾</div>
+            <div style="font-size:12px;color:#fff;font-weight:600">API 保存</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:4px">version +1<br/>乐观锁</div>
+          </div>
+          <div style="color:var(--brand);font-size:20px;text-align:center">→</div>
+          <div style="text-align:center;padding:14px;background:rgba(255,92,92,.1);border-radius:10px;border:1px solid rgba(255,92,92,.3)">
+            <div style="font-size:28px;margin-bottom:6px">🗑️</div>
+            <div style="font-size:12px;color:#fff;font-weight:600">Cache DEL</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:4px">feed:profile:*<br/>× X-Profile-ID</div>
+          </div>
+        </div>
+
+        <div style="margin:24px 0;text-align:center;color:var(--brand);font-size:14px">↓ 5 秒内</div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px">
+          <div style="padding:14px;background:rgba(70,211,154,.08);border-radius:10px;border:1px solid rgba(70,211,154,.3)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="color:var(--green);font-size:12px">Web Player</b><span class="pill ok" style="font-size:9px">✓ 已刷新</span></div>
+            <div style="font-size:11px;color:var(--text2)">EventSource 推 / 轮询 version<br/>Hero 顺序按新布局</div>
+          </div>
+          <div style="padding:14px;background:rgba(70,211,154,.08);border-radius:10px;border:1px solid rgba(70,211,154,.3)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="color:var(--green);font-size:12px">Android TV</b><span class="pill ok" style="font-size:9px">✓ 已刷新</span></div>
+            <div style="font-size:11px;color:var(--text2)">同 Web · 长连接保活<br/>焦点状态保留</div>
+          </div>
+          <div style="padding:14px;background:rgba(70,211,154,.08);border-radius:10px;border:1px solid rgba(70,211,154,.3)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="color:var(--green);font-size:12px">Admin Toast</b><span class="pill ok" style="font-size:9px">✓ 提示</span></div>
+            <div style="font-size:11px;color:var(--text2)">"布局已发布 · Web/TV 5s 内刷新"</div>
+          </div>
+        </div>
+
+        <div style="margin-top:24px;padding:14px;background:rgba(124,92,255,.1);border:1px solid rgba(124,92,255,.3);border-radius:10px;font-size:12px;color:var(--text2)">
+          <b style="color:var(--brand)">容错：</b>即使 EventSource 断线,客户端 5 秒轮询兜底。失效 key 必须包含 <code style="background:var(--bg);padding:2px 6px;border-radius:3px;color:var(--brand2)">profile_id</code> 前缀,避免误清全 Profile。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 设计原则 -->
+  <div class="legend">
+    <h4>📐 设计原则 · Design Principles</h4>
+    1. <b>海报即信息</b> · 一张海报能传达 80% 的元数据(标题/评分/4K 标签/进度条),详情页是次级入口。<br/>
+    2. <b>焦点一致性</b> · 三端共享品牌色与组件语言,但根据设备特性分化:Admin 用 Element Plus 数据密度优先 · Web 用 Hero+卡片流 · TV 用 10 英尺大字号+焦点环。<br/>
+    3. <b>状态可见</b> · 转码 / 下载 / 刮削 / 入库 任何异步任务都展示进度数字而非 spinner,避免"不知道在干嘛"。<br/>
+    4. <b>Profile 隔离</b> · 儿童模式自动隐藏 is_adult 内容,所有请求带 X-Profile-ID,缓存按 Profile 前缀隔离。<br/>
+    5. <b>暗色影院级</b> · 三端统一暗色背景,降低观影干扰,海报色彩更突出。<br/>
+    6. <b>深链优先</b> · 详情页和播放器都支持 <code>/player/:id?episode=:eid</code> 深链,直接跳到指定季/集并自动播放。
+  </div>
+
+</section>
+
+<footer>
+  <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px">
+    <div>
+      <b style="color:#fff">MediaHub 产品原型图</b> · v0.4.0 设计参考 · 由 Mavis 协助生成<br/>
+      基于 PRD-V0.4.0 · 已覆盖 13 个核心页面 + 3 条用户流程
+    </div>
+    <div style="text-align:right;color:var(--text3)">
+      <div>📁 文件位置: <code style="color:var(--brand2)">D:\project\mediahub\docs\prototype\index.html</code></div>
+      <div>🚀 打开方式: 浏览器双击 · 或 <code style="color:var(--brand2)">file://</code> 直接打开</div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1323,14 +1323,14 @@ onMounted(async () => {
   height: calc(100vh - 48px);
   display: flex;
   flex-direction: column;
-  background: var(--mh-bg, #0b0d12);
+  background: var(--mh-bg);
   margin: -24px;
 }
 
 .editor-header {
   height: 56px;
-  background: var(--mh-bg2, #11141c);
-  border-bottom: 1px solid var(--mh-line, #222734);
+  background: var(--mh-surface);
+  border-bottom: 1px solid var(--mh-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1340,7 +1340,7 @@ onMounted(async () => {
     font-size: 16px;
     font-weight: 600;
     margin-left: 8px;
-    color: var(--mh-text, #e8ebf2);
+    color: var(--mh-text);
   }
   .layout-name-input {
     width: 200px;
@@ -1348,14 +1348,14 @@ onMounted(async () => {
   }
   .version {
     margin-left: 12px;
-    color: var(--mh-text-muted, #6c7384);
+    color: var(--mh-text-tertiary);
     font-size: 13px;
   }
 }
 
 .inherit-badge {
   margin-left: 12px;
-  color: var(--mh-primary, #7c5cff);
+  color: var(--mh-primary);
   font-size: 12px;
   display: inline-flex;
   align-items: center;
@@ -1376,21 +1376,21 @@ onMounted(async () => {
 
 .component-panel,
 .config-panel {
-  background: var(--mh-bg2, #11141c);
-  border-right: 1px solid var(--mh-line, #222734);
+  background: var(--mh-surface);
+  border-right: 1px solid var(--mh-border);
   padding: 16px;
   overflow-y: auto;
 }
 
 .config-panel {
   border-right: none;
-  border-left: 1px solid var(--mh-line, #222734);
+  border-left: 1px solid var(--mh-border);
 }
 
 .panel-title {
   font-size: 13px;
   font-weight: 600;
-  color: var(--mh-text-muted, #6c7384);
+  color: var(--mh-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 12px;
@@ -1426,14 +1426,14 @@ onMounted(async () => {
 
 .hint {
   font-size: 12px;
-  color: var(--mh-text-muted, #6c7384);
+  color: var(--mh-text-tertiary);
   margin-top: 4px;
   line-height: 1.5;
 }
 
 .field-hint-block {
   font-size: 12px;
-  color: var(--mh-text-secondary, #a5acbd);
+  color: var(--mh-text-secondary);
   line-height: 1.5;
 }
 
@@ -1444,10 +1444,10 @@ onMounted(async () => {
 .rule-tag {
   display: inline-block;
   padding: 2px 6px;
-  background: var(--mh-bg3, #181c26);
-  border-radius: 3px;
+  background: var(--mh-surface-secondary);
+  border-radius: 4px;
   font-size: 11px;
-  color: var(--mh-text-secondary, #a5acbd);
+  color: var(--mh-text-secondary);
   margin-right: 4px;
 }
 
@@ -1462,18 +1462,18 @@ onMounted(async () => {
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  background: var(--mh-bg3, #181c26);
-  border: 1px solid var(--mh-line, #222734);
-  border-radius: 6px;
+  background: var(--mh-surface-secondary);
+  border: 1px solid var(--mh-border);
+  border-radius: var(--mh-radius-sm);
   cursor: grab;
   font-size: 13px;
-  color: var(--mh-text-secondary, #a5acbd);
-  transition: all 0.15s;
+  color: var(--mh-text-secondary);
+  transition: all var(--mh-duration-fast) var(--mh-ease);
 
   &:hover {
-    background: var(--mh-line, #222734);
-    border-color: var(--mh-primary, #7c5cff);
-    color: var(--mh-text, #e8ebf2);
+    background: var(--mh-surface-tertiary);
+    border-color: var(--mh-primary);
+    color: var(--mh-text);
     transform: translateX(2px);
   }
 
@@ -1483,7 +1483,7 @@ onMounted(async () => {
 }
 
 .canvas-area {
-  background: #08090c;
+  background: var(--mh-bg);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1501,13 +1501,13 @@ onMounted(async () => {
 
 .canvas-inner {
   width: 1280px;
-  background: linear-gradient(180deg, var(--mh-bg-elevated, #11141c), var(--mh-bg, #0b0d12));
-  border: 1px solid var(--mh-line, #222734);
-  border-radius: 12px;
+  background: var(--mh-bg-elevated);
+  border: 1px solid var(--mh-border);
+  border-radius: var(--mh-radius-lg);
   padding: 24px;
   min-height: 600px;
-  color: #fff;
-  transition: all 0.3s;
+  color: var(--mh-text);
+  transition: all var(--mh-duration) var(--mh-ease);
 
   &.platform-android-tv {
     width: 1920px;
@@ -1529,35 +1529,35 @@ onMounted(async () => {
 
 .layout-row {
   display: flex;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  transition: all 0.15s;
+  background: var(--mh-surface);
+  border: 1px solid var(--mh-border);
+  border-radius: var(--mh-radius-md);
+  transition: all var(--mh-duration-fast) var(--mh-ease);
   overflow: hidden;
 
   &.active {
-    border-color: var(--mh-primary, #7c5cff);
-    background: rgba(124, 92, 255, 0.1);
+    border-color: var(--mh-primary);
+    background: var(--mh-primary-muted);
   }
 
   &.inherited {
     border-style: dashed;
-    background: rgba(124, 92, 255, 0.05);
+    background: var(--mh-surface-secondary);
   }
 
   &:hover {
-    border-color: rgba(124, 92, 255, 0.5);
+    border-color: var(--mh-primary);
   }
 }
 
 .row-handle {
   width: 32px;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--mh-surface-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: grab;
-  color: var(--mh-text-muted, #6c7384);
+  color: var(--mh-text-tertiary);
   flex-shrink: 0;
 
   &:active {
@@ -1581,16 +1581,16 @@ onMounted(async () => {
   font-size: 14px;
   font-weight: 500;
   flex: 1;
-  color: var(--mh-text, #e8ebf2);
+  color: var(--mh-text);
 }
 
 .row-meta {
   font-size: 12px;
-  color: var(--mh-text-muted, #6c7384);
+  color: var(--mh-text-tertiary);
   margin-left: 8px;
 
   &--muted {
-    color: var(--mh-text-muted, #6c7384);
+    color: var(--mh-text-tertiary);
   }
 }
 
@@ -1615,10 +1615,10 @@ onMounted(async () => {
   &.row-type-text-banner {
     display: block;
     padding: 12px 16px;
-    background: rgba(124, 92, 255, 0.15);
-    border-radius: 8px;
-    border: 1px dashed rgba(124, 92, 255, 0.4);
-    color: var(--mh-text-secondary, #a5acbd);
+    background: var(--mh-primary-muted);
+    border-radius: var(--mh-radius-md);
+    border: 1px dashed var(--mh-primary);
+    color: var(--mh-text-secondary);
     font-size: 13px;
   }
 
@@ -1632,21 +1632,21 @@ onMounted(async () => {
       content: '';
       flex: 1;
       height: 1px;
-      background: rgba(255, 255, 255, 0.15);
+      background: var(--mh-border);
     }
   }
 }
 
 .preview-card {
-  background: linear-gradient(135deg, var(--mh-bg3, #181c26), var(--mh-bg2, #11141c));
-  border-radius: 6px;
+  background: var(--mh-surface-secondary);
+  border-radius: var(--mh-radius-sm);
   flex-shrink: 0;
   overflow: hidden;
   position: relative;
 
   &--real {
-    background: var(--mh-bg3, #181c26);
-    border: 1px solid var(--mh-line, #222734);
+    background: var(--mh-surface);
+    border: 1px solid var(--mh-border);
     display: flex;
     flex-direction: column;
 
@@ -1667,12 +1667,12 @@ onMounted(async () => {
     .preview-card-caption {
       font-size: 10px;
       line-height: 1.2;
-      color: var(--mh-text-secondary, #a5acbd);
+      color: var(--mh-text-secondary);
       padding: 4px 6px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      background: rgba(0, 0, 0, 0.35);
+      background: rgba(0, 0, 0, 0.3);
     }
   }
 
@@ -1687,7 +1687,7 @@ onMounted(async () => {
     align-items: center;
     justify-content: center;
     font-size: 11px;
-    color: var(--mh-text-muted, #6c7384);
+    color: var(--mh-text-tertiary);
     padding: 4px;
     text-align: center;
   }
@@ -1717,25 +1717,26 @@ onMounted(async () => {
   height: 400px;
 
   :deep(.el-empty__description p) {
-    color: var(--mh-text-muted, #6c7384);
+    color: var(--mh-text-tertiary);
   }
 }
 
 .canvas-toolbar {
   height: 40px;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--mh-surface);
+  border-top: 1px solid var(--mh-border);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: var(--mh-text-secondary, #a5acbd);
+  color: var(--mh-text-secondary);
   font-size: 13px;
 }
 
 .config-form {
   :deep(.el-form-item__label) {
     font-weight: 500;
-    color: var(--mh-text-secondary, #a5acbd);
+    color: var(--mh-text-secondary);
   }
 }
 </style>

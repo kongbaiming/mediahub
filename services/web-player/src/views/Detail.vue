@@ -517,8 +517,8 @@ onMounted(load)
 <style lang="scss" scoped>
 .detail-page {
   min-height: 100vh;
-  background: var(--mh-bg, #0a0a12);
-  color: var(--mh-text, #f0f0f5);
+  background: var(--mh-bg, #000000);
+  color: var(--mh-text, #ffffff);
 }
 
 .detail-topbar {
@@ -582,9 +582,9 @@ onMounted(load)
 }
 
 .want-btn {
-  background: rgba(108, 99, 255, 0.12);
-  border: 1px solid rgba(108, 99, 255, 0.25);
-  color: #c4bfff;
+  background: var(--mh-primary-muted);
+  border: 1px solid var(--mh-primary);
+  color: var(--mh-primary);
   padding: 8px 16px;
   border-radius: 10px;
   cursor: pointer;
@@ -592,12 +592,11 @@ onMounted(load)
   font-weight: 500;
 
   &.active {
-    background: var(--mh-primary-muted, rgba(108, 99, 255, 0.2));
+    background: var(--mh-primary);
     color: #fff;
-    border-color: var(--mh-primary, #6c63ff);
   }
 
-  &:hover { background: rgba(108, 99, 255, 0.2); }
+  &:hover { background: var(--mh-primary); color: #fff; }
 }
 
 .rating-badge {
@@ -746,7 +745,7 @@ onMounted(load)
 }
 
 .type-badge {
-  background: rgba(99, 102, 241, 0.8);
+  background: var(--mh-primary);
   color: #fff;
   padding: 2px 10px;
   border-radius: 4px;
@@ -1017,8 +1016,8 @@ onMounted(load)
   cursor: pointer;
 
   &:hover {
-    background: rgba(99, 102, 241, 0.15);
-    border-color: rgba(99, 102, 241, 0.35);
+    background: var(--mh-primary-muted);
+    border-color: var(--mh-primary);
   }
 }
 

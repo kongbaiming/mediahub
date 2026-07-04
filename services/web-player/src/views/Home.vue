@@ -187,8 +187,8 @@ onBeforeUnmount(() => {
 .home {
   min-height: 100vh;
   background:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(124, 92, 255, 0.12), transparent),
-    radial-gradient(ellipse 60% 40% at 100% 50%, rgba(74, 215, 255, 0.06), transparent),
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 122, 255, 0.08), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 50%, rgba(88, 86, 214, 0.05), transparent),
     var(--mh-bg);
 }
 
@@ -214,7 +214,7 @@ onBeforeUnmount(() => {
 }
 
 .logo-text {
-  background: linear-gradient(135deg, var(--mh-primary), var(--mh-accent));
+  background: linear-gradient(135deg, var(--mh-primary), var(--mh-secondary));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -226,23 +226,21 @@ onBeforeUnmount(() => {
 
   input {
     width: 100%;
-    height: 40px;
-    background: rgba(255, 255, 255, 0.06);
+    height: 36px;
+    background: var(--mh-surface);
     border: 1px solid var(--mh-outline);
-    border-radius: 10px;
+    border-radius: var(--mh-radius-sm);
     color: var(--mh-text);
-    padding: 0 var(--mh-space-4);
+    padding: 0 var(--mh-space-3);
+    font-size: 14px;
     outline: none;
-    transition: background var(--mh-duration) var(--mh-ease),
-                border-color var(--mh-duration) var(--mh-ease),
-                box-shadow var(--mh-duration) var(--mh-ease);
+    transition: all var(--mh-duration-fast) var(--mh-ease);
 
     &::placeholder {
-      color: var(--mh-text-muted);
+      color: var(--mh-text-tertiary);
     }
 
     &:focus {
-      background: rgba(255, 255, 255, 0.08);
       border-color: var(--mh-primary);
       box-shadow: 0 0 0 3px var(--mh-primary-muted);
     }
@@ -256,30 +254,27 @@ onBeforeUnmount(() => {
 }
 
 .profile-switcher, .icon-btn {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--mh-surface);
   border: 1px solid var(--mh-outline);
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: var(--mh-radius-full);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
+  font-size: 14px;
   color: var(--mh-text);
   font-weight: 600;
-  transition: background var(--mh-duration) var(--mh-ease),
-              transform var(--mh-duration) var(--mh-ease),
-              border-color var(--mh-duration) var(--mh-ease);
+  transition: all var(--mh-duration-fast) var(--mh-ease);
 
   &:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--mh-surface-variant);
     border-color: var(--mh-outline-strong);
-    transform: translateY(-1px);
   }
 
   &:active {
-    transform: scale(0.97);
+    transform: scale(0.95);
   }
 }
 

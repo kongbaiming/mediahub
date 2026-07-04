@@ -367,21 +367,26 @@ onMounted(() => {
 .poster-card {
   position: relative;
   aspect-ratio: 2/3;
-  border-radius: 8px;
+  border-radius: var(--mh-radius-md);
   overflow: hidden;
-  background: linear-gradient(135deg, var(--mh-bg3, #181c26), var(--mh-bg, #0b0d12));
+  background: var(--mh-surface-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--mh-text-muted, #6c7384);
+  color: var(--mh-text-tertiary);
   font-size: 24px;
   font-weight: 600;
-  transition: box-shadow 0.2s;
-  border: 1px solid var(--mh-line, #222734);
+  transition: all var(--mh-duration-fast) var(--mh-ease);
+  box-shadow: var(--mh-shadow-sm);
+
+  &:hover {
+    box-shadow: var(--mh-shadow-md);
+    transform: translateY(-2px);
+  }
 }
 
 .poster-placeholder {
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--mh-text-tertiary);
 }
 
 .poster-card img {
@@ -392,13 +397,13 @@ onMounted(() => {
 
 .rating-badge {
   position: absolute;
-  top: 8px;
-  left: 8px;
-  background: rgba(0, 0, 0, 0.65);
-  color: var(--mh-warning, #ffb547);
+  top: 6px;
+  left: 6px;
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--mh-warning);
   padding: 2px 6px;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 11px;
   display: flex;
   align-items: center;
   gap: 2px;
@@ -407,34 +412,36 @@ onMounted(() => {
 
 .type-badge {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  background: rgba(124, 92, 255, 0.9);
+  top: 6px;
+  right: 6px;
+  background: var(--mh-primary);
   color: #fff;
-  padding: 2px 8px;
+  padding: 2px 6px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 .episode-badge {
   position: absolute;
-  bottom: 8px;
-  right: 8px;
-  background: rgba(11, 13, 18, 0.82);
+  bottom: 6px;
+  right: 6px;
+  background: rgba(0, 0, 0, 0.6);
   color: #fff;
-  padding: 2px 8px;
+  padding: 2px 6px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 .media-info {
-  margin-top: 8px;
+  margin-top: var(--mh-space-3);
 }
 
 .media-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
-  color: var(--mh-text, #e8ebf2);
+  color: var(--mh-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -443,7 +450,7 @@ onMounted(() => {
 .media-meta {
   margin-top: 4px;
   font-size: 12px;
-  color: var(--mh-text-muted, #6c7384);
+  color: var(--mh-text-secondary);
   display: flex;
   gap: 8px;
 }

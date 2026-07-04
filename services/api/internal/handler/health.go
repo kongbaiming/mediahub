@@ -28,6 +28,15 @@ func ReadinessCheck(c *gin.Context) {
 		"database": checkDatabase(ctx),
 		"redis":    checkRedis(ctx),
 	}
+	if tmdbChecker != nil {
+		checks["tmdb"] = tmdbChecker(ctx)
+	}
+	if qbitChecker != nil {
+		checks["qbittorrent"] = qbitChecker(ctx)
+	}
+	if aiChecker != nil {
+		checks["ai"] = aiChecker(ctx)
+	}
 
 	allOk := true
 	for _, v := range checks {
@@ -72,15 +81,25 @@ func MetricsHandler(c *gin.Context) {
 
 // checkDatabase / checkRedis 由 main.go 注入实现
 var (
-	dbChecker    func(ctx context.Context) string
-	redisChecker func(ctx context.Context) string
-	dbStats      func() any
+	dbChecker      func(ctx context.Context) string
+	redisChecker   func(ctx context.Context) string
+	dbStats        func() any
+	tmdbChecker    func(ctx context.Context) string
+	qbitChecker    func(ctx context.Context) string
+	aiChecker      func(ctx context.Context) string
 )
 
 // SetHealthCheckers 设置健康检查器
 func SetHealthCheckers(db, redis func(ctx context.Context) string) {
 	dbChecker = db
 	redisChecker = redis
+}
+
+// SetExtraHealthCheckers 设置额外的健康检查器
+func SetExtraHealthCheckers(tmdb, qbit, ai func(ctx context.Context) string) {
+	tmdbChecker = tmdb
+	qbitChecker = qbit
+	aiChecker = ai
 }
 
 // SetDBStatsProvider 设置 DB 连接池统计 provider

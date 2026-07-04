@@ -144,7 +144,7 @@ async function onSubmit() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--mh-admin-sidebar-to);
+  background: var(--mh-bg);
   overflow: hidden;
 }
 
@@ -152,48 +152,20 @@ async function onSubmit() {
   position: absolute;
   inset: 0;
   pointer-events: none;
-}
-
-.bg-blob {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  opacity: 0.4;
-
-  &.blob-1 {
-    width: 400px;
-    height: 400px;
-    background: var(--mh-primary);
-    top: -100px;
-    left: -100px;
-  }
-  &.blob-2 {
-    width: 500px;
-    height: 500px;
-    background: var(--mh-accent);
-    bottom: -150px;
-    right: -100px;
-  }
-  &.blob-3 {
-    width: 300px;
-    height: 300px;
-    background: var(--mh-secondary);
-    top: 50%;
-    left: 60%;
-  }
+  background: radial-gradient(ellipse 80% 60% at 50% 30%, rgba(0, 122, 255, 0.08), transparent),
+              radial-gradient(ellipse 60% 40% at 80% 70%, rgba(88, 86, 214, 0.06), transparent);
 }
 
 .login-container {
   position: relative;
   z-index: 1;
-  width: 420px;
+  width: 380px;
   max-width: 92vw;
 }
 
 .login-header {
   text-align: center;
-  margin-bottom: 24px;
-  color: #fff;
+  margin-bottom: 28px;
 }
 
 .brand {
@@ -206,75 +178,102 @@ async function onSubmit() {
     margin: 0;
     font-size: 28px;
     font-family: var(--mh-font-display);
-    background: linear-gradient(135deg, var(--mh-primary, #7c5cff), var(--mh-secondary, #4ad7ff));
+    font-weight: 600;
+    background: linear-gradient(135deg, var(--mh-primary), var(--mh-secondary));
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+    letter-spacing: -0.02em;
   }
 }
 
 .subtitle {
   margin-top: var(--mh-space-2);
-  color: var(--mh-text-muted);
+  color: var(--mh-text-secondary);
   font-size: 14px;
 }
 
 .login-card {
-  background: rgba(22, 22, 37, 0.75);
-  backdrop-filter: blur(24px) saturate(1.2);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--mh-radius-lg);
+  background: var(--mh-surface);
+  border: 1px solid var(--mh-border);
+  border-radius: var(--mh-radius-xl);
   padding: var(--mh-space-6);
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
-}
-
-:deep(.login-card) {
-  background: rgba(30, 41, 59, 0.7) !important;
-  color: #fff;
+  box-shadow: var(--mh-shadow-xl);
 }
 
 :deep(.el-tabs__item) {
-  color: #94a3b8 !important;
+  color: var(--mh-text-secondary) !important;
+  font-weight: 500;
+
   &.is-active {
-    color: #fff !important;
+    color: var(--mh-primary) !important;
   }
 }
 
 :deep(.el-tabs__active-bar) {
   background-color: var(--mh-primary) !important;
+  height: 2px;
+}
+
+:deep(.el-tabs__nav-wrap::after) {
+  display: none;
 }
 
 :deep(.el-form-item__label) {
-  color: #cbd5e1 !important;
+  color: var(--mh-text-secondary) !important;
+  font-weight: 500;
+  font-size: 13px;
 }
 
 :deep(.el-input__wrapper) {
-  background: rgba(15, 23, 42, 0.6) !important;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset !important;
+  background: var(--mh-surface-secondary) !important;
+  border: 1px solid var(--mh-border) !important;
+  box-shadow: none !important;
+  border-radius: var(--mh-radius-sm) !important;
+  transition: all var(--mh-duration-fast) var(--mh-ease);
+
+  &:hover {
+    border-color: var(--mh-border-strong) !important;
+  }
+
+  &.is-focus {
+    border-color: var(--mh-primary) !important;
+    box-shadow: 0 0 0 3px var(--mh-primary-muted) !important;
+  }
 }
 
 :deep(.el-input__inner) {
-  color: #fff !important;
+  color: var(--mh-text) !important;
+
+  &::placeholder {
+    color: var(--mh-text-tertiary) !important;
+  }
 }
 
 .submit-btn {
   width: 100%;
-  margin-top: var(--mh-space-2);
-  background: linear-gradient(135deg, var(--mh-primary), var(--mh-accent));
+  margin-top: var(--mh-space-4);
+  background: var(--mh-primary);
   border: none;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  font-size: 15px;
+  letter-spacing: 0;
   height: 44px;
-  border-radius: 10px;
+  border-radius: var(--mh-radius-sm);
+  transition: all var(--mh-duration-fast) var(--mh-ease);
 
   &:hover {
-    background: linear-gradient(135deg, var(--mh-primary-hover), #db2777);
+    background: var(--mh-primary-hover);
     transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0) scale(0.99);
   }
 }
 
 .hint {
-  margin-top: 16px;
+  margin-top: 20px;
   text-align: center;
 }
 

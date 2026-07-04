@@ -145,16 +145,18 @@ function handleCommand(cmd: string) {
 .main-layout {
   display: flex;
   height: 100vh;
-  background: var(--mh-admin-bg);
+  background: var(--mh-bg);
 }
 
 .sidebar {
   width: var(--mh-sidebar-width);
-  background: linear-gradient(180deg, var(--mh-admin-sidebar-from), var(--mh-admin-sidebar-to));
-  color: var(--mh-text-on-dark);
+  background: var(--mh-surface);
+  color: var(--mh-text);
   transition: width var(--mh-duration) var(--mh-ease);
   flex-shrink: 0;
-  border-right: 1px solid rgba(255, 255, 255, 0.04);
+  border-right: 1px solid var(--mh-border);
+  display: flex;
+  flex-direction: column;
 
   &.collapsed {
     width: var(--mh-sidebar-collapsed);
@@ -166,14 +168,15 @@ function handleCommand(cmd: string) {
   display: flex;
   align-items: center;
   padding: 0 var(--mh-space-5);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--mh-border);
+  flex-shrink: 0;
 }
 
 .logo {
   display: flex;
   align-items: center;
   gap: var(--mh-space-2);
-  color: #fff;
+  color: var(--mh-text);
   font-weight: 600;
   font-size: 16px;
   font-family: var(--mh-font-display);
@@ -181,7 +184,7 @@ function handleCommand(cmd: string) {
 }
 
 .logo-text {
-  background: linear-gradient(135deg, var(--mh-primary), var(--mh-accent));
+  background: linear-gradient(135deg, var(--mh-primary), var(--mh-secondary));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -191,20 +194,21 @@ function handleCommand(cmd: string) {
   border-right: none !important;
   background: transparent !important;
   padding: var(--mh-space-2) 0;
+  flex: 1;
 
   :deep(.el-menu-item) {
     margin: 2px var(--mh-space-2);
     border-radius: var(--mh-radius-sm);
-    transition: background var(--mh-duration) var(--mh-ease);
+    transition: background var(--mh-duration-fast) var(--mh-ease);
+    font-weight: 500;
 
     &.is-active {
       background: var(--mh-primary-muted) !important;
-      border-left: none;
-      box-shadow: inset 3px 0 0 var(--mh-primary);
+      color: var(--mh-primary) !important;
     }
 
-    &:hover {
-      background: rgba(255, 255, 255, 0.06) !important;
+    &:hover:not(.is-active) {
+      background: var(--mh-surface-secondary) !important;
     }
   }
 }
@@ -219,19 +223,21 @@ function handleCommand(cmd: string) {
 
 .topbar {
   height: var(--mh-topbar-height);
-  background: var(--mh-admin-surface);
+  background: var(--mh-glass-bg);
+  backdrop-filter: var(--mh-glass-blur);
+  -webkit-backdrop-filter: var(--mh-glass-blur);
   border-bottom: 1px solid var(--mh-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--mh-space-5);
-  box-shadow: var(--mh-shadow-sm);
+  padding: 0 var(--mh-space-6);
+  flex-shrink: 0;
 }
 
 .topbar-left {
   display: flex;
   align-items: center;
-  gap: var(--mh-space-3);
+  gap: var(--mh-space-4);
 }
 
 .page-title {
@@ -253,12 +259,12 @@ function handleCommand(cmd: string) {
   align-items: center;
   gap: var(--mh-space-2);
   cursor: pointer;
-  padding: 4px var(--mh-space-3);
+  padding: 6px 12px;
   border-radius: var(--mh-radius-sm);
-  transition: background var(--mh-duration) var(--mh-ease);
+  transition: background var(--mh-duration-fast) var(--mh-ease);
 
   &:hover {
-    background: var(--mh-admin-surface-muted);
+    background: var(--mh-surface-secondary);
   }
 }
 
@@ -274,8 +280,8 @@ function handleCommand(cmd: string) {
   padding: var(--mh-space-6);
   width: 100%;
   box-sizing: border-box;
+  background: var(--mh-bg);
 
-  // 路由页面根节点铺满主内容区
   > * {
     width: 100%;
     max-width: none;
@@ -283,7 +289,7 @@ function handleCommand(cmd: string) {
 }
 
 .fade-enter-active, .fade-leave-active {
-  transition: opacity var(--mh-duration) var(--mh-ease);
+  transition: opacity var(--mh-duration-fast) var(--mh-ease-out);
 }
 
 .fade-enter-from, .fade-leave-to {

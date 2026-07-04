@@ -185,10 +185,10 @@ const data = ref<DashboardData | null>(null)
 const loading = ref(false)
 
 const typeColorMap: Record<string, string> = {
-  movie: '#7c5cff',
-  tvshow: '#ff5d8f',
-  anime: '#4ad7ff',
-  documentary: '#ffb547',
+  movie: '#0A84FF',
+  tvshow: '#FF9F0A',
+  anime: '#30D158',
+  documentary: '#FF453A',
 }
 
 async function refresh() {
@@ -311,14 +311,14 @@ onMounted(() => {
 
   :deep(.el-statistic__head) {
     font-size: 13px;
-    color: var(--mh-text-secondary, #a5acbd);
+    color: rgba(255, 255, 255, 0.7);
   }
 
   :deep(.el-statistic__content) {
     font-size: 28px;
     font-weight: 700;
     font-family: var(--mh-font-display, inherit);
-    color: var(--mh-text, #e8ebf2);
+    color: #fff;
   }
 }
 
@@ -326,21 +326,23 @@ onMounted(() => {
   font-size: 20px;
   margin-right: 4px;
 
-  &.primary { color: var(--mh-primary, #7c5cff); }
-  &.success { color: var(--mh-success, #46d39a); }
-  &.warning { color: var(--mh-warning, #ffb547); }
-  &.danger  { color: var(--mh-danger, #ff5c5c); }
+  &.primary { color: rgba(255, 255, 255, 0.9); }
+  &.success { color: rgba(255, 255, 255, 0.9); }
+  &.warning { color: rgba(255, 255, 255, 0.9); }
+  &.danger  { color: rgba(255, 255, 255, 0.9); }
 }
 
 .panel {
   height: 100%;
+  background: var(--mh-surface) !important;
+  border: 1px solid var(--mh-border) !important;
 }
 
 .panel-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: var(--mh-text, #e8ebf2);
+  color: var(--mh-text);
 }
 
 /* ---------- CSS 横向柱状图（类型分布） ---------- */
@@ -362,13 +364,13 @@ onMounted(() => {
   flex-shrink: 0;
   text-align: right;
   font-size: 13px;
-  color: var(--mh-text-secondary, #a5acbd);
+  color: var(--mh-text-secondary);
 }
 
 .bar-track {
   flex: 1;
   height: 22px;
-  background: var(--mh-bg3, #181c26);
+  background: var(--mh-surface-secondary);
   border-radius: 11px;
   overflow: hidden;
 }
@@ -385,7 +387,7 @@ onMounted(() => {
   flex-shrink: 0;
   font-size: 14px;
   font-weight: 700;
-  color: var(--mh-text, #e8ebf2);
+  color: var(--mh-text);
   text-align: right;
 }
 
@@ -402,13 +404,14 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   padding: 16px 12px;
-  background: var(--mh-bg3, #181c26);
-  border-radius: var(--mh-radius-sm, 8px);
-  border: 1px solid var(--mh-line, #222734);
-  transition: background var(--mh-duration, 0.2s) var(--mh-ease, ease);
+  background: var(--mh-surface-secondary);
+  border-radius: var(--mh-radius-md);
+  border: 1px solid var(--mh-border);
+  transition: all var(--mh-duration-fast) var(--mh-ease);
 
   &:hover {
-    background: var(--mh-line, #222734);
+    background: var(--mh-surface-tertiary);
+    transform: translateY(-1px);
   }
 }
 
@@ -416,7 +419,7 @@ onMounted(() => {
   font-weight: 700;
   font-size: 22px;
   font-family: var(--mh-font-display, inherit);
-  color: var(--mh-text, #e8ebf2);
+  color: var(--mh-text);
 }
 
 /* ---------- CSS 纵向柱状图（每日趋势） ---------- */
@@ -445,7 +448,7 @@ onMounted(() => {
 .trend-val {
   font-size: 12px;
   font-weight: 600;
-  color: var(--mh-text, #e8ebf2);
+  color: var(--mh-text);
   margin-bottom: 4px;
 }
 
@@ -453,7 +456,7 @@ onMounted(() => {
   width: 100%;
   max-width: 48px;
   border-radius: 6px 6px 0 0;
-  background: linear-gradient(180deg, var(--mh-primary, #7c5cff) 0%, var(--mh-secondary, #4ad7ff) 100%);
+  background: linear-gradient(180deg, var(--mh-primary) 0%, rgba(10, 132, 255, 0.6) 100%);
   transition: height 0.6s cubic-bezier(0.22, 1, 0.36, 1);
   min-height: 4px;
   margin-top: auto;
@@ -463,7 +466,7 @@ onMounted(() => {
   position: absolute;
   bottom: 0;
   font-size: 11px;
-  color: var(--mh-text-muted, #6c7384);
+  color: var(--mh-text-tertiary);
   white-space: nowrap;
 }
 </style>
