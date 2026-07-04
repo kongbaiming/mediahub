@@ -1,28 +1,57 @@
-// MediaHub Admin — 专业 B 端设计 token（与 Web Player 品牌统一）
+// MediaHub Admin — 影院级暗色设计 token（与原型 v0.4.0 一致）
 :root {
-  --mh-primary: #6c63ff;
-  --mh-primary-hover: #5a52e8;
-  --mh-primary-muted: rgba(108, 99, 255, 0.1);
-  --mh-secondary: #3ecfcf;
-  --mh-accent: #ec4899;
-  --mh-success: #10b981;
-  --mh-warning: #f59e0b;
-  --mh-danger: #ef4444;
+  // Brand palette — 紫蓝青渐变体系
+  --mh-primary: #7c5cff;
+  --mh-primary-hover: #6a4de0;
+  --mh-primary-muted: rgba(124, 92, 255, 0.15);
+  --mh-secondary: #4ad7ff;
+  --mh-accent: #ff5d8f;
+  --mh-success: #46d39a;
+  --mh-warning: #ffb547;
+  --mh-danger: #ff5c5c;
+  --mh-cyan: #4ad7ff;
+  --mh-violet: #9b6cff;
 
-  --mh-admin-bg: #f4f4f8;
-  --mh-admin-surface: #ffffff;
-  --mh-admin-surface-muted: #f8f8fc;
-  --mh-admin-sidebar-from: #12121f;
-  --mh-admin-sidebar-to: #0a0a12;
+  // 影院级暗色背景层级
+  --mh-bg: #0b0d12;
+  --mh-bg2: #11141c;
+  --mh-bg3: #181c26;
+  --mh-line: #222734;
+  --mh-line2: #2c3242;
 
-  --mh-text: #1a1a28;
-  --mh-text-secondary: #5c5c72;
-  --mh-text-muted: #9494a8;
-  --mh-text-on-dark: #e8e8f0;
+  // 文字层级
+  --mh-text: #e8ebf2;
+  --mh-text-secondary: #a5acbd;
+  --mh-text-muted: #6c7384;
 
-  --mh-border: #e4e4ec;
-  --mh-border-light: #eeeef4;
+  // 兼容旧变量（映射到暗色体系）
+  --primary-color: var(--mh-primary);
+  --bg-color: var(--mh-bg);
+  --bg-elevated: var(--mh-bg3);
+  --text-color: var(--mh-text);
+  --border-color: var(--mh-line);
 
+  // Element Plus 暗色主题覆盖
+  --el-color-primary: var(--mh-primary);
+  --el-color-primary-light-3: #9b84ff;
+  --el-color-primary-dark-2: var(--mh-primary-hover);
+  --el-bg-color: var(--mh-bg2);
+  --el-bg-color-overlay: var(--mh-bg3);
+  --el-text-color-primary: var(--mh-text);
+  --el-text-color-regular: var(--mh-text-secondary);
+  --el-border-color: var(--mh-line);
+  --el-border-color-light: var(--mh-line2);
+  --el-fill-color-blank: rgba(255, 255, 255, 0.06);
+  --el-dialog-bg-color: var(--mh-bg3);
+  --el-dialog-border-radius: 14px;
+  --el-menu-bg-color: var(--mh-bg);
+  --el-menu-text-color: var(--mh-text-secondary);
+  --el-menu-hover-bg-color: var(--mh-bg3);
+  --el-menu-active-color: var(--mh-primary);
+  --el-menu-item-height: 44px;
+
+  // 间距
+  --mh-space-1: 4px;
   --mh-space-2: 8px;
   --mh-space-3: 12px;
   --mh-space-4: 16px;
@@ -30,31 +59,39 @@
   --mh-space-6: 24px;
   --mh-space-8: 32px;
 
+  // 圆角
   --mh-radius-sm: 8px;
   --mh-radius-md: 12px;
   --mh-radius-lg: 16px;
+  --mh-radius-xl: 20px;
 
-  --mh-shadow-sm: 0 1px 2px rgba(26, 26, 40, 0.04);
-  --mh-shadow-md: 0 4px 16px rgba(26, 26, 40, 0.06);
-  --mh-shadow-lg: 0 12px 32px rgba(26, 26, 40, 0.08);
+  // 阴影
+  --mh-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --mh-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --mh-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+  --mh-shadow-glow: 0 0 48px rgba(124, 92, 255, 0.12);
 
+  // 动效
   --mh-ease: cubic-bezier(0.2, 0, 0, 1);
+  --mh-ease-spring: cubic-bezier(0.34, 1.2, 0.64, 1);
   --mh-duration: 200ms;
 
+  // 布局
   --mh-topbar-height: 56px;
   --mh-sidebar-width: 228px;
   --mh-sidebar-collapsed: 64px;
+
+  // 字体
   --mh-font-display: 'Syne', 'Noto Sans SC', system-ui, sans-serif;
   --mh-font-body: 'Manrope', 'Noto Sans SC', 'PingFang SC', sans-serif;
 
   // 兼容旧变量
-  --primary-color: var(--mh-primary);
-  --bg-color: var(--mh-admin-sidebar-from);
-  --bg-elevated: var(--mh-admin-sidebar-from);
-  --text-color: var(--mh-text-on-dark);
-  --border-color: var(--mh-border);
-
-  --el-color-primary: var(--mh-primary);
-  --el-color-primary-light-3: #8b84ff;
-  --el-color-primary-dark-2: var(--mh-primary-hover);
+  --mh-admin-bg: var(--mh-bg);
+  --mh-admin-surface: var(--mh-bg2);
+  --mh-admin-surface-muted: var(--mh-bg3);
+  --mh-admin-sidebar-from: #0a0c12;
+  --mh-admin-sidebar-to: #060710;
+  --mh-text-on-dark: var(--mh-text);
+  --mh-border: var(--mh-line);
+  --mh-border-light: var(--mh-line2);
 }

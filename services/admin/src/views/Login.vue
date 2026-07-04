@@ -206,7 +206,7 @@ async function onSubmit() {
     margin: 0;
     font-size: 28px;
     font-family: var(--mh-font-display);
-    background: linear-gradient(135deg, #8b84ff, #f472b6);
+    background: linear-gradient(135deg, var(--mh-primary, #7c5cff), var(--mh-secondary, #4ad7ff));
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;

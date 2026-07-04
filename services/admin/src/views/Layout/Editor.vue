@@ -1323,14 +1323,14 @@ onMounted(async () => {
   height: calc(100vh - 48px);
   display: flex;
   flex-direction: column;
-  background: #f8fafc;
+  background: var(--mh-bg, #0b0d12);
   margin: -24px;
 }
 
 .editor-header {
   height: 56px;
-  background: #fff;
-  border-bottom: 1px solid #e2e8f0;
+  background: var(--mh-bg2, #11141c);
+  border-bottom: 1px solid var(--mh-line, #222734);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1340,6 +1340,7 @@ onMounted(async () => {
     font-size: 16px;
     font-weight: 600;
     margin-left: 8px;
+    color: var(--mh-text, #e8ebf2);
   }
   .layout-name-input {
     width: 200px;
@@ -1347,14 +1348,14 @@ onMounted(async () => {
   }
   .version {
     margin-left: 12px;
-    color: #94a3b8;
+    color: var(--mh-text-muted, #6c7384);
     font-size: 13px;
   }
 }
 
 .inherit-badge {
   margin-left: 12px;
-  color: #6366f1;
+  color: var(--mh-primary, #7c5cff);
   font-size: 12px;
   display: inline-flex;
   align-items: center;
@@ -1375,21 +1376,21 @@ onMounted(async () => {
 
 .component-panel,
 .config-panel {
-  background: #fff;
-  border-right: 1px solid #e2e8f0;
+  background: var(--mh-bg2, #11141c);
+  border-right: 1px solid var(--mh-line, #222734);
   padding: 16px;
   overflow-y: auto;
 }
 
 .config-panel {
   border-right: none;
-  border-left: 1px solid #e2e8f0;
+  border-left: 1px solid var(--mh-line, #222734);
 }
 
 .panel-title {
   font-size: 13px;
   font-weight: 600;
-  color: #64748b;
+  color: var(--mh-text-muted, #6c7384);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 12px;
@@ -1425,14 +1426,14 @@ onMounted(async () => {
 
 .hint {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--mh-text-muted, #6c7384);
   margin-top: 4px;
   line-height: 1.5;
 }
 
 .field-hint-block {
   font-size: 12px;
-  color: #64748b;
+  color: var(--mh-text-secondary, #a5acbd);
   line-height: 1.5;
 }
 
@@ -1443,10 +1444,10 @@ onMounted(async () => {
 .rule-tag {
   display: inline-block;
   padding: 2px 6px;
-  background: #f1f5f9;
+  background: var(--mh-bg3, #181c26);
   border-radius: 3px;
   font-size: 11px;
-  color: #475569;
+  color: var(--mh-text-secondary, #a5acbd);
   margin-right: 4px;
 }
 
@@ -1461,14 +1462,18 @@ onMounted(async () => {
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  background: #f1f5f9;
+  background: var(--mh-bg3, #181c26);
+  border: 1px solid var(--mh-line, #222734);
   border-radius: 6px;
   cursor: grab;
   font-size: 13px;
+  color: var(--mh-text-secondary, #a5acbd);
   transition: all 0.15s;
 
   &:hover {
-    background: #e2e8f0;
+    background: var(--mh-line, #222734);
+    border-color: var(--mh-primary, #7c5cff);
+    color: var(--mh-text, #e8ebf2);
     transform: translateX(2px);
   }
 
@@ -1478,7 +1483,7 @@ onMounted(async () => {
 }
 
 .canvas-area {
-  background: #0f172a;
+  background: #08090c;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1496,7 +1501,8 @@ onMounted(async () => {
 
 .canvas-inner {
   width: 1280px;
-  background: linear-gradient(180deg, #1e293b, #0f172a);
+  background: linear-gradient(180deg, var(--mh-bg-elevated, #11141c), var(--mh-bg, #0b0d12));
+  border: 1px solid var(--mh-line, #222734);
   border-radius: 12px;
   padding: 24px;
   min-height: 600px;
@@ -1530,17 +1536,17 @@ onMounted(async () => {
   overflow: hidden;
 
   &.active {
-    border-color: #6366f1;
-    background: rgba(99, 102, 241, 0.1);
+    border-color: var(--mh-primary, #7c5cff);
+    background: rgba(124, 92, 255, 0.1);
   }
 
   &.inherited {
     border-style: dashed;
-    background: rgba(99, 102, 241, 0.05);
+    background: rgba(124, 92, 255, 0.05);
   }
 
   &:hover {
-    border-color: rgba(99, 102, 241, 0.5);
+    border-color: rgba(124, 92, 255, 0.5);
   }
 }
 
@@ -1551,7 +1557,7 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   cursor: grab;
-  color: #94a3b8;
+  color: var(--mh-text-muted, #6c7384);
   flex-shrink: 0;
 
   &:active {
@@ -1575,15 +1581,16 @@ onMounted(async () => {
   font-size: 14px;
   font-weight: 500;
   flex: 1;
+  color: var(--mh-text, #e8ebf2);
 }
 
 .row-meta {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--mh-text-muted, #6c7384);
   margin-left: 8px;
 
   &--muted {
-    color: #64748b;
+    color: var(--mh-text-muted, #6c7384);
   }
 }
 
@@ -1608,10 +1615,10 @@ onMounted(async () => {
   &.row-type-text-banner {
     display: block;
     padding: 12px 16px;
-    background: rgba(99, 102, 241, 0.15);
+    background: rgba(124, 92, 255, 0.15);
     border-radius: 8px;
-    border: 1px dashed rgba(99, 102, 241, 0.4);
-    color: #cbd5e1;
+    border: 1px dashed rgba(124, 92, 255, 0.4);
+    color: var(--mh-text-secondary, #a5acbd);
     font-size: 13px;
   }
 
@@ -1631,14 +1638,15 @@ onMounted(async () => {
 }
 
 .preview-card {
-  background: linear-gradient(135deg, #334155, #1e293b);
+  background: linear-gradient(135deg, var(--mh-bg3, #181c26), var(--mh-bg2, #11141c));
   border-radius: 6px;
   flex-shrink: 0;
   overflow: hidden;
   position: relative;
 
   &--real {
-    background: #1e293b;
+    background: var(--mh-bg3, #181c26);
+    border: 1px solid var(--mh-line, #222734);
     display: flex;
     flex-direction: column;
 
@@ -1659,7 +1667,7 @@ onMounted(async () => {
     .preview-card-caption {
       font-size: 10px;
       line-height: 1.2;
-      color: #cbd5e1;
+      color: var(--mh-text-secondary, #a5acbd);
       padding: 4px 6px;
       white-space: nowrap;
       overflow: hidden;
@@ -1679,7 +1687,7 @@ onMounted(async () => {
     align-items: center;
     justify-content: center;
     font-size: 11px;
-    color: #94a3b8;
+    color: var(--mh-text-muted, #6c7384);
     padding: 4px;
     text-align: center;
   }
@@ -1709,7 +1717,7 @@ onMounted(async () => {
   height: 400px;
 
   :deep(.el-empty__description p) {
-    color: #94a3b8;
+    color: var(--mh-text-muted, #6c7384);
   }
 }
 
@@ -1720,13 +1728,14 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: #cbd5e1;
+  color: var(--mh-text-secondary, #a5acbd);
   font-size: 13px;
 }
 
 .config-form {
   :deep(.el-form-item__label) {
     font-weight: 500;
+    color: var(--mh-text-secondary, #a5acbd);
   }
 }
 </style>

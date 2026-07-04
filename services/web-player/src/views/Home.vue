@@ -187,8 +187,8 @@ onBeforeUnmount(() => {
 .home {
   min-height: 100vh;
   background:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(108, 99, 255, 0.12), transparent),
-    radial-gradient(ellipse 60% 40% at 100% 50%, rgba(62, 207, 207, 0.06), transparent),
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(124, 92, 255, 0.12), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 50%, rgba(74, 215, 255, 0.06), transparent),
     var(--mh-bg);
 }
 

@@ -280,7 +280,7 @@ onMounted(() => {
   margin: 0;
   font-size: 22px;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--mh-text, #e8ebf2);
 }
 
 .scan-config-panel {
@@ -308,13 +308,13 @@ onMounted(() => {
   font-size: 13px;
 
   .label {
-    color: #64748b;
+    color: var(--mh-text-muted, #6c7384);
     font-size: 12px;
   }
 }
 
 .scan-roots .roots {
-  color: #334155;
+  color: var(--mh-text-secondary, #a5acbd);
   font-family: var(--mh-font-mono, monospace);
   font-size: 12px;
 }
@@ -331,12 +331,12 @@ onMounted(() => {
 .scan-msg {
   display: block;
   margin-top: 4px;
-  color: #64748b;
+  color: var(--mh-text-muted, #6c7384);
   font-size: 12px;
 }
 
 .text-muted {
-  color: #94a3b8;
+  color: var(--mh-text-muted, #6c7384);
 }
 
 .filter-card {
@@ -359,7 +359,7 @@ onMounted(() => {
     transform: translateY(-4px);
 
     .poster-card {
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
     }
   }
 }
@@ -369,14 +369,15 @@ onMounted(() => {
   aspect-ratio: 2/3;
   border-radius: 8px;
   overflow: hidden;
-  background: linear-gradient(135deg, #1e293b, #0f172a);
+  background: linear-gradient(135deg, var(--mh-bg3, #181c26), var(--mh-bg, #0b0d12));
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #94a3b8;
+  color: var(--mh-text-muted, #6c7384);
   font-size: 24px;
   font-weight: 600;
   transition: box-shadow 0.2s;
+  border: 1px solid var(--mh-line, #222734);
 }
 
 .poster-placeholder {
@@ -394,7 +395,7 @@ onMounted(() => {
   top: 8px;
   left: 8px;
   background: rgba(0, 0, 0, 0.65);
-  color: #fbbf24;
+  color: var(--mh-warning, #ffb547);
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 12px;
@@ -408,7 +409,7 @@ onMounted(() => {
   position: absolute;
   top: 8px;
   right: 8px;
-  background: rgba(99, 102, 241, 0.9);
+  background: rgba(124, 92, 255, 0.9);
   color: #fff;
   padding: 2px 8px;
   border-radius: 4px;
@@ -419,7 +420,7 @@ onMounted(() => {
   position: absolute;
   bottom: 8px;
   right: 8px;
-  background: rgba(15, 23, 42, 0.82);
+  background: rgba(11, 13, 18, 0.82);
   color: #fff;
   padding: 2px 8px;
   border-radius: 4px;
@@ -433,7 +434,7 @@ onMounted(() => {
 .media-title {
   font-size: 14px;
   font-weight: 500;
-  color: #1e293b;
+  color: var(--mh-text, #e8ebf2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -442,7 +443,7 @@ onMounted(() => {
 .media-meta {
   margin-top: 4px;
   font-size: 12px;
-  color: #64748b;
+  color: var(--mh-text-muted, #6c7384);
   display: flex;
   gap: 8px;
 }

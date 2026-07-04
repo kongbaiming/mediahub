@@ -185,10 +185,10 @@ const data = ref<DashboardData | null>(null)
 const loading = ref(false)
 
 const typeColorMap: Record<string, string> = {
-  movie: '#6c63ff',
-  tvshow: '#ec4899',
-  anime: '#3ecfcf',
-  documentary: '#f59e0b',
+  movie: '#7c5cff',
+  tvshow: '#ff5d8f',
+  anime: '#4ad7ff',
+  documentary: '#ffb547',
 }
 
 async function refresh() {
@@ -311,13 +311,14 @@ onMounted(() => {
 
   :deep(.el-statistic__head) {
     font-size: 13px;
-    color: var(--mh-text-secondary, #909399);
+    color: var(--mh-text-secondary, #a5acbd);
   }
 
   :deep(.el-statistic__content) {
     font-size: 28px;
     font-weight: 700;
     font-family: var(--mh-font-display, inherit);
+    color: var(--mh-text, #e8ebf2);
   }
 }
 
@@ -325,10 +326,10 @@ onMounted(() => {
   font-size: 20px;
   margin-right: 4px;
 
-  &.primary { color: var(--mh-primary, #6c63ff); }
-  &.success { color: #67c23a; }
-  &.warning { color: #e6a23c; }
-  &.danger  { color: #f56c6c; }
+  &.primary { color: var(--mh-primary, #7c5cff); }
+  &.success { color: var(--mh-success, #46d39a); }
+  &.warning { color: var(--mh-warning, #ffb547); }
+  &.danger  { color: var(--mh-danger, #ff5c5c); }
 }
 
 .panel {
@@ -339,6 +340,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  color: var(--mh-text, #e8ebf2);
 }
 
 /* ---------- CSS 横向柱状图（类型分布） ---------- */
@@ -360,13 +362,13 @@ onMounted(() => {
   flex-shrink: 0;
   text-align: right;
   font-size: 13px;
-  color: var(--mh-text-secondary, #909399);
+  color: var(--mh-text-secondary, #a5acbd);
 }
 
 .bar-track {
   flex: 1;
   height: 22px;
-  background: var(--mh-admin-surface-muted, #f4f4f5);
+  background: var(--mh-bg3, #181c26);
   border-radius: 11px;
   overflow: hidden;
 }
@@ -383,7 +385,7 @@ onMounted(() => {
   flex-shrink: 0;
   font-size: 14px;
   font-weight: 700;
-  color: var(--mh-text, #303133);
+  color: var(--mh-text, #e8ebf2);
   text-align: right;
 }
 
@@ -400,13 +402,13 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   padding: 16px 12px;
-  background: var(--mh-admin-surface-muted, #f4f4f5);
+  background: var(--mh-bg3, #181c26);
   border-radius: var(--mh-radius-sm, 8px);
-  border: 1px solid var(--mh-border-light, #e4e7ed);
+  border: 1px solid var(--mh-line, #222734);
   transition: background var(--mh-duration, 0.2s) var(--mh-ease, ease);
 
   &:hover {
-    background: var(--mh-admin-surface, #fff);
+    background: var(--mh-line, #222734);
   }
 }
 
@@ -414,7 +416,7 @@ onMounted(() => {
   font-weight: 700;
   font-size: 22px;
   font-family: var(--mh-font-display, inherit);
-  color: var(--mh-text, #303133);
+  color: var(--mh-text, #e8ebf2);
 }
 
 /* ---------- CSS 纵向柱状图（每日趋势） ---------- */
@@ -443,7 +445,7 @@ onMounted(() => {
 .trend-val {
   font-size: 12px;
   font-weight: 600;
-  color: var(--mh-text, #303133);
+  color: var(--mh-text, #e8ebf2);
   margin-bottom: 4px;
 }
 
@@ -451,7 +453,7 @@ onMounted(() => {
   width: 100%;
   max-width: 48px;
   border-radius: 6px 6px 0 0;
-  background: linear-gradient(180deg, var(--mh-primary, #6c63ff) 0%, #a78bfa 100%);
+  background: linear-gradient(180deg, var(--mh-primary, #7c5cff) 0%, var(--mh-secondary, #4ad7ff) 100%);
   transition: height 0.6s cubic-bezier(0.22, 1, 0.36, 1);
   min-height: 4px;
   margin-top: auto;
@@ -461,7 +463,7 @@ onMounted(() => {
   position: absolute;
   bottom: 0;
   font-size: 11px;
-  color: var(--mh-text-secondary, #909399);
+  color: var(--mh-text-muted, #6c7384);
   white-space: nowrap;
 }
 </style>
