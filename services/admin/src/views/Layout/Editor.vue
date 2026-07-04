@@ -1473,7 +1473,7 @@ onMounted(async () => {
   &:hover {
     background: var(--mh-surface-tertiary);
     border-color: var(--mh-primary);
-    color: var(--mh-text);
+    color: var(--mh-primary);
     transform: translateX(2px);
   }
 
@@ -1617,7 +1617,7 @@ onMounted(async () => {
     padding: 12px 16px;
     background: var(--mh-primary-muted);
     border-radius: var(--mh-radius-md);
-    border: 1px dashed var(--mh-primary);
+    border: 1px dashed rgba(107, 142, 255, 0.3);
     color: var(--mh-text-secondary);
     font-size: 13px;
   }

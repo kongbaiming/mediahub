@@ -152,8 +152,8 @@ async function onSubmit() {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(ellipse 80% 60% at 50% 30%, rgba(0, 122, 255, 0.08), transparent),
-              radial-gradient(ellipse 60% 40% at 80% 70%, rgba(88, 86, 214, 0.06), transparent);
+  background: radial-gradient(ellipse 80% 60% at 50% 30%, rgba(107, 142, 255, 0.06), transparent),
+              radial-gradient(ellipse 60% 40% at 80% 70%, rgba(155, 138, 255, 0.04), transparent);
 }
 
 .login-container {
@@ -198,7 +198,7 @@ async function onSubmit() {
   border: 1px solid var(--mh-border);
   border-radius: var(--mh-radius-xl);
   padding: var(--mh-space-6);
-  box-shadow: var(--mh-shadow-xl);
+  box-shadow: var(--mh-shadow-lg);
 }
 
 :deep(.el-tabs__item) {

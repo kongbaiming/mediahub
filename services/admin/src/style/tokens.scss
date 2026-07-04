@@ -1,46 +1,45 @@
-// MediaHub Admin — Apple Design System (SF-inspired)
-// 遵循 Apple Human Interface Guidelines 设计语言
+// MediaHub Admin — Refined Dark Theme (Soft Cinema)
+// 柔和暗色系，保护视力，适合长时间使用
 :root {
-  // Apple 系统色板
-  --mh-primary: #007AFF;       // Apple Blue
-  --mh-primary-hover: #0070E0;
-  --mh-primary-muted: rgba(0, 122, 255, 0.12);
-  --mh-secondary: #5856D6;      // Apple Purple
-  --mh-accent: #FF9500;         // Apple Orange
-  --mh-success: #34C759;        // Apple Green
-  --mh-warning: #FF9F0A;        // Apple Yellow/Orange
-  --mh-danger: #FF3B30;         // Apple Red
-  --mh-cyan: #32ADE6;           // Apple Cyan
+  // 柔和品牌色
+  --mh-primary: #6B8EFF;       // 柔蓝
+  --mh-primary-hover: #8BA3FF;
+  --mh-primary-muted: rgba(107, 142, 255, 0.12);
+  --mh-secondary: #9B8AFF;      // 柔紫
+  --mh-accent: #FFB88C;        // 柔橙
+  --mh-success: #5ECA9E;        // 柔绿
+  --mh-warning: #FFCF7C;        // 柔黄
+  --mh-danger: #FF8B8B;        // 柔红
+  --mh-cyan: #7DD3FC;          // 柔青
 
-  // Apple 亮色背景层级
-  --mh-bg: #F5F5F7;             // Apple Light Gray Background
-  --mh-bg-elevated: #FFFFFF;    // Pure White Surface
-  --mh-surface: #FFFFFF;
-  --mh-surface-secondary: #F0F0F5;
-  --mh-surface-tertiary: #E8E8ED;
+  // 柔和深色背景层级
+  --mh-bg: #13151A;           // 主背景
+  --mh-bg-elevated: #1C1F26; // 提升层
+  --mh-surface: #242830;      // 卡片表面
+  --mh-surface-secondary: #2C303A;
+  --mh-surface-tertiary: #363C48;
 
   // 文字层级
-  --mh-text: #1D1D1F;           // Apple Black
-  --mh-text-secondary: #86868B;  // Apple Gray
-  --mh-text-tertiary: #AEAEB2;
+  --mh-text: #E8EAF0;          // 主文字
+  --mh-text-secondary: #9499AA;  // 次要文字
+  --mh-text-tertiary: #5C6270;  // 弱化文字
 
-  // 边框与分隔
-  --mh-border: rgba(0, 0, 0, 0.08);
-  --mh-border-strong: rgba(0, 0, 0, 0.12);
-  --mh-separator: rgba(0, 0, 0, 0.06);
+  // 边框
+  --mh-border: rgba(255, 255, 255, 0.06);
+  --mh-border-strong: rgba(255, 255, 255, 0.1);
+  --mh-separator: rgba(255, 255, 255, 0.04);
 
-  // 阴影 — Apple 风格：柔和、分层
-  --mh-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --mh-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --mh-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
-  --mh-shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.16), 0 4px 12px rgba(0, 0, 0, 0.08);
+  // 阴影
+  --mh-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --mh-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --mh-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
 
-  // Frosted Glass (毛玻璃)
-  --mh-glass-bg: rgba(255, 255, 255, 0.72);
-  --mh-glass-border: rgba(255, 255, 255, 0.48);
-  --mh-glass-blur: blur(20px) saturate(180%);
+  // 毛玻璃
+  --mh-glass-bg: rgba(28, 31, 38, 0.85);
+  --mh-glass-border: rgba(255, 255, 255, 0.08);
+  --mh-glass-blur: blur(16px) saturate(150%);
 
-  // 间距 (Apple 4px 基准)
+  // 间距
   --mh-space-1: 4px;
   --mh-space-2: 8px;
   --mh-space-3: 12px;
@@ -51,15 +50,15 @@
   --mh-space-10: 40px;
   --mh-space-12: 48px;
 
-  // 圆角 (Apple 风格)
+  // 圆角
   --mh-radius-xs: 6px;
   --mh-radius-sm: 8px;
   --mh-radius-md: 12px;
-  --mh-radius-lg: 16px;
-  --mh-radius-xl: 20px;
-  --mh-radius-2xl: 24px;
+  --mh-radius-lg: 14px;
+  --mh-radius-xl: 18px;
+  --mh-radius-2xl: 22px;
 
-  // 动效 (Apple Spring 风格)
+  // 动效
   --mh-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
   --mh-ease-spring: cubic-bezier(0.34, 1.2, 0.64, 1);
   --mh-ease-out: cubic-bezier(0, 0, 0.2, 1);
@@ -72,9 +71,9 @@
   --mh-sidebar-width: 240px;
   --mh-sidebar-collapsed: 64px;
 
-  // 字体 — SF Pro 替代方案 (Inter 最为接近)
-  --mh-font-display: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
-  --mh-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  // 字体
+  --mh-font-display: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mh-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
   // 兼容旧变量
   --primary-color: var(--mh-primary);
@@ -85,16 +84,16 @@
 
   // Element Plus 覆盖
   --el-color-primary: var(--mh-primary);
-  --el-color-primary-light-3: #66A3FF;
+  --el-color-primary-light-3: #8BA3FF;
   --el-color-primary-dark-2: var(--mh-primary-hover);
   --el-bg-color: var(--mh-surface);
-  --el-bg-color-overlay: var(--mh-surface);
+  --el-bg-color-overlay: var(--mh-bg-elevated);
   --el-text-color-primary: var(--mh-text);
   --el-text-color-regular: var(--mh-text-secondary);
   --el-border-color: var(--mh-border);
   --el-border-color-light: var(--mh-border);
   --el-fill-color-blank: var(--mh-surface);
-  --el-dialog-bg-color: var(--mh-surface);
+  --el-dialog-bg-color: var(--mh-bg-elevated);
   --el-dialog-border-radius: var(--mh-radius-lg);
   --el-menu-bg-color: transparent;
   --el-menu-text-color: var(--mh-text-secondary);

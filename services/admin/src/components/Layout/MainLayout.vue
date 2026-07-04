@@ -150,7 +150,7 @@ function handleCommand(cmd: string) {
 
 .sidebar {
   width: var(--mh-sidebar-width);
-  background: var(--mh-surface);
+  background: var(--mh-bg-elevated);
   color: var(--mh-text);
   transition: width var(--mh-duration) var(--mh-ease);
   flex-shrink: 0;
@@ -224,8 +224,8 @@ function handleCommand(cmd: string) {
 .topbar {
   height: var(--mh-topbar-height);
   background: var(--mh-glass-bg);
-  backdrop-filter: var(--mh-glass-blur);
   -webkit-backdrop-filter: var(--mh-glass-blur);
+  backdrop-filter: var(--mh-glass-blur);
   border-bottom: 1px solid var(--mh-border);
   display: flex;
   align-items: center;

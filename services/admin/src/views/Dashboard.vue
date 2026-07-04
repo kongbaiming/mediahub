@@ -185,10 +185,10 @@ const data = ref<DashboardData | null>(null)
 const loading = ref(false)
 
 const typeColorMap: Record<string, string> = {
-  movie: '#0A84FF',
-  tvshow: '#FF9F0A',
-  anime: '#30D158',
-  documentary: '#FF453A',
+  movie: '#6B8EFF',
+  tvshow: '#FFB88C',
+  anime: '#5ECA9E',
+  documentary: '#FF8B8B',
 }
 
 async function refresh() {
@@ -456,7 +456,7 @@ onMounted(() => {
   width: 100%;
   max-width: 48px;
   border-radius: 6px 6px 0 0;
-  background: linear-gradient(180deg, var(--mh-primary) 0%, rgba(10, 132, 255, 0.6) 100%);
+  background: linear-gradient(180deg, var(--mh-primary) 0%, rgba(107, 142, 255, 0.5) 100%);
   transition: height 0.6s cubic-bezier(0.22, 1, 0.36, 1);
   min-height: 4px;
   margin-top: auto;

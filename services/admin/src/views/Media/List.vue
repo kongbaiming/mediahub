@@ -420,6 +420,7 @@ onMounted(() => {
   border-radius: 4px;
   font-size: 10px;
   font-weight: 600;
+  opacity: 0.85;
 }
 
 .episode-badge {
