@@ -82,6 +82,231 @@ h1, h2, h3 {
       background: var(--mh-primary-hover);
     }
   }
+
+  &--ghost {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--mh-text);
+    border: 1px solid var(--mh-outline-strong);
+    backdrop-filter: blur(12px);
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.16);
+    }
+
+    &.active {
+      background: var(--mh-primary-muted);
+      color: var(--mh-primary);
+      border-color: rgba(10, 132, 255, 0.35);
+    }
+  }
+}
+
+// 页面壳层
+.mh-page {
+  min-height: 100vh;
+  background: var(--mh-bg-glow), var(--mh-bg);
+  color: var(--mh-text);
+}
+
+.mh-page-body {
+  padding-top: var(--mh-topbar-height);
+  min-height: calc(100vh - var(--mh-topbar-height));
+  box-sizing: border-box;
+}
+
+// 返回按钮
+.mh-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mh-space-2);
+  min-height: 40px;
+  padding: 0 var(--mh-space-4);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--mh-outline);
+  border-radius: var(--mh-radius-sm);
+  color: var(--mh-text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--mh-duration-fast) var(--mh-ease),
+    color var(--mh-duration-fast) var(--mh-ease),
+    border-color var(--mh-duration-fast) var(--mh-ease);
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--mh-text);
+    border-color: var(--mh-outline-strong);
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mh-primary);
+    outline-offset: 2px;
+  }
+}
+
+// 顶栏图标按钮
+.mh-icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--mh-radius-full);
+  border: 1px solid var(--mh-outline);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--mh-text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--mh-duration-fast) var(--mh-ease),
+    color var(--mh-duration-fast) var(--mh-ease),
+    transform var(--mh-duration-fast) var(--mh-ease),
+    border-color var(--mh-duration-fast) var(--mh-ease);
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--mh-text);
+    border-color: var(--mh-outline-strong);
+  }
+
+  &:active {
+    transform: scale(0.94);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mh-primary);
+    outline-offset: 2px;
+  }
+
+  &--active {
+    background: var(--mh-primary-muted);
+    color: var(--mh-primary);
+    border-color: rgba(10, 132, 255, 0.35);
+  }
+}
+
+// 搜索输入
+.mh-search-field {
+  width: 100%;
+  height: 40px;
+  padding: 0 var(--mh-space-4);
+  border-radius: var(--mh-radius-sm);
+  border: 1px solid var(--mh-outline);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--mh-text);
+  font-size: 15px;
+  outline: none;
+  transition: border-color var(--mh-duration-fast) var(--mh-ease),
+    box-shadow var(--mh-duration-fast) var(--mh-ease);
+
+  &::placeholder {
+    color: var(--mh-text-muted);
+  }
+
+  &:focus {
+    border-color: var(--mh-primary);
+    box-shadow: 0 0 0 3px var(--mh-primary-muted);
+  }
+}
+
+// 区块标题
+.mh-section-title {
+  font-size: clamp(18px, 2vw, 22px);
+  font-weight: 600;
+  margin: 0 0 var(--mh-space-5);
+  color: var(--mh-text);
+  letter-spacing: -0.02em;
+}
+
+// 海报卡片
+.mh-poster-card {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--mh-radius-md);
+  border: 1px solid var(--mh-outline);
+  background: linear-gradient(145deg, var(--mh-surface-variant), var(--mh-bg-elevated));
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--mh-text-muted);
+  font-size: 28px;
+  font-weight: 700;
+  transition: box-shadow var(--mh-duration) var(--mh-ease),
+    transform var(--mh-duration) var(--mh-ease);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &--landscape {
+    aspect-ratio: 16 / 9;
+  }
+}
+
+.mh-media-card {
+  cursor: pointer;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+
+  &:hover .mh-poster-card {
+    box-shadow: var(--mh-shadow-lg);
+    transform: translateY(-3px);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mh-primary);
+    outline-offset: 4px;
+    border-radius: var(--mh-radius-md);
+  }
+}
+
+.mh-media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(180px, 100%), 1fr));
+  gap: var(--mh-space-5);
+}
+
+.mh-rating-badge {
+  position: absolute;
+  top: var(--mh-space-2);
+  left: var(--mh-space-2);
+  padding: 2px 8px;
+  border-radius: var(--mh-radius-xs);
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(8px);
+  color: var(--mh-warning);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+// 页面进入动画
+@keyframes mh-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mh-animate-in {
+  animation: mh-fade-up var(--mh-duration-slow) var(--mh-ease-out) both;
 }
 
 // 毛玻璃顶栏

@@ -1,72 +1,83 @@
 <template>
-  <div class="library-page">
-    <header class="library-topbar mh-topbar">
-      <h1 class="page-title">我的片库</h1>
-      <button class="back-btn" @click="$router.push('/')">← 首页</button>
-    </header>
+  <div class="library-page mh-page">
+    <AppTopbar
+      variant="sub"
+      :show-back="false"
+      title="我的片库"
+    >
+      <template #start>
+        <button type="button" class="mh-back-btn" @click="$router.push('/')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true">
+            <path d="M15 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <span>首页</span>
+        </button>
+      </template>
+    </AppTopbar>
 
-    <main class="library-content">
+    <main class="library-content mh-page-body mh-animate-in">
       <el-tabs v-model="activeTab" class="library-tabs" @tab-change="onTabChange">
         <el-tab-pane label="继续观看" name="continue">
-          <div v-if="loading" class="loading">加载中...</div>
-          <div v-else-if="!continueItems.length" class="empty">暂无在看，去首页找一部开始吧</div>
-          <div v-else class="media-grid">
-            <div
+          <LoadingState v-if="loading" message="加载中…" />
+          <EmptyState
+            v-else-if="!continueItems.length"
+            icon="▶"
+            title="暂无在看"
+            description="去首页找一部喜欢的作品开始观看吧。"
+            :action="{ label: '浏览首页', onClick: () => $router.push('/') }"
+          />
+          <div v-else class="mh-media-grid">
+            <MediaPosterCard
               v-for="item in continueItems"
               :key="item.media_id"
-              class="card"
+              :title="item.title || '未知'"
+              :poster-url="item.poster_url"
+              :subtitle="String(item.year || '')"
+              landscape
+              :progress="item.progress"
+              :duration="item.duration"
               @click="$router.push(`/play/${item.media_id}`)"
-            >
-              <div class="poster-card landscape">
-                <img v-if="item.poster_url" :src="item.poster_url" :alt="item.title" loading="lazy" />
-                <span v-else class="poster-placeholder">{{ (item.title || '').slice(0, 2) }}</span>
-                <div v-if="item.progress && item.duration" class="progress-bar">
-                  <div class="progress-fill" :style="{ width: Math.min(100, (item.progress / item.duration) * 100) + '%' }" />
-                </div>
-              </div>
-              <div class="card-title">{{ item.title }}</div>
-              <div class="card-meta">{{ item.year }}</div>
-            </div>
+            />
           </div>
         </el-tab-pane>
 
         <el-tab-pane label="想看" name="want">
-          <div v-if="loading" class="loading">加载中...</div>
-          <div v-else-if="!wantItems.length" class="empty">暂无想看，点击详情页「想看」按钮添加</div>
-          <div v-else class="media-grid">
-            <div
+          <LoadingState v-if="loading" message="加载中…" />
+          <EmptyState
+            v-else-if="!wantItems.length"
+            icon="☆"
+            title="暂无想看"
+            description="在详情页点击「想看」，把感兴趣的作品收藏在这里。"
+          />
+          <div v-else class="mh-media-grid">
+            <MediaPosterCard
               v-for="item in wantItems"
-              :key="item.media_id"
-              class="card"
+              :key="item.media_id || `tmdb-${item.tmdb_id}`"
+              :title="item.title || '未知'"
+              :poster-url="item.poster_url"
+              :subtitle="String(item.year || '')"
               @click="openDetail(item)"
-            >
-              <div class="poster-card">
-                <img v-if="item.poster_url" :src="item.poster_url" :alt="item.title" loading="lazy" />
-                <span v-else class="poster-placeholder">{{ (item.title || '').slice(0, 2) }}</span>
-              </div>
-              <div class="card-title">{{ item.title }}</div>
-              <div class="card-meta">{{ item.year }}</div>
-            </div>
+            />
           </div>
         </el-tab-pane>
 
         <el-tab-pane label="收藏" name="favorites">
-          <div v-if="loading" class="loading">加载中...</div>
-          <div v-else-if="!favItems.length" class="empty">暂无收藏</div>
-          <div v-else class="media-grid">
-            <div
+          <LoadingState v-if="loading" message="加载中…" />
+          <EmptyState
+            v-else-if="!favItems.length"
+            icon="★"
+            title="暂无收藏"
+            description="在详情页点击「收藏」，快速找到最爱的作品。"
+          />
+          <div v-else class="mh-media-grid">
+            <MediaPosterCard
               v-for="item in favItems"
               :key="item.media_id"
-              class="card"
+              :title="item.title || item.media_id"
+              :poster-url="item.poster_url"
+              :subtitle="String(item.year || '')"
               @click="$router.push(`/media/${item.media_id}`)"
-            >
-              <div class="poster-card">
-                <img v-if="item.poster_url" :src="item.poster_url" :alt="item.title" loading="lazy" />
-                <span v-else class="poster-placeholder">{{ (item.title || '').slice(0, 2) }}</span>
-              </div>
-              <div class="card-title">{{ item.title || item.media_id }}</div>
-              <div class="card-meta">{{ item.year }}</div>
-            </div>
+            />
           </div>
         </el-tab-pane>
       </el-tabs>
@@ -78,6 +89,10 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { libraryApi, mediaApi, type LibraryItem } from '@/api'
+import AppTopbar from '@/components/AppTopbar.vue'
+import MediaPosterCard from '@/components/MediaPosterCard.vue'
+import LoadingState from '@/components/LoadingState.vue'
+import EmptyState from '@/components/EmptyState.vue'
 
 const router = useRouter()
 const activeTab = ref('continue')
@@ -97,7 +112,7 @@ async function onTabChange(tab: string | number) {
       case 'want':
         wantItems.value = await libraryApi.wantList()
         break
-      case 'favorites':
+      case 'favorites': {
         const favIds = await libraryApi.favoritesList()
         favItems.value = await Promise.all(
           favIds.map(async (f) => {
@@ -110,9 +125,10 @@ async function onTabChange(tab: string | number) {
           }),
         )
         break
+      }
     }
   } catch {
-    // silently fail
+    window.toast?.('加载失败', 'error', 2500)
   } finally {
     loading.value = false
   }
@@ -130,119 +146,41 @@ onMounted(() => onTabChange(activeTab.value))
 </script>
 
 <style lang="scss" scoped>
-.library-page {
-  min-height: 100vh;
-  background: var(--mh-bg);
-  color: var(--mh-text);
-}
-
-.library-topbar {
-  justify-content: space-between;
-}
-
-.page-title {
-  font-size: 22px;
-  font-weight: 700;
-}
-
-.back-btn {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--mh-outline);
-  color: var(--mh-text);
-  padding: var(--mh-space-2) var(--mh-space-4);
-  border-radius: 10px;
-  cursor: pointer;
-  font-weight: 500;
-
-  &:hover { background: rgba(255, 255, 255, 0.1); }
-}
-
 .library-content {
-  padding: calc(var(--mh-topbar-height) + var(--mh-space-4)) var(--mh-page-gutter) var(--mh-space-10);
+  padding-left: var(--mh-page-gutter);
+  padding-right: var(--mh-page-gutter);
+  padding-bottom: var(--mh-space-10);
 }
 
 .library-tabs {
-  :deep(.el-tabs__header) { margin-bottom: var(--mh-space-6); }
+  :deep(.el-tabs__header) {
+    margin-bottom: var(--mh-space-6);
+  }
+
+  :deep(.el-tabs__nav-wrap::after) {
+    background: var(--mh-outline);
+  }
+
   :deep(.el-tabs__item) {
     color: var(--mh-text-muted);
-    &.is-active { color: var(--mh-primary); }
+    font-size: 15px;
+    font-weight: 500;
+    padding: 0 var(--mh-space-5);
+    height: 44px;
+
+    &.is-active {
+      color: var(--mh-text);
+    }
+
+    &:hover {
+      color: var(--mh-text-secondary);
+    }
   }
-  :deep(.el-tabs__active-bar) { background-color: var(--mh-primary); }
-}
 
-.media-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: var(--mh-space-5);
-}
-
-.card {
-  cursor: pointer;
-  transition: transform var(--mh-duration) var(--mh-ease-spring);
-  &:hover {
-    transform: translateY(-4px);
-    .poster-card { box-shadow: var(--mh-shadow-lg); }
+  :deep(.el-tabs__active-bar) {
+    background: var(--mh-primary);
+    height: 3px;
+    border-radius: 2px;
   }
-}
-
-.poster-card {
-  position: relative;
-  aspect-ratio: 2/3;
-  background: linear-gradient(145deg, var(--mh-surface-variant), var(--mh-bg));
-  border-radius: var(--mh-radius-md);
-  border: 1px solid var(--mh-outline);
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.25);
-  font-size: 28px;
-  font-weight: 700;
-  transition: box-shadow var(--mh-duration) var(--mh-ease);
-
-  &.landscape { aspect-ratio: 16/9; }
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-}
-
-.progress-bar {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.progress-fill {
-  height: 100%;
-  background: var(--mh-primary);
-  transition: width 0.3s;
-}
-
-.card-title {
-  margin-top: var(--mh-space-2);
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--mh-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.card-meta {
-  font-size: 12px;
-  color: var(--mh-text-muted);
-}
-
-.loading, .empty {
-  text-align: center;
-  padding: 80px 0;
-  font-size: 16px;
-  color: var(--mh-text-muted);
 }
 </style>

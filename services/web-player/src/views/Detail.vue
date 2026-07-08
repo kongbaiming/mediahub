@@ -1,23 +1,11 @@
 <template>
-  <div v-loading="loading" class="detail-page">
-    <header class="detail-topbar mh-topbar mh-sub-topbar">
-      <button class="back-btn" @click="$router.back()">← 返回</button>
-      <span class="breadcrumb">
-        <span @click="$router.push('/')" class="link">首页</span>
-        <span class="sep">/</span>
-        <span>{{ media?.title }}</span>
-      </span>
-      <div class="actions">
-        <button class="want-btn" :class="{ active: wantListed }" @click="toggleWant">
-          {{ wantListed ? '✓ 想看' : '+ 想看' }}
-        </button>
-        <button v-if="!isExternal" class="fav-btn" :class="{ active: favorited }" @click="toggleFavorite">
-          {{ favorited ? '★ 已收藏' : '☆ 收藏' }}
-        </button>
-      </div>
-    </header>
+  <div v-loading="loading" class="detail-page mh-page">
+    <AppTopbar
+      :breadcrumbs="detailBreadcrumbs"
+      :show-back="true"
+    />
 
-    <div v-if="media" class="hero" :style="heroBg">
+    <div v-if="media" class="hero mh-animate-in" :style="heroBg">
       <div class="hero-overlay"></div>
       <div class="hero-content">
         <div class="meta-top">
@@ -64,7 +52,7 @@
           </button>
           <button
             v-if="!isExternal"
-            class="btn action-toggle-btn"
+            class="btn mh-btn mh-btn--ghost"
             :class="{ active: wantListed }"
             @click="toggleWant"
           >
@@ -72,7 +60,7 @@
           </button>
           <button
             v-if="!isExternal"
-            class="btn action-toggle-btn"
+            class="btn mh-btn mh-btn--ghost"
             :class="{ active: favorited }"
             @click="toggleFavorite"
           >
@@ -82,7 +70,7 @@
       </div>
     </div>
 
-    <section v-if="media" class="info-section">
+    <section v-if="media" class="info-section mh-animate-in">
       <div v-if="castCredits.length" class="section">
         <h2 class="section-title">演职员</h2>
         <div class="credits-row">
@@ -205,16 +193,18 @@
         <div v-for="season in seasonsWithEpisodes" :key="season.id" class="season-block">
           <h3 class="season-title">
             {{ season.title || `第 ${season.season_number} 季` }}
+            <span class="season-count">{{ season.episodes.length }} 集</span>
           </h3>
-          <div class="episode-list">
+          <div class="episode-grid">
             <button
               v-for="ep in season.episodes"
               :key="ep.id"
-              class="episode-btn"
+              type="button"
+              class="episode-chip"
               @click="$router.push(`/play/${media.id}?episode_id=${ep.id}`)"
             >
-              <span class="ep-num">第 {{ ep.episode_number }} 集</span>
-              <span class="ep-title">{{ ep.title || `第 ${ep.episode_number} 集` }}</span>
+              <span class="episode-chip__num">{{ ep.episode_number }}</span>
+              <span class="episode-chip__title">{{ ep.title || `第 ${ep.episode_number} 集` }}</span>
             </button>
           </div>
         </div>
@@ -243,6 +233,7 @@ import {
   type CollectionInfo,
   type CollectionPart,
 } from '@/api'
+import AppTopbar from '@/components/AppTopbar.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -283,6 +274,14 @@ const episodes = computed((): EpisodeDetail[] => {
 })
 
 const firstEpisodeId = computed(() => episodes.value[0]?.id)
+
+const detailBreadcrumbs = computed(() => {
+  const crumbs = [{ label: '首页', to: '/' }]
+  if (media.value?.title) {
+    crumbs.push({ label: media.value.title })
+  }
+  return crumbs
+})
 
 const heroBg = computed(() => {
   const url = media.value?.backdrop_url || media.value?.poster_url
@@ -990,45 +989,75 @@ onMounted(load)
 }
 
 .season-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--mh-space-3);
   font-size: 16px;
   font-weight: 600;
-  color: var(--mh-text-secondary, #cbd5e1);
-  margin: 0 0 12px;
+  color: var(--mh-text-secondary);
+  margin: 0 0 var(--mh-space-4);
 }
 
-.episode-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.season-count {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--mh-text-muted);
 }
 
-.episode-btn {
+.episode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
+  gap: var(--mh-space-3);
+}
+
+.episode-chip {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--mh-space-3);
   width: 100%;
   text-align: left;
-  padding: 12px 16px;
+  padding: var(--mh-space-3) var(--mh-space-4);
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  color: #e2e8f0;
+  border: 1px solid var(--mh-outline);
+  border-radius: var(--mh-radius-sm);
+  color: var(--mh-text-secondary);
   cursor: pointer;
+  transition: background var(--mh-duration-fast) var(--mh-ease),
+    border-color var(--mh-duration-fast) var(--mh-ease),
+    transform var(--mh-duration-fast) var(--mh-ease);
 
   &:hover {
     background: var(--mh-primary-muted);
-    border-color: var(--mh-primary);
+    border-color: rgba(10, 132, 255, 0.35);
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mh-primary);
+    outline-offset: 2px;
   }
 }
 
-.ep-num {
+.episode-chip__num {
   flex-shrink: 0;
-  font-size: 13px;
-  color: #94a3b8;
-  min-width: 72px;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--mh-radius-sm);
+  background: rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--mh-text);
 }
 
-.ep-title {
+.episode-chip__title {
   font-size: 14px;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 </style>

@@ -1,5 +1,9 @@
 <template>
-  <router-view />
+  <router-view v-slot="{ Component, route }">
+    <Transition name="mh-route" mode="out-in">
+      <component :is="Component" :key="route.fullPath" />
+    </Transition>
+  </router-view>
   <ToastHost />
 </template>
 
@@ -13,5 +17,20 @@ import ToastHost from '@/components/ToastHost.vue'
   background: var(--mh-bg);
   color: var(--mh-text);
   font-family: var(--mh-font-body);
+}
+
+.mh-route-enter-active,
+.mh-route-leave-active {
+  transition: opacity 0.22s var(--mh-ease-out), transform 0.22s var(--mh-ease-out);
+}
+
+.mh-route-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.mh-route-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
 }
 </style>

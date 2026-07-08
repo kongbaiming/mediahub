@@ -1,33 +1,63 @@
 <template>
-  <div class="home" :class="homeSchemaClass">
+  <div class="home mh-page" :class="homeSchemaClass">
     <header class="topbar mh-topbar">
-      <div class="logo">
-        <span class="logo-icon">▶</span>
+      <button type="button" class="logo" @click="$router.push('/')">
+        <span class="logo-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+        </span>
         <span class="logo-text">MediaHub</span>
-      </div>
-      <div class="search-box">
+      </button>
+
+      <form class="search-box" @submit.prevent="onSearch">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="11" cy="11" r="7" />
+          <path d="M20 20l-3-3" stroke-linecap="round" />
+        </svg>
         <input
           v-model="searchQuery"
-          type="text"
-          placeholder="搜索电影 / 剧集..."
-          @keyup.enter="onSearch"
+          type="search"
+          class="mh-search-field"
+          placeholder="搜索电影、剧集、影人…"
+          autocomplete="off"
         />
-      </div>
-      <div class="user-area">
-        <button class="icon-btn" @click="$router.push('/library')" title="我的片库">📚</button>
-        <button class="icon-btn" @click="$router.push('/live')" title="直播间">📡</button>
-        <button class="icon-btn" @click="showProfile = true" :title="currentProfile?.name">
+      </form>
+
+      <nav class="user-area" aria-label="主导航">
+        <button type="button" class="mh-icon-btn" title="我的片库" @click="$router.push('/library')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+            <path d="M4 19.5A2.5 2.5 0 016.5 17H20" stroke-linecap="round" />
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
+          </svg>
+        </button>
+        <button type="button" class="mh-icon-btn" title="直播" @click="$router.push('/live')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+            <path d="M4.5 8.5c4-3.5 11-3.5 15 0" stroke-linecap="round" />
+            <path d="M7.5 11.5c2.5-2 7.5-2 10 0" stroke-linecap="round" />
+            <circle cx="12" cy="16" r="2" fill="currentColor" stroke="none" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          class="mh-icon-btn profile-btn"
+          :title="currentProfile?.name || '切换档案'"
+          @click="showProfile = true"
+        >
           {{ currentProfile?.name?.slice(0, 1) || '?' }}
         </button>
-        <button class="icon-btn" @click="$router.push('/search')">🔍</button>
-      </div>
+        <button type="button" class="mh-icon-btn" title="搜索页" @click="$router.push('/search')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+            <circle cx="11" cy="11" r="7" />
+            <path d="M20 20l-3-3" stroke-linecap="round" />
+          </svg>
+        </button>
+      </nav>
     </header>
 
     <ProfileSwitcher v-model="showProfile" @switched="onProfileSwitched" />
 
-    <main class="feed-main">
+    <main class="feed-main mh-animate-in">
       <section v-if="loading && rows.length === 0" class="feed-skeleton">
-        <h2 class="feed-skeleton__title">加载中...</h2>
+        <h2 class="feed-skeleton__title">正在加载推荐…</h2>
         <div class="feed-skeleton__cards">
           <SkeletonCard v-for="n in 6" :key="`skeleton-${n}`" />
         </div>
@@ -90,7 +120,6 @@ const homeSchemaClass = computed(() => {
   return schema && typeof schema === 'string' ? `home--${schema}` : ''
 })
 
-/** 按 CMS 编排顺序展示全部可见行（含 Hero、公告、分隔线等） */
 const visibleRows = computed(() =>
   rows.value.filter((r) => {
     if (r.type === 'hero-banner') {
@@ -184,14 +213,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style lang="scss" scoped>
-.home {
-  min-height: 100vh;
-  background:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 122, 255, 0.08), transparent),
-    radial-gradient(ellipse 60% 40% at 100% 50%, rgba(88, 86, 214, 0.05), transparent),
-    var(--mh-bg);
-}
-
 .home--immersive {
   :deep(.feed-hero) {
     margin-top: 0;
@@ -203,14 +224,31 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: var(--mh-space-2);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--mh-text);
   font-size: 18px;
   font-weight: 700;
   font-family: var(--mh-font-display);
-  color: var(--mh-text);
 }
 
-.logo-icon {
+.logo-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--mh-radius-sm);
+  background: var(--mh-primary-muted);
   color: var(--mh-primary);
+
+  svg {
+    width: 16px;
+    height: 16px;
+    margin-left: 2px;
+  }
 }
 
 .logo-text {
@@ -222,29 +260,24 @@ onBeforeUnmount(() => {
 
 .search-box {
   flex: 1;
-  max-width: min(400px, 40vw);
+  max-width: min(480px, 42vw);
+  position: relative;
 
-  input {
-    width: 100%;
-    height: 36px;
-    background: var(--mh-surface);
-    border: 1px solid var(--mh-outline);
-    border-radius: var(--mh-radius-sm);
-    color: var(--mh-text);
-    padding: 0 var(--mh-space-3);
-    font-size: 14px;
-    outline: none;
-    transition: all var(--mh-duration-fast) var(--mh-ease);
-
-    &::placeholder {
-      color: var(--mh-text-tertiary);
-    }
-
-    &:focus {
-      border-color: var(--mh-primary);
-      box-shadow: 0 0 0 3px var(--mh-primary-muted);
-    }
+  .mh-search-field {
+    padding-left: 40px;
+    height: 40px;
   }
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  color: var(--mh-text-muted);
+  pointer-events: none;
 }
 
 .user-area {
@@ -253,29 +286,10 @@ onBeforeUnmount(() => {
   gap: var(--mh-space-2);
 }
 
-.profile-switcher, .icon-btn {
-  background: var(--mh-surface);
-  border: 1px solid var(--mh-outline);
-  width: 36px;
-  height: 36px;
-  border-radius: var(--mh-radius-full);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
+.profile-btn {
+  font-size: 15px;
+  font-weight: 700;
   color: var(--mh-text);
-  font-weight: 600;
-  transition: all var(--mh-duration-fast) var(--mh-ease);
-
-  &:hover {
-    background: var(--mh-surface-variant);
-    border-color: var(--mh-outline-strong);
-  }
-
-  &:active {
-    transform: scale(0.95);
-  }
 }
 
 .feed-main {
@@ -300,6 +314,22 @@ onBeforeUnmount(() => {
     gap: var(--mh-space-4);
     overflow-x: auto;
     padding-bottom: var(--mh-space-4);
+    scroll-snap-type: x mandatory;
+
+    :deep(.skeleton-card) {
+      scroll-snap-align: start;
+      flex: 0 0 auto;
+    }
+  }
+}
+
+@media (max-width: 720px) {
+  .search-box {
+    max-width: none;
+  }
+
+  .logo-text {
+    display: none;
   }
 }
 </style>

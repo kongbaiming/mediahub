@@ -1,40 +1,57 @@
 <template>
-  <div class="search-page">
-    <header class="search-topbar mh-topbar mh-sub-topbar">
-      <button class="back-btn" @click="$router.back()">← 返回</button>
-      <div class="search-box">
-        <input
-          v-model="query"
-          type="text"
-          placeholder="搜索电影 / 剧集 / 影人..."
-          autofocus
-          @keyup.enter="search"
-        />
-      </div>
-      <el-select v-model="filterType" placeholder="类型" size="small" style="width: 100px" @change="search">
-        <el-option label="全部" value="" />
-        <el-option label="电影" value="movie" />
-        <el-option label="剧集" value="tvshow" />
-        <el-option label="动画" value="anime" />
-      </el-select>
-    </header>
+  <div class="search-page mh-page">
+    <AppTopbar variant="sub">
+      <template #center>
+        <form class="search-form" @submit.prevent="search">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path d="M20 20l-3-3" stroke-linecap="round" />
+          </svg>
+          <input
+            v-model="query"
+            type="search"
+            class="mh-search-field"
+            placeholder="搜索电影、剧集、影人…"
+            autofocus
+            @input="onQueryInput"
+          />
+        </form>
+      </template>
+      <template #end>
+        <el-select v-model="filterType" placeholder="类型" size="small" class="type-filter" @change="search">
+          <el-option label="全部" value="" />
+          <el-option label="电影" value="movie" />
+          <el-option label="剧集" value="tvshow" />
+          <el-option label="动画" value="anime" />
+        </el-select>
+      </template>
+    </AppTopbar>
 
-    <main class="results">
-      <div v-if="loading" class="loading">搜索中...</div>
-      <div v-else-if="!hasResults && query" class="empty">
-        没有找到「{{ query }}」相关结果
-      </div>
-      <div v-else-if="!query" class="empty">
-        输入关键字开始搜索
-      </div>
+    <main class="results mh-page-body mh-animate-in">
+      <LoadingState v-if="loading" message="搜索中…" />
+
+      <EmptyState
+        v-else-if="!hasResults && query.trim()"
+        icon="🔍"
+        title="没有找到结果"
+        :description="`未找到与「${query}」相关的内容，试试换个关键词或缩短搜索词。`"
+      />
+
+      <EmptyState
+        v-else-if="!query.trim()"
+        icon="✨"
+        title="开始搜索"
+        description="输入片名、演员或关键词，我们会同时搜索作品与影人。"
+      />
+
       <template v-else>
-        <!-- 影人结果 -->
         <section v-if="personResults.length" class="section">
-          <h2 class="section-title">影人</h2>
+          <h2 class="mh-section-title">影人</h2>
           <div class="person-grid">
-            <div
+            <button
               v-for="p in personResults"
               :key="p.person_id"
+              type="button"
               class="person-card"
               @click="$router.push(`/person/${p.person_id}`)"
             >
@@ -44,28 +61,22 @@
               </div>
               <div class="person-name">{{ p.name }}</div>
               <div v-if="p.known_for" class="person-dept">{{ deptLabel(p.known_for) }}</div>
-            </div>
+            </button>
           </div>
         </section>
 
-        <!-- 媒体结果 -->
         <section v-if="mediaResults.length" class="section">
-          <h2 class="section-title">作品</h2>
-          <div class="grid">
-            <div
+          <h2 class="mh-section-title">作品</h2>
+          <div class="mh-media-grid">
+            <MediaPosterCard
               v-for="m in mediaResults"
               :key="m.id"
-              class="card"
+              :title="m.title"
+              :poster-url="m.poster_url"
+              :rating="m.rating"
+              :subtitle="`${m.year || '—'} · ${typeLabel(m.type)}`"
               @click="$router.push(`/media/${m.id}`)"
-            >
-              <div class="poster-card">
-                <img v-if="m.poster_url" :src="m.poster_url" :alt="m.title" loading="lazy" />
-                <span v-else class="poster-placeholder">{{ m.title.slice(0, 2) }}</span>
-                <div v-if="m.rating > 0" class="rating">⭐ {{ m.rating.toFixed(1) }}</div>
-              </div>
-              <div class="card-title">{{ m.title }}</div>
-              <div class="card-meta">{{ m.year }} · {{ typeLabel(m.type) }}</div>
-            </div>
+            />
           </div>
         </section>
       </template>
@@ -77,6 +88,10 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { mediaApi, type MediaSummary, type PersonSearchResult } from '@/api'
+import AppTopbar from '@/components/AppTopbar.vue'
+import MediaPosterCard from '@/components/MediaPosterCard.vue'
+import LoadingState from '@/components/LoadingState.vue'
+import EmptyState from '@/components/EmptyState.vue'
 
 const route = useRoute()
 const query = ref('')
@@ -84,6 +99,7 @@ const filterType = ref('')
 const loading = ref(false)
 const mediaResults = ref<MediaSummary[]>([])
 const personResults = ref<PersonSearchResult[]>([])
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
 const hasResults = computed(() => mediaResults.value.length > 0 || personResults.value.length > 0)
 
@@ -95,7 +111,6 @@ async function search() {
   }
   loading.value = true
   try {
-    // 有类型筛选时只搜媒体
     if (filterType.value) {
       const res = await mediaApi.list({
         q: query.value,
@@ -105,7 +120,6 @@ async function search() {
       mediaResults.value = res.items
       personResults.value = []
     } else {
-      // 无筛选时搜全部（媒体 + 影人）
       const res = await mediaApi.searchAll(query.value, 30)
       mediaResults.value = res.media || []
       personResults.value = res.persons || []
@@ -115,12 +129,19 @@ async function search() {
   }
 }
 
+function onQueryInput() {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => {
+    search()
+  }, 350)
+}
+
 function typeLabel(t: string) {
-  return ({ movie: '电影', tvshow: '剧集', anime: '动画', documentary: '纪录片' } as any)[t] || t
+  return ({ movie: '电影', tvshow: '剧集', anime: '动画', documentary: '纪录片' } as Record<string, string>)[t] || t
 }
 
 function deptLabel(d: string) {
-  return ({ Acting: '演员', Directing: '导演', Writing: '编剧', Production: '制片' } as any)[d] || d
+  return ({ Acting: '演员', Directing: '导演', Writing: '编剧', Production: '制片' } as Record<string, string>)[d] || d
 }
 
 onMounted(() => {
@@ -132,97 +153,75 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
-.search-page {
-  min-height: 100vh;
-  background: var(--mh-bg);
-  color: var(--mh-text);
-}
+.search-form {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
 
-.search-topbar {
-  gap: var(--mh-space-3);
-}
-
-.back-btn {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--mh-outline);
-  color: var(--mh-text);
-  padding: var(--mh-space-2) var(--mh-space-4);
-  border-radius: 10px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: background var(--mh-duration) var(--mh-ease);
-
-  &:hover {
-    background: rgba(255, 255, 255, 0.1);
+  .mh-search-field {
+    padding-left: 40px;
   }
 }
 
-.search-box {
-  flex: 1;
-  max-width: 600px;
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  color: var(--mh-text-muted);
+  pointer-events: none;
+}
 
-  input {
-    width: 100%;
-    height: 40px;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid var(--mh-outline);
-    border-radius: 10px;
-    color: var(--mh-text);
-    padding: 0 var(--mh-space-4);
-    font-size: 15px;
-    outline: none;
-    transition: border-color var(--mh-duration) var(--mh-ease),
-                box-shadow var(--mh-duration) var(--mh-ease);
-
-    &::placeholder {
-      color: var(--mh-text-muted);
-    }
-
-    &:focus {
-      border-color: var(--mh-primary);
-      box-shadow: 0 0 0 3px var(--mh-primary-muted);
-    }
-  }
+.type-filter {
+  width: 108px;
 }
 
 .results {
-  padding: calc(var(--mh-topbar-height) + var(--mh-space-6)) var(--mh-page-gutter) var(--mh-space-10);
+  padding-left: var(--mh-page-gutter);
+  padding-right: var(--mh-page-gutter);
+  padding-bottom: var(--mh-space-10);
 }
 
 .section {
-  margin-bottom: var(--mh-space-8);
-}
-
-.section-title {
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: var(--mh-space-4);
-  color: var(--mh-text);
+  margin-bottom: var(--mh-space-10);
 }
 
 .person-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: var(--mh-space-4);
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: var(--mh-space-5);
 }
 
 .person-card {
   cursor: pointer;
   text-align: center;
+  background: none;
+  border: none;
+  padding: var(--mh-space-2);
+  color: inherit;
+  border-radius: var(--mh-radius-md);
   transition: transform var(--mh-duration) var(--mh-ease-spring);
 
   &:hover {
     transform: translateY(-4px);
   }
+
+  &:focus-visible {
+    outline: 2px solid var(--mh-primary);
+    outline-offset: 2px;
+  }
 }
 
 .person-avatar {
-  width: 100px;
-  height: 100px;
+  width: 96px;
+  height: 96px;
   margin: 0 auto var(--mh-space-2);
-  border-radius: 50%;
+  border-radius: var(--mh-radius-full);
   overflow: hidden;
-  background: linear-gradient(145deg, var(--mh-surface-variant), var(--mh-bg));
+  background: linear-gradient(145deg, var(--mh-surface-variant), var(--mh-bg-elevated));
   border: 2px solid var(--mh-outline);
   display: flex;
   align-items: center;
@@ -236,7 +235,7 @@ onMounted(() => {
 }
 
 .avatar-placeholder {
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 700;
   color: var(--mh-text-muted);
 }
@@ -244,7 +243,6 @@ onMounted(() => {
 .person-name {
   font-size: 14px;
   font-weight: 500;
-  color: var(--mh-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -253,81 +251,6 @@ onMounted(() => {
 .person-dept {
   font-size: 12px;
   color: var(--mh-text-muted);
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: var(--mh-space-5);
-}
-
-.card {
-  cursor: pointer;
-  transition: transform var(--mh-duration) var(--mh-ease-spring);
-
-  &:hover {
-    transform: translateY(-4px);
-
-    .poster-card {
-      box-shadow: var(--mh-shadow-lg);
-    }
-  }
-}
-
-.poster-card {
-  position: relative;
-  aspect-ratio: 2/3;
-  background: linear-gradient(145deg, var(--mh-surface-variant), var(--mh-bg));
-  border-radius: var(--mh-radius-md);
-  border: 1px solid var(--mh-outline);
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.25);
-  font-size: 28px;
-  font-weight: 700;
-  transition: box-shadow var(--mh-duration) var(--mh-ease);
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-}
-
-.rating {
-  position: absolute;
-  top: var(--mh-space-2);
-  left: var(--mh-space-2);
-  background: rgba(0, 0, 0, 0.72);
-  backdrop-filter: blur(8px);
-  color: var(--mh-warning);
-  padding: 2px 8px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.card-title {
-  margin-top: var(--mh-space-2);
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--mh-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.card-meta {
-  font-size: 12px;
-  color: var(--mh-text-muted);
-}
-
-.loading, .empty {
-  text-align: center;
-  padding: 80px 0;
-  font-size: 16px;
-  color: var(--mh-text-muted);
+  margin-top: 2px;
 }
 </style>

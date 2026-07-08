@@ -25,8 +25,11 @@
   --mh-text: #FFFFFF;          // Apple White
   --mh-text-secondary: #EBEBF5; // Apple Secondary
   --mh-text-tertiary: #98989D; // Apple Tertiary
+  --mh-text-muted: #8E8E93;    // 辅助/空状态
 
-  // 轮廓
+  // 页面背景氛围
+  --mh-bg-glow: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(10, 132, 255, 0.1), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 50%, rgba(94, 92, 230, 0.06), transparent);
   --mh-outline: rgba(255, 255, 255, 0.08);
   --mh-outline-strong: rgba(255, 255, 255, 0.16);
 
@@ -53,8 +56,7 @@
   --mh-radius-lg: 16px;
   --mh-radius-xl: 20px;
   --mh-radius-2xl: 28px;
-
-  // 阴影 — Apple 暗色风格
+  --mh-radius-full: 9999px;
   --mh-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --mh-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.3);
   --mh-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.4);

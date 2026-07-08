@@ -54,6 +54,9 @@ const router = createRouter({
       component: () => import('@/views/LiveRoom.vue'),
     },
   ],
+  scrollBehavior() {
+    return { top: 0, behavior: 'smooth' }
+  },
 })
 
 export default router

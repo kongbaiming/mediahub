@@ -1,25 +1,41 @@
 <template>
   <div class="player-page">
-    <div class="player-header">
-      <button class="back-btn" @click="$router.back()">← 返回</button>
+    <div class="player-header mh-topbar mh-sub-topbar">
+      <button type="button" class="mh-back-btn" @click="$router.back()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true">
+          <path d="M15 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <span>返回</span>
+      </button>
       <h1 v-if="media" class="title">{{ media.title }}</h1>
-      <button
-        v-if="subtitleTracks.length"
-        class="header-btn"
-        @click="showSubtitleMenu = !showSubtitleMenu"
-      >
-        字幕
-      </button>
-      <button
-        v-if="supportsPiP"
-        class="header-btn"
-        @click="togglePiP"
-        title="画中画"
-      >
-        画中画
-      </button>
+      <div class="header-actions">
+        <button
+          v-if="subtitleTracks.length"
+          type="button"
+          class="mh-icon-btn"
+          :class="{ 'mh-icon-btn--active': showSubtitleMenu }"
+          title="字幕"
+          @click="showSubtitleMenu = !showSubtitleMenu"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+            <rect x="3" y="5" width="18" height="14" rx="2" />
+            <path d="M7 13h4M7 9h10" stroke-linecap="round" />
+          </svg>
+        </button>
+        <button
+          v-if="supportsPiP"
+          type="button"
+          class="mh-icon-btn"
+          title="画中画"
+          @click="togglePiP"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+            <rect x="3" y="5" width="18" height="14" rx="2" />
+            <rect x="11" y="11" width="8" height="6" rx="1" fill="currentColor" opacity="0.35" />
+          </svg>
+        </button>
+      </div>
       <span v-if="resumeInfo && !resumeInfo.completed" class="resume-badge">
-        <el-icon><VideoPlay /></el-icon>
         续播 {{ formatTime(resumeInfo.progress) }} / {{ formatTime(resumeInfo.duration) }}
       </span>
     </div>
@@ -716,45 +732,42 @@ onBeforeUnmount(() => {
   top: 0;
   left: 0;
   right: 0;
-  height: 60px;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.9), transparent);
   z-index: 100;
-  display: flex;
-  align-items: center;
-  padding: 0 40px;
-  gap: 16px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.88), rgba(0, 0, 0, 0.35));
+  border-bottom: none;
+  padding: 0 var(--mh-page-gutter);
 }
 
-.back-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: none;
-  color: #fff;
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-
-  &:hover { background: rgba(255, 255, 255, 0.2); }
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--mh-space-2);
+  margin-left: auto;
 }
 
 .title {
   margin: 0;
   font-size: 16px;
   color: #fff;
-  font-weight: 500;
+  font-weight: 600;
   flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .resume-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
   padding: 4px 12px;
-  background: rgba(99, 102, 241, 0.2);
-  border: 1px solid rgba(99, 102, 241, 0.4);
-  border-radius: 20px;
-  color: #c7d2fe;
-  font-size: 13px;
+  background: var(--mh-primary-muted);
+  border: 1px solid rgba(10, 132, 255, 0.35);
+  border-radius: var(--mh-radius-full);
+  color: var(--mh-primary-hover);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .player-container {
@@ -889,30 +902,19 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
-.header-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #fff;
-  padding: 6px 14px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-
-  &:hover { background: rgba(255, 255, 255, 0.2); }
-}
-
 .subtitle-menu {
   position: fixed;
-  top: 70px;
-  right: 40px;
+  top: calc(var(--mh-topbar-height) + var(--mh-space-2));
+  right: var(--mh-page-gutter);
   z-index: 150;
-  min-width: 180px;
-  background: rgba(10, 10, 18, 0.95);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  padding: 8px 0;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  min-width: 200px;
+  background: var(--mh-glass-bg);
+  backdrop-filter: var(--mh-glass-blur);
+  border: 1px solid var(--mh-outline);
+  border-radius: var(--mh-radius-md);
+  padding: var(--mh-space-2) 0;
+  box-shadow: var(--mh-shadow-lg);
+  animation: mh-fade-up var(--mh-duration-fast) var(--mh-ease-out) both;
 }
 
 .menu-title {
