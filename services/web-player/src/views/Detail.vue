@@ -448,7 +448,8 @@ function openPerson(c: MediaCredit) {
     query.from_tmdb_type = route.params.type as string
     query.from_tmdb_id = String(media.value.tmdb_id)
   }
-  if (personId) {
+  const nilUUID = '00000000-0000-0000-0000-000000000000'
+  if (personId && personId !== nilUUID) {
     router.push({ path: `/person/${personId}`, query })
     return
   }

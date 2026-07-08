@@ -44,7 +44,8 @@
               type="button"
               class="episode-chip"
               :class="{ 'episode-chip--active': ep.id === currentEpisodeId }"
-              @click="$emit('switch-episode', ep.id)"
+              :disabled="ep.id === currentEpisodeId"
+              @click.stop="onEpisodeClick(ep)"
             >
               <span class="episode-chip__num">{{ ep.episode_number }}</span>
               <span class="episode-chip__title">{{ ep.title || `第 ${ep.episode_number} 集` }}</span>
@@ -196,14 +197,19 @@ const props = defineProps<{
 
 const modelTab = defineModel<string>('tab', { default: 'info' })
 
-defineEmits<{
+const emit = defineEmits<{
   close: []
-  'switch-episode': [episodeId: string]
+  'switch-episode': [episodeId: string, filePath?: string]
   'select-audio': [streamIndex: number]
   'select-subtitle': [track: SubtitleTrackInfo]
   'disable-subtitle': []
   'open-person': [credit: MediaCredit]
 }>()
+
+function onEpisodeClick(ep: EpisodeDetail) {
+  if (!ep.id || ep.id === props.currentEpisodeId) return
+  emit('switch-episode', ep.id, ep.file_path)
+}
 
 const isSeries = computed(() => props.media.type === 'tvshow' || props.media.type === 'anime')
 
@@ -254,7 +260,7 @@ function creditAvatar(c: MediaCredit) {
   right: 0;
   bottom: 0;
   width: min(400px, 100vw);
-  z-index: 90;
+  z-index: 110;
   display: flex;
   flex-direction: column;
   background: var(--mh-glass-bg);
@@ -390,6 +396,11 @@ function creditAvatar(c: MediaCredit) {
     border-color: rgba(10, 132, 255, 0.55);
     background: var(--mh-primary-muted);
     color: var(--mh-text);
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.92;
   }
 }
 

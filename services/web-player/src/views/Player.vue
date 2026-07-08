@@ -108,33 +108,37 @@
         </div>
       </div>
 
-      <PlayerSidePanel
-        v-if="media"
-        v-model:tab="panelTab"
-        :open="sidePanelOpen"
-        :media="media"
-        :current-episode-id="currentEpisodeId"
-        :cast-credits="castCredits"
-        :audio-tracks="audioTracks"
-        :embedded-subtitle-tracks="embeddedSubtitleTracks"
-        :subtitle-tracks="subtitleTracks"
-        :selected-audio-index="selectedAudioIndex"
-        :selected-subtitle-id="selectedSubtitleId"
-        :direct-playable="directPlayable"
-        @close="sidePanelOpen = false"
-        @switch-episode="switchToEpisode"
-        @select-audio="selectAudioTrack"
-        @select-subtitle="selectSubtitle"
-        @disable-subtitle="disableSubtitle"
-        @open-person="openPerson"
-      />
+      <Teleport to="body">
+        <PlayerSidePanel
+          v-if="media"
+          v-model:tab="panelTab"
+          :open="sidePanelOpen"
+          :media="media"
+          :current-episode-id="currentEpisodeId"
+          :cast-credits="castCredits"
+          :audio-tracks="audioTracks"
+          :embedded-subtitle-tracks="embeddedSubtitleTracks"
+          :subtitle-tracks="subtitleTracks"
+          :selected-audio-index="selectedAudioIndex"
+          :selected-subtitle-id="selectedSubtitleId"
+          :direct-playable="directPlayable"
+          @close="sidePanelOpen = false"
+          @switch-episode="switchToEpisode"
+          @select-audio="selectAudioTrack"
+          @select-subtitle="selectSubtitle"
+          @disable-subtitle="disableSubtitle"
+          @open-person="openPerson"
+        />
+      </Teleport>
     </div>
 
-    <div
-      v-if="sidePanelOpen"
-      class="panel-backdrop"
-      @click="sidePanelOpen = false"
-    ></div>
+    <Teleport to="body">
+      <div
+        v-if="sidePanelOpen"
+        class="panel-backdrop"
+        @click="sidePanelOpen = false"
+      ></div>
+    </Teleport>
 
     <!-- 下一集倒计时 -->
     <div v-if="nextEpisodePrompt" class="next-episode-banner">
@@ -155,7 +159,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Hls from 'hls.js'
 import LoadingState from '@/components/LoadingState.vue'
@@ -189,6 +193,7 @@ const nextCountdown = ref(0)
 const seriesEnded = ref(false)
 const nextEpisodeTriggered = ref(false)
 let nextCountdownTimer: ReturnType<typeof setInterval> | null = null
+let playbackToken = 0
 const transcodeLoading = ref(false)
 const transcodeMessage = ref('正在准备播放流…')
 const transcodeProgress = ref<number | undefined>()
@@ -264,7 +269,8 @@ function togglePanel(tab: string) {
 function openPerson(c: MediaCredit) {
   const personId = c.person?.id
   const tmdbPersonId = c.person?.tmdb_person_id
-  if (personId) {
+  const nilUUID = '00000000-0000-0000-0000-000000000000'
+  if (personId && personId !== nilUUID) {
     router.push(`/person/${personId}`)
   } else if (tmdbPersonId) {
     router.push(`/person/tmdb/${tmdbPersonId}`)
@@ -307,6 +313,15 @@ function resolvePlayback(detail: MediaDetail, preferredEpisodeId?: string) {
   throw new Error('该剧集暂无可播放的单集文件')
 }
 
+function bumpPlaybackToken() {
+  playbackToken += 1
+  return playbackToken
+}
+
+function isActivePlayback(token: number) {
+  return token === playbackToken
+}
+
 async function loadMedia() {
   try {
     const data = await mediaApi.get(route.params.id as string)
@@ -330,7 +345,7 @@ async function loadMedia() {
 
     await applyResumeForEpisode(data.id, currentEpisodeId.value)
 
-    await setupVideo()
+    await setupVideo(bumpPlaybackToken())
 
     await loadAuxiliaryData()
 
@@ -433,8 +448,9 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-async function setupVideo() {
+async function setupVideo(token?: number) {
   if (!videoRef.value || !media.value || !playablePath.value) return
+  const activeToken = token ?? bumpPlaybackToken()
 
   const storagePath = playablePath.value
 
@@ -443,12 +459,14 @@ async function setupVideo() {
     const probeResp = await fetch(
       `/api/v1/stream/probe?path=${encodeURIComponent(storagePath)}`
     )
+    if (!isActivePlayback(activeToken)) return
     if (probeResp.ok) {
       const probe = await probeResp.json()
       recommended = probe.recommended
       if (probe.recommended === 'direct' || probe.direct_playable) {
         directPlayable.value = !!probe.direct_playable
         const ok = await tryDirectPlay(storagePath)
+        if (!isActivePlayback(activeToken)) return
         if (ok) {
           useDirectPlay.value = true
           return
@@ -458,6 +476,8 @@ async function setupVideo() {
   } catch {
     // probe 失败时走下方 HLS / 直连兜底
   }
+
+  if (!isActivePlayback(activeToken)) return
 
   const ext = storagePath.split('.').pop()?.toLowerCase() || ''
   if (ext === 'mp4' || ext === 'm4v' || ext === 'webm') {
@@ -470,13 +490,15 @@ async function setupVideo() {
 
   const streamId = currentEpisodeId.value || media.value.id
   try {
-    await startHLSPlayback(streamId, storagePath)
+    await startHLSPlayback(streamId, storagePath, activeToken)
   } catch (e: any) {
+    if (!isActivePlayback(activeToken)) return
     console.error('HLS 启动失败', e)
     if (recommended !== 'hls_copy' && recommended !== 'hls_transcode') {
       window.toast?.(`HLS 转码失败：${e?.message || '未知错误'}`, 'error', 5000)
     }
     const ok = await tryDirectPlay(storagePath)
+    if (!isActivePlayback(activeToken)) return
     if (!ok) {
       window.toast?.(`播放失败：${e?.message || '未知错误'}`, 'error', 5000)
     }
@@ -515,11 +537,12 @@ function tryDirectPlay(storagePath: string): Promise<boolean> {
   })
 }
 
-async function startHLSPlayback(streamId: string, storagePath: string) {
+async function startHLSPlayback(streamId: string, storagePath: string, token: number) {
   transcodeLoading.value = true
   try {
     const startUrl = `/api/v1/stream/hls?path=${encodeURIComponent(storagePath)}&media_id=${streamId}`
     const resp = await fetch(startUrl)
+    if (!isActivePlayback(token)) return
     const data = await resp.json()
     if (!resp.ok) {
       throw new Error(data.message || data.error || `转码启动失败 (${resp.status})`)
@@ -543,26 +566,36 @@ async function startHLSPlayback(streamId: string, storagePath: string) {
       return
     }
     if (data.playable) {
-      await pollAndPlayHLS(streamId, playlistUrl, true)
+      await pollAndPlayHLS(streamId, playlistUrl, true, token)
       return
     }
 
-    await pollAndPlayHLS(streamId, playlistUrl, false)
+    await pollAndPlayHLS(streamId, playlistUrl, false, token)
   } finally {
-    transcodeLoading.value = false
+    if (isActivePlayback(token)) {
+      transcodeLoading.value = false
+    }
   }
 }
 
-async function pollAndPlayHLS(streamId: string, playlistUrl: string, alreadyAttached: boolean) {
+async function pollAndPlayHLS(
+  streamId: string,
+  playlistUrl: string,
+  alreadyAttached: boolean,
+  token: number,
+) {
   let attached = alreadyAttached
   if (attached) {
     attachHlsPlaylist(playlistUrl, true)
   }
 
   for (let i = 0; i < 3600; i++) {
+    if (!isActivePlayback(token)) return
     await sleep(1500)
+    if (!isActivePlayback(token)) return
     const resp = await fetch(`/api/v1/stream/hls/${streamId}/status`)
     const st = await resp.json()
+    if (!isActivePlayback(token)) return
     if (!resp.ok) {
       throw new Error(st.message || st.error || 'HLS 状态查询失败')
     }
@@ -746,27 +779,27 @@ async function playNextEpisode() {
 }
 
 async function switchToEpisode(episodeId: string, filePath?: string) {
-  if (!media.value || episodeId === currentEpisodeId.value) return
+  if (!media.value || !episodeId) return
+  if (episodeId === currentEpisodeId.value) return
 
-  await reportProgress()
+  const token = bumpPlaybackToken()
+  reportProgress().catch(() => {})
 
   seriesEnded.value = false
   nextEpisodeTriggered.value = false
   cancelNextEpisode()
 
-  const episodes = listEpisodes(media.value)
-  const picked = episodes.find((e) => e.id === episodeId)
-  const path = filePath || picked?.file_path
+  const path = filePath || listEpisodes(media.value).find((e) => e.id === episodeId)?.file_path
   if (!path) {
     window.toast?.('该集暂无可播放文件', 'error', 3000)
     return
   }
 
+  transcodeLoading.value = true
+  transcodeMessage.value = '正在切换集数…'
+  transcodeProgress.value = undefined
+
   currentEpisodeId.value = episodeId
-  await router.replace({
-    path: `/play/${media.value.id}`,
-    query: { episode_id: episodeId },
-  })
   playablePath.value = path
   selectedSubtitleId.value = null
   selectedAudioIndex.value = null
@@ -786,9 +819,30 @@ async function switchToEpisode(episodeId: string, filePath?: string) {
   }
 
   useDirectPlay.value = false
-  await applyResumeForEpisode(media.value.id, episodeId)
-  await setupVideo()
-  await loadAuxiliaryData()
+
+  try {
+    await router.replace({
+      path: `/play/${media.value.id}`,
+      query: { episode_id: episodeId },
+    })
+    if (!isActivePlayback(token)) return
+
+    await applyResumeForEpisode(media.value.id, episodeId)
+    if (!isActivePlayback(token)) return
+
+    await setupVideo(token)
+    if (!isActivePlayback(token)) return
+
+    await loadAuxiliaryData()
+  } catch (e: any) {
+    if (!isActivePlayback(token)) return
+    console.error('切换集数失败', e)
+    window.toast?.(`切换集数失败：${e?.message || '未知错误'}`, 'error', 4000)
+  } finally {
+    if (isActivePlayback(token)) {
+      transcodeLoading.value = false
+    }
+  }
 }
 
 function goToDetail() {
@@ -963,6 +1017,15 @@ onMounted(async () => {
   setTimeout(() => containerRef.value?.focus(), 100)
 })
 
+watch(
+  () => route.query.episode_id as string | undefined,
+  async (episodeId, prevEpisodeId) => {
+    if (!media.value || !episodeId || episodeId === prevEpisodeId) return
+    if (episodeId === currentEpisodeId.value) return
+    await switchToEpisode(episodeId)
+  },
+)
+
 onBeforeUnmount(() => {
   reportProgress().catch(() => {})
   cancelNextEpisode()
@@ -998,7 +1061,7 @@ onBeforeUnmount(() => {
     display: block;
     position: fixed;
     inset: 0;
-    z-index: 80;
+    z-index: 105;
     background: rgba(0, 0, 0, 0.45);
   }
 }

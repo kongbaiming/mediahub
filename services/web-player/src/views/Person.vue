@@ -23,14 +23,14 @@
         </div>
       </div>
 
-      <section v-if="works.length" class="works-section">
+      <section class="works-section">
         <h2 class="section-title">参演作品</h2>
-        <div class="works-grid">
+        <div v-if="works.length" class="works-grid">
           <div
-            v-for="w in works"
-            :key="w.id"
+            v-for="(w, idx) in works"
+            :key="workKey(w, idx)"
             class="card"
-            @click="$router.push(`/media/${w.id}`)"
+            @click="openWork(w)"
           >
             <div class="poster-card">
               <img v-if="w.poster_url" :src="w.poster_url" :alt="w.title" loading="lazy" />
@@ -41,6 +41,7 @@
             <div class="card-meta">{{ w.year }}</div>
           </div>
         </div>
+        <p v-else class="works-empty">暂无参演作品</p>
       </section>
     </main>
 
@@ -50,30 +51,77 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
-import { catalogApi, type PersonBrief, type MediaSummary } from '@/api'
+import { ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { catalogApi, type PersonBrief, type PersonWork } from '@/api'
 
 const route = useRoute()
+const router = useRouter()
 const loading = ref(true)
 const person = ref<PersonBrief | null>(null)
-const works = ref<MediaSummary[]>([])
+const works = ref<PersonWork[]>([])
+
+const nilUUID = '00000000-0000-0000-0000-000000000000'
 
 function deptLabel(d: string) {
   return ({ Acting: '演员', Directing: '导演', Writing: '编剧', Production: '制片' } as Record<string, string>)[d] || d
 }
 
-onMounted(async () => {
-  const id = route.params.id as string
+function isPlayableWork(w: PersonWork) {
+  return !w.external && !!w.id && w.id !== nilUUID
+}
+
+function workKey(w: PersonWork, idx: number) {
+  if (isPlayableWork(w)) return w.id
+  if (w.tmdb_id) return `tmdb:${w.tmdb_id}`
+  return `work:${idx}`
+}
+
+function openWork(w: PersonWork) {
+  if (isPlayableWork(w)) {
+    router.push(`/media/${w.id}`)
+    return
+  }
+  if (w.tmdb_id && w.type) {
+    router.push(`/media/tmdb/${w.type}/${w.tmdb_id}`)
+  }
+}
+
+async function load() {
+  loading.value = true
+  person.value = null
+  works.value = []
   try {
-    person.value = await catalogApi.person(id)
-    works.value = await catalogApi.personWorks(id)
+    let personId: string
+    if (route.name === 'person-tmdb') {
+      const tmdbId = Number(route.params.tmdbId)
+      if (!tmdbId) return
+      person.value = await catalogApi.personByTmdb(tmdbId)
+      personId = person.value.id
+    } else {
+      personId = route.params.id as string
+      if (!personId || personId === nilUUID) return
+      person.value = await catalogApi.person(personId)
+    }
+    if (!personId || personId === nilUUID) return
+    const excludeMediaId = typeof route.query.from === 'string' ? route.query.from : undefined
+    works.value = await catalogApi.personWorks(personId, { excludeMediaId })
   } catch {
-    // not found
+    person.value = null
   } finally {
     loading.value = false
   }
-})
+}
+
+watch(
+  () => [route.name, route.params.id, route.params.tmdbId, route.query.from],
+  (cur, prev) => {
+    if (!cur[0]) return
+    if (prev && cur.every((v, i) => v === prev[i])) return
+    load()
+  },
+  { immediate: true },
+)
 </script>
 
 <style lang="scss" scoped>
@@ -209,6 +257,11 @@ onMounted(async () => {
 
 .card-meta {
   font-size: 12px;
+  color: var(--mh-text-muted);
+}
+
+.works-empty {
+  font-size: 14px;
   color: var(--mh-text-muted);
 }
 
