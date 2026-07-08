@@ -307,25 +307,23 @@ async function loadMedia() {
     const data = await mediaApi.get(route.params.id as string)
     media.value = data
 
-    try {
-      const resume = await historyApi.getResume(data.id)
-      if (resume) resumeInfo.value = resume
-    } catch {
-      // no history
-    }
-
     const queryEpisode = route.query.episode_id as string | undefined
-    const resumeEpisode = resumeInfo.value?.episode_id
-    const preferredEpisode = queryEpisode || resumeEpisode
 
-    // 路由明确指定集数时，优先按路由播放，不应用其他集的服务端续播进度。
-    if (queryEpisode && resumeInfo.value?.episode_id && queryEpisode !== resumeInfo.value.episode_id) {
-      resumeInfo.value = null
+    let latestResume: ResumeInfo | null = null
+    if (!queryEpisode && isSeriesType(data.type)) {
+      try {
+        latestResume = await historyApi.getResume(data.id)
+      } catch {
+        // no history
+      }
     }
 
+    const preferredEpisode = queryEpisode || latestResume?.episode_id
     const playback = resolvePlayback(data, preferredEpisode)
     currentEpisodeId.value = playback.episodeId
     playablePath.value = playback.filePath || ''
+
+    await applyResumeForEpisode(data.id, currentEpisodeId.value)
 
     await setupVideo()
 
@@ -393,6 +391,25 @@ async function loadAuxiliaryData() {
   }
 
   await Promise.all(tasks)
+}
+
+function shouldApplyResume(resume: ResumeInfo | null | undefined, episodeId?: string) {
+  if (!resume || resume.completed || resume.progress <= 0) return false
+  if (!episodeId) return true
+  if (!resume.episode_id) return false
+  return resume.episode_id === episodeId
+}
+
+async function applyResumeForEpisode(mediaId: string, episodeId?: string) {
+  resumeInfo.value = null
+  try {
+    const resume = await historyApi.getResume(mediaId, episodeId)
+    if (shouldApplyResume(resume, episodeId)) {
+      resumeInfo.value = resume
+    }
+  } catch {
+    // no history
+  }
 }
 
 function directStreamUrl(storagePath: string, audioStream?: number | null) {
@@ -615,7 +632,7 @@ function onLoadedMetadata() {
   nextEpisodeTriggered.value = false
   seriesEnded.value = false
 
-  if (resumeInfo.value && !resumeInfo.value.completed && resumeInfo.value.progress > 0) {
+  if (shouldApplyResume(resumeInfo.value, currentEpisodeId.value) && resumeInfo.value) {
     const duration = videoRef.value.duration || 0
     const maxSeek = duration > 0 ? Math.max(0, duration - 3) : resumeInfo.value.progress
     videoRef.value.currentTime = Math.min(resumeInfo.value.progress, maxSeek)
@@ -726,6 +743,8 @@ async function playNextEpisode() {
 async function switchToEpisode(episodeId: string, filePath?: string) {
   if (!media.value || episodeId === currentEpisodeId.value) return
 
+  await reportProgress()
+
   seriesEnded.value = false
   nextEpisodeTriggered.value = false
   cancelNextEpisode()
@@ -744,7 +763,6 @@ async function switchToEpisode(episodeId: string, filePath?: string) {
     query: { episode_id: episodeId },
   })
   playablePath.value = path
-  resumeInfo.value = null
   selectedSubtitleId.value = null
   selectedAudioIndex.value = null
   defaultAudioIndex.value = null
@@ -763,6 +781,7 @@ async function switchToEpisode(episodeId: string, filePath?: string) {
   }
 
   useDirectPlay.value = false
+  await applyResumeForEpisode(media.value.id, episodeId)
   await setupVideo()
   await loadAuxiliaryData()
 }

@@ -102,13 +102,16 @@ func (s *HistoryService) GetContinueWatching(ctx context.Context, profileID stri
 	return s.repo.ListInProgress(ctx, profileID, limit)
 }
 
-// GetResumePoint 获取某媒资的续播位置
-func (s *HistoryService) GetResumePoint(ctx context.Context, profileID, mediaID string) (*history.History, error) {
+// GetResumePoint 获取某媒资的续播位置；剧集可传 episodeID 精确到单集
+func (s *HistoryService) GetResumePoint(ctx context.Context, profileID, mediaID, episodeID string) (*history.History, error) {
 	// 优先返回跨设备续播表 playback_progress，历史表 history 作为兼容兜底。
-	if p, err := s.repo.GetPlaybackResumePoint(ctx, profileID, mediaID); err != nil {
+	if p, err := s.repo.GetPlaybackResumePoint(ctx, profileID, mediaID, episodeID); err != nil {
 		return nil, err
 	} else if p != nil {
 		return p, nil
+	}
+	if episodeID != "" {
+		return s.repo.GetLatestByMediaEpisode(ctx, profileID, mediaID, episodeID)
 	}
 	return s.repo.GetLatestByMedia(ctx, profileID, mediaID)
 }

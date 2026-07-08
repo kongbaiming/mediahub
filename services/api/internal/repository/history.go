@@ -77,6 +77,27 @@ func (r *HistoryRepo) GetLatestByMedia(ctx context.Context, profileID, mediaID s
 	return &hs[0], nil
 }
 
+// GetLatestByMediaEpisode 取某媒资指定单集的最近播放记录
+func (r *HistoryRepo) GetLatestByMediaEpisode(ctx context.Context, profileID, mediaID, episodeID string) (*history.History, error) {
+	eid, err := uuid.Parse(episodeID)
+	if err != nil {
+		return nil, apperr.Validation(map[string]string{"episode_id": "格式错误"})
+	}
+	var hs []history.History
+	err = r.db.WithContext(ctx).
+		Where("profile_id = ? AND media_id = ? AND episode_id = ?", profileID, mediaID, eid).
+		Order("updated_at DESC").
+		Limit(1).
+		Find(&hs).Error
+	if err != nil {
+		return nil, apperr.Wrap(err, apperr.CodeInternal, "查询单集续播记录失败")
+	}
+	if len(hs) == 0 {
+		return nil, nil
+	}
+	return &hs[0], nil
+}
+
 // UpsertPlaybackProgress 更新或插入跨设备续播进度
 func (r *HistoryRepo) UpsertPlaybackProgress(ctx context.Context, p *history.PlaybackProgress) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -113,14 +134,21 @@ func (r *HistoryRepo) UpsertPlaybackProgress(ctx context.Context, p *history.Pla
 }
 
 // GetPlaybackResumePoint 读取跨设备续播进度并映射为历史响应结构
-func (r *HistoryRepo) GetPlaybackResumePoint(ctx context.Context, profileID, mediaID string) (*history.History, error) {
+func (r *HistoryRepo) GetPlaybackResumePoint(ctx context.Context, profileID, mediaID, episodeID string) (*history.History, error) {
+	q := r.db.WithContext(ctx).
+		Where("profile_id = ? AND media_id = ?", profileID, mediaID)
+	if episodeID != "" {
+		eid, err := uuid.Parse(episodeID)
+		if err != nil {
+			return nil, apperr.Validation(map[string]string{"episode_id": "格式错误"})
+		}
+		q = q.Where("episode_id = ?", eid)
+	} else {
+		q = q.Order("updated_at DESC").Limit(1)
+	}
+
 	var rows []history.PlaybackProgress
-	err := r.db.WithContext(ctx).
-		Where("profile_id = ? AND media_id = ?", profileID, mediaID).
-		Order("updated_at DESC").
-		Limit(1).
-		Find(&rows).Error
-	if err != nil {
+	if err := q.Find(&rows).Error; err != nil {
 		return nil, apperr.Wrap(err, apperr.CodeInternal, "查询跨设备续播失败")
 	}
 	if len(rows) == 0 {

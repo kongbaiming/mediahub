@@ -143,7 +143,8 @@ func (h *HistoryHandler) GetResumePoint(c *gin.Context) {
 		return
 	}
 	mediaID := c.Param("media_id")
-	h_, err := h.svc.GetResumePoint(c.Request.Context(), profileID, mediaID)
+	episodeID := c.Query("episode_id")
+	h_, err := h.svc.GetResumePoint(c.Request.Context(), profileID, mediaID, episodeID)
 	if err != nil {
 		respondError(c, err)
 		return

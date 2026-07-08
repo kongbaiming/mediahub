@@ -367,15 +367,21 @@ export const historyApi = {
     }
   },
 
-  async getResume(mediaId: string): Promise<ResumeInfo | null> {
+  async getResume(mediaId: string, episodeId?: string): Promise<ResumeInfo | null> {
     try {
-      const body = (await http.get<unknown>(`/api/v1/progress/${mediaId}`)) as {
+      const params = episodeId ? { episode_id: episodeId } : {}
+      const body = (await http.get<unknown>(`/api/v1/progress/${mediaId}`, {
+        params,
+      })) as {
         data: ResumeInfo | null
       }
       return body.data
     } catch {
       // 兼容旧版 API
-      const body = (await http.get<unknown>(`/api/v1/resume/${mediaId}`)) as {
+      const params = episodeId ? { episode_id: episodeId } : {}
+      const body = (await http.get<unknown>(`/api/v1/resume/${mediaId}`, {
+        params,
+      })) as {
         data: ResumeInfo | null
       }
       return body.data
