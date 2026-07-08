@@ -250,6 +250,45 @@ func (r *MediaRepo) GetEpisodeByFilePath(ctx context.Context, filePath string) (
 	return &ep, nil
 }
 
+// EpisodeContext 单集及其季号（用于 TMDB 单集 API）
+type EpisodeContext struct {
+	Episode      media.Episode
+	SeasonNumber int
+}
+
+// GetEpisodeContext 按媒资 + 单集 ID 查询季/集号
+func (r *MediaRepo) GetEpisodeContext(ctx context.Context, mediaID, episodeID string) (*EpisodeContext, error) {
+	mid, err := uuid.Parse(mediaID)
+	if err != nil {
+		return nil, apperr.Validation(map[string]string{"media_id": "格式错误"})
+	}
+	eid, err := uuid.Parse(episodeID)
+	if err != nil {
+		return nil, apperr.Validation(map[string]string{"episode_id": "格式错误"})
+	}
+
+	var ep media.Episode
+	if err := r.db.WithContext(ctx).First(&ep, "id = ?", eid).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, apperr.NotFound("单集不存在")
+		}
+		return nil, apperr.Wrap(err, apperr.CodeInternal, "查询单集失败")
+	}
+	if ep.MediaID != mid {
+		return nil, apperr.NotFound("单集不存在")
+	}
+
+	var season media.Season
+	if err := r.db.WithContext(ctx).First(&season, "id = ?", ep.SeasonID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, apperr.NotFound("季不存在")
+		}
+		return nil, apperr.Wrap(err, apperr.CodeInternal, "查询季失败")
+	}
+
+	return &EpisodeContext{Episode: ep, SeasonNumber: season.SeasonNumber}, nil
+}
+
 // GetFirstEpisodeFilePath 取专辑下第一个单集文件（ffprobe 用）
 func (r *MediaRepo) GetFirstEpisodeFilePath(ctx context.Context, mediaID string) (string, error) {
 	var ep media.Episode

@@ -77,6 +77,7 @@
 
       <!-- 演职员 -->
       <section v-show="modelTab === 'cast'" class="panel-section">
+        <p v-if="currentEpisodeId" class="section-hint">本集出场演员（含客串）</p>
         <div v-if="castCredits.length" class="credits-grid">
           <button
             v-for="c in castCredits"
@@ -325,6 +326,12 @@ function creditAvatar(c: MediaCredit) {
 
 .panel-section {
   animation: mh-fade-up var(--mh-duration-fast) var(--mh-ease-out) both;
+}
+
+.section-hint {
+  margin: 0 0 var(--mh-space-3);
+  font-size: 12px;
+  color: var(--mh-text-muted);
 }
 
 .panel-empty {

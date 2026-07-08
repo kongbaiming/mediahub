@@ -465,9 +465,12 @@ export const profileApi = {
 }
 
 export const catalogApi = {
-  async credits(mediaId: string, role = ''): Promise<MediaCredit[]> {
+  async credits(mediaId: string, role = '', episodeId?: string): Promise<MediaCredit[]> {
+    const params: Record<string, string> = {}
+    if (role) params.role = role
+    if (episodeId) params.episode_id = episodeId
     const body = (await http.get<unknown>(`/api/v1/works/${mediaId}/credits`, {
-      params: role ? { role } : {},
+      params,
     })) as { data: MediaCredit[] }
     return body.data || []
   },

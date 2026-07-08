@@ -21,7 +21,7 @@ func NewCatalogHandler(svc *service.CatalogService) *CatalogHandler {
 }
 
 func (h *CatalogHandler) Credits(c *gin.Context) {
-	items, err := h.svc.ListCredits(c.Request.Context(), c.Param("id"), c.Query("role"))
+	items, err := h.svc.ListCredits(c.Request.Context(), c.Param("id"), c.Query("role"), c.Query("episode_id"))
 	if err != nil {
 		respondError(c, err)
 		return

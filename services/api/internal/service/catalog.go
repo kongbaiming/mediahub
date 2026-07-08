@@ -28,7 +28,23 @@ func NewCatalogService(catalog *repository.CatalogRepo, media *repository.MediaR
 	return &CatalogService{catalog: catalog, media: media, tmdb: tmdb}
 }
 
-func (s *CatalogService) ListCredits(ctx context.Context, mediaID, role string) ([]catalog.MediaCredit, error) {
+func (s *CatalogService) ListCredits(ctx context.Context, mediaID, role, episodeID string) ([]catalog.MediaCredit, error) {
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "cast":
+		role = "actor"
+	}
+
+	if episodeID != "" {
+		items, err := s.listEpisodeCredits(ctx, mediaID, episodeID, role)
+		if err != nil {
+			return nil, err
+		}
+		for i := range items {
+			s.enrichPerson(items[i].Person)
+		}
+		return items, nil
+	}
+
 	items, err := s.catalog.ListCredits(ctx, mediaID, role, 80)
 	if err != nil {
 		return nil, err
@@ -37,6 +53,81 @@ func (s *CatalogService) ListCredits(ctx context.Context, mediaID, role string) 
 		s.enrichPerson(items[i].Person)
 	}
 	return items, nil
+}
+
+// listEpisodeCredits 从 TMDB 拉取单集演职员（仅剧集；失败时回退整剧演职员）
+func (s *CatalogService) listEpisodeCredits(ctx context.Context, mediaID, episodeID, role string) ([]catalog.MediaCredit, error) {
+	m, err := s.media.GetByID(ctx, mediaID)
+	if err != nil {
+		return nil, err
+	}
+	if !m.IsTV() {
+		return s.catalog.ListCredits(ctx, mediaID, role, 80)
+	}
+
+	epCtx, err := s.media.GetEpisodeContext(ctx, mediaID, episodeID)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.tmdb == nil || m.TMDBID == nil || *m.TMDBID <= 0 {
+		return s.catalog.ListCredits(ctx, mediaID, role, 80)
+	}
+
+	cr, err := s.tmdb.GetTVEpisodeCredits(ctx, *m.TMDBID, epCtx.SeasonNumber, epCtx.Episode.EpisodeNumber)
+	if err != nil || cr == nil || len(cr.Cast) == 0 {
+		return s.catalog.ListCredits(ctx, mediaID, role, 80)
+	}
+
+	return s.buildCreditsFromTMDB(ctx, m.ID, cr, role), nil
+}
+
+func (s *CatalogService) buildCreditsFromTMDB(ctx context.Context, mediaID uuid.UUID, cr *scraper.TMDBCredits, role string) []catalog.MediaCredit {
+	wantActor := role == "" || role == "actor"
+	wantCrew := role == "" || role == "director" || role == "writer" || role == "crew"
+
+	var out []catalog.MediaCredit
+	if wantActor {
+		for i, c := range cr.Cast {
+			if i >= 30 {
+				break
+			}
+			person, err := s.upsertPersonFromTMDB(ctx, c.ID, c.Name, c.ProfilePath, "")
+			if err != nil || person == nil {
+				continue
+			}
+			out = append(out, catalog.MediaCredit{
+				MediaID: mediaID, PersonID: person.ID, Role: "actor",
+				CharacterName: c.Character, BillingOrder: c.Order,
+				Person: person,
+			})
+		}
+	}
+	if wantCrew {
+		for _, c := range cr.Crew {
+			if c.Job != "Director" && c.Job != "Writer" && c.Department != "Writing" {
+				continue
+			}
+			crewRole := "crew"
+			if c.Job == "Director" {
+				crewRole = "director"
+			} else if c.Job == "Writer" || c.Department == "Writing" {
+				crewRole = "writer"
+			}
+			if role != "" && role != crewRole && role != "crew" {
+				continue
+			}
+			person, err := s.upsertPersonFromTMDB(ctx, c.ID, c.Name, c.ProfilePath, c.Department)
+			if err != nil || person == nil {
+				continue
+			}
+			out = append(out, catalog.MediaCredit{
+				MediaID: mediaID, PersonID: person.ID, Role: crewRole, BillingOrder: 100,
+				Person: person,
+			})
+		}
+	}
+	return out
 }
 
 func (s *CatalogService) enrichPerson(p *catalog.Person) {

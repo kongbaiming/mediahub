@@ -81,6 +81,16 @@ func (c *TMDBClient) GetTVCredits(ctx context.Context, id int) (*TMDBCredits, er
 	return &cr, nil
 }
 
+// GetTVEpisodeCredits 单集演职员（含客串）
+func (c *TMDBClient) GetTVEpisodeCredits(ctx context.Context, tvID, season, episode int) (*TMDBCredits, error) {
+	var cr TMDBCredits
+	path := fmt.Sprintf("/tv/%d/season/%d/episode/%d/credits", tvID, season, episode)
+	if err := c.get(ctx, path, c.langQuery(), &cr); err != nil {
+		return nil, err
+	}
+	return &cr, nil
+}
+
 // TMDBPerson 影人详情（language 参数决定本地化姓名）
 type TMDBPerson struct {
 	ID                 int     `json:"id"`

@@ -348,7 +348,7 @@ async function loadAuxiliaryData() {
 
   tasks.push(
     catalogApi
-      .credits(media.value.id, 'cast')
+      .credits(media.value.id, 'actor', currentEpisodeId.value)
       .then((items) => {
         castCredits.value = items || []
       })
@@ -751,6 +751,7 @@ async function switchToEpisode(episodeId: string, filePath?: string) {
   subtitleTracks.value = []
   audioTracks.value = []
   embeddedSubtitleTracks.value = []
+  castCredits.value = []
 
   if (hls.value) {
     hls.value.destroy()
