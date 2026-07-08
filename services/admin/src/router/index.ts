@@ -50,6 +50,12 @@ const routes = [
         meta: { title: '布局列表' },
       },
       {
+        path: 'albums',
+        name: 'album-list',
+        component: () => import('@/views/Albums/List.vue'),
+        meta: { title: '专题专辑' },
+      },
+      {
         path: 'layouts/:id',
         name: 'layout-editor',
         component: () => import('@/views/Layout/Editor.vue'),
@@ -100,7 +106,7 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to, _from, next) => {
   const auth = useAuthStore()
   if (to.meta.public) {
     next()
@@ -109,6 +115,9 @@ router.beforeEach((to, _from, next) => {
   if (!auth.isLoggedIn) {
     next({ name: 'login', query: { redirect: to.fullPath } })
     return
+  }
+  if (!auth.profiles.length && auth.token) {
+    await auth.bootstrap()
   }
   next()
 })

@@ -14,6 +14,25 @@
       </div>
     </div>
 
+    <el-alert
+      v-if="serviceStatus === 'unavailable'"
+      type="warning"
+      show-icon
+      :closable="false"
+      class="service-alert"
+      title="下载器不可用"
+      :description="serviceMessage || '请检查 API 环境变量 DOWNLOADER_ENABLED 与 qBittorrent 连接配置。'"
+    />
+    <el-alert
+      v-else-if="serviceStatus === 'disabled'"
+      type="info"
+      show-icon
+      :closable="false"
+      class="service-alert"
+      title="下载器未启用"
+      description="请在 API 服务中设置 DOWNLOADER_ENABLED=true 并配置 qBittorrent 地址。"
+    />
+
     <el-card shadow="never" class="stats-card">
       <div class="stats-row">
         <div class="stat">
@@ -119,6 +138,8 @@ const loading = ref(false)
 const checking = ref(false)
 const adding = ref(false)
 const items = ref<Download[]>([])
+const serviceStatus = ref<'ok' | 'unavailable' | 'disabled'>('ok')
+const serviceMessage = ref('')
 const addDialog = ref(false)
 const addForm = ref({ url: '', category: 'movie' })
 
@@ -141,7 +162,17 @@ async function load() {
   loading.value = true
   try {
     const res = await downloaderApi.list()
-    items.value = res.data
+    items.value = res.data || []
+    if (res.status === 'unavailable') {
+      serviceStatus.value = 'unavailable'
+      serviceMessage.value = res.message || ''
+    } else if (res.status === 'disabled') {
+      serviceStatus.value = 'disabled'
+      serviceMessage.value = res.message || ''
+    } else {
+      serviceStatus.value = 'ok'
+      serviceMessage.value = ''
+    }
   } finally {
     loading.value = false
   }
@@ -172,7 +203,9 @@ async function pause(hash: string) {
     await downloaderApi.pause(hash)
     ElMessage.success('已暂停')
     load()
-  } catch {}
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '暂停失败')
+  }
 }
 
 async function resume(hash: string) {
@@ -180,7 +213,9 @@ async function resume(hash: string) {
     await downloaderApi.resume(hash)
     ElMessage.success('已继续')
     load()
-  } catch {}
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '继续失败')
+  }
 }
 
 async function remove(row: Download) {
@@ -197,7 +232,9 @@ async function remove(row: Download) {
     await downloaderApi.remove(row.hash, row.progress >= 1)
     ElMessage.success('已删除')
     load()
-  } catch {}
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '删除失败')
+  }
 }
 
 async function checkCompleted() {
@@ -283,6 +320,10 @@ onBeforeUnmount(() => {
 .header-actions {
   display: flex;
   gap: var(--mh-space-2);
+}
+
+.service-alert {
+  margin-bottom: var(--mh-space-4);
 }
 
 .stats-card {

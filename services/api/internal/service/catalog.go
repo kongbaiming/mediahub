@@ -977,16 +977,48 @@ func (s *CatalogService) CreateAlbum(ctx context.Context, title, overview string
 	if err := s.catalog.CreateAlbum(ctx, a); err != nil {
 		return nil, err
 	}
-	var ids []uuid.UUID
-	for _, s := range mediaIDs {
-		id, err := uuid.Parse(s)
-		if err != nil {
-			continue
-		}
-		ids = append(ids, id)
+	ids, err := parseAlbumMediaIDs(mediaIDs)
+	if err != nil {
+		return nil, err
 	}
 	if err := s.catalog.SetAlbumItems(ctx, a.ID, ids); err != nil {
 		return nil, err
 	}
 	return a, nil
+}
+
+func (s *CatalogService) UpdateAlbum(ctx context.Context, albumID, title, overview string, mediaIDs []string) (*catalog.Album, error) {
+	a, err := s.catalog.GetAlbum(ctx, albumID)
+	if err != nil {
+		return nil, err
+	}
+	if title != "" {
+		a.Title = title
+	}
+	a.Overview = overview
+	if err := s.catalog.UpdateAlbum(ctx, a); err != nil {
+		return nil, err
+	}
+	if mediaIDs != nil {
+		ids, err := parseAlbumMediaIDs(mediaIDs)
+		if err != nil {
+			return nil, err
+		}
+		if err := s.catalog.SetAlbumItems(ctx, a.ID, ids); err != nil {
+			return nil, err
+		}
+	}
+	return a, nil
+}
+
+func parseAlbumMediaIDs(mediaIDs []string) ([]uuid.UUID, error) {
+	var ids []uuid.UUID
+	for _, raw := range mediaIDs {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			return nil, apperr.Validation(map[string]string{"media_ids": "invalid id: " + raw})
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
 }

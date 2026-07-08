@@ -2,6 +2,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi } from '@/api/auth'
+import { profileApi } from '@/api/client'
 import type { User, Profile } from '@/api/types'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -63,6 +64,39 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.setItem('mediahub_profile_id', profileId)
   }
 
+  async function bootstrap() {
+    if (!token.value) return
+    try {
+      const me = await authApi.me()
+      if (me.data) {
+        user.value = {
+          id: me.user_id,
+          username: me.username,
+          role: me.role,
+          display_name: me.data.display_name,
+          avatar_url: me.data.avatar_url,
+        }
+        localStorage.setItem('mediahub_user', JSON.stringify(user.value))
+      }
+    } catch {
+      logout()
+      return
+    }
+    try {
+      const res = await profileApi.list()
+      profiles.value = res.data || []
+      const stored = activeProfileId.value
+      if (!stored || !profiles.value.some((p) => p.id === stored)) {
+        if (profiles.value[0]) {
+          activeProfileId.value = profiles.value[0].id
+          localStorage.setItem('mediahub_profile_id', activeProfileId.value)
+        }
+      }
+    } catch {
+      profiles.value = []
+    }
+  }
+
   return {
     token,
     user,
@@ -75,5 +109,6 @@ export const useAuthStore = defineStore('auth', () => {
     register,
     logout,
     switchProfile,
+    bootstrap,
   }
 })

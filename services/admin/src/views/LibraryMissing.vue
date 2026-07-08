@@ -3,12 +3,36 @@
     <div class="page-header">
       <h2 class="page-h2">猜你喜欢 · 库外推荐</h2>
       <div class="header-actions">
+        <el-select
+          v-model="profileId"
+          placeholder="选择成员"
+          clearable
+          style="width: 160px"
+          @change="load"
+        >
+          <el-option
+            v-for="p in auth.profiles"
+            :key="p.id"
+            :label="p.name"
+            :value="p.id"
+          />
+        </el-select>
         <el-button @click="load" :loading="loading">
           <el-icon><Refresh /></el-icon>
           刷新
         </el-button>
       </div>
     </div>
+
+    <el-alert
+      v-if="indexerStatus === 'unavailable'"
+      type="warning"
+      show-icon
+      :closable="false"
+      class="tip-alert"
+      title="索引器未配置"
+      description="请在 API 环境变量中设置 INDEXER_URL 与 INDEXER_API_KEY（Prowlarr），才能搜索资源入库。"
+    />
 
     <el-alert
       type="info"
@@ -89,6 +113,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useAuthStore } from '@/stores/auth'
 import {
   libraryMissingApi,
   indexerApi,
@@ -97,8 +122,11 @@ import {
   type IndexerRelease,
 } from '@/api/client'
 
+const auth = useAuthStore()
 const loading = ref(false)
 const items = ref<LibraryMissingItem[]>([])
+const profileId = ref(localStorage.getItem('mediahub_profile_id') || '')
+const indexerStatus = ref('')
 
 const searchDialog = ref(false)
 const activeItem = ref<LibraryMissingItem | null>(null)
@@ -112,7 +140,11 @@ const downloadingHash = ref('')
 async function load() {
   loading.value = true
   try {
-    const res = await libraryMissingApi.list({ limit: 50, discover_limit: 16 })
+    const res = await libraryMissingApi.list({
+      limit: 50,
+      discover_limit: 16,
+      profile_id: profileId.value || undefined,
+    })
     items.value = (res.data || []).map(normalizeLibraryMissingItem)
   } catch (e: any) {
     ElMessage.error(e?.message || '加载失败')
@@ -121,8 +153,17 @@ async function load() {
   }
 }
 
+async function probeIndexer() {
+  try {
+    const res = await indexerApi.search({ q: 'test', limit: 1 })
+    indexerStatus.value = res.status
+  } catch {
+    indexerStatus.value = 'unavailable'
+  }
+}
+
 /** 兼容 API 未升级时的 PascalCase 字段 */
-function normalizeLibraryMissingItem(raw: LibraryMissingItem & Record<string, unknown>): LibraryMissingItem {
+function normalizeLibraryMissingItem(raw: LibraryMissingItem): LibraryMissingItem {
   const r = raw as Record<string, unknown>
   return {
     tmdb_id: (raw.tmdb_id ?? r.TMDBID) as number | undefined,
@@ -206,7 +247,10 @@ function formatSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(0)} MB`
 }
 
-onMounted(load)
+onMounted(() => {
+  probeIndexer()
+  load()
+})
 </script>
 
 <style scoped lang="scss">

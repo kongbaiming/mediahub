@@ -174,6 +174,7 @@ func (h *Handlers) RegisterRoutes(r *gin.Engine) {
 		v1.GET("/tags/:slug/works", h.Catalog.TagWorks)
 		v1.GET("/albums", h.Catalog.ListAlbums)
 		v1.POST("/albums", middleware.Auth(h.Auth.svc), h.Catalog.CreateAlbum)
+		v1.PATCH("/albums/:id", middleware.Auth(h.Auth.svc), h.Catalog.UpdateAlbum)
 		v1.GET("/albums/:id/works", h.Catalog.AlbumWorks)
 
 		// 个人片库

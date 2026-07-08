@@ -1,5 +1,15 @@
 <template>
   <div class="live-page">
+    <el-alert
+      v-if="liveHint"
+      type="warning"
+      show-icon
+      :closable="false"
+      class="live-hint"
+      title="直播写入功能受限"
+      :description="liveHint"
+    />
+
     <!-- 顶部操作栏 -->
     <div class="live-header">
       <div class="header-left">
@@ -245,6 +255,7 @@ import { copyToClipboard } from '@/utils/clipboard'
 
 const loading = ref(false)
 const creating = ref(false)
+const liveHint = ref('')
 const batchDeleting = ref(false)
 const selectedIds = ref<string[]>([])
 const syncingUrl = ref('')
@@ -479,9 +490,18 @@ async function onImportM3U() {
     ElMessage.success(`导入完成：新增 ${r.created}，跳过 ${r.skipped}，失败 ${r.failed}`)
     await Promise.all([loadRooms(), loadMeta()])
   } catch (e: any) {
+    noteLiveError(e)
     ElMessage.error(e?.message || '导入失败')
   } finally {
     importing.value = false
+  }
+}
+
+function noteLiveError(e: any) {
+  const msg = e?.response?.data?.message || e?.message || ''
+  if (msg.includes('直播功能未启用') || msg.includes('LIVE_ENABLED')) {
+    liveHint.value =
+      '请在 API 环境变量中设置 LIVE_ENABLED=true，并确保 MediaMTX 等推流服务已配置。当前可浏览已有频道，但无法创建/导入。'
   }
 }
 
@@ -502,6 +522,7 @@ async function onCreate() {
     await loadRooms()
     showStreamInfo(resp.data)
   } catch (e: any) {
+    noteLiveError(e)
     ElMessage.error(e?.message || '创建失败')
   } finally {
     creating.value = false
@@ -596,6 +617,10 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: var(--mh-space-4);
+}
+
+.live-hint {
+  flex-shrink: 0;
 }
 
 // 顶部栏

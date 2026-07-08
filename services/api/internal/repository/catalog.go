@@ -364,6 +364,13 @@ func (r *CatalogRepo) CreateAlbum(ctx context.Context, a *catalog.Album) error {
 	return r.db.WithContext(ctx).Create(a).Error
 }
 
+func (r *CatalogRepo) UpdateAlbum(ctx context.Context, a *catalog.Album) error {
+	return r.db.WithContext(ctx).Model(a).Updates(map[string]any{
+		"title":    a.Title,
+		"overview": a.Overview,
+	}).Error
+}
+
 func (r *CatalogRepo) SetAlbumItems(ctx context.Context, albumID uuid.UUID, mediaIDs []uuid.UUID) error {
 	if err := r.db.WithContext(ctx).Where("album_id = ?", albumID).Delete(&catalog.AlbumItem{}).Error; err != nil {
 		return err

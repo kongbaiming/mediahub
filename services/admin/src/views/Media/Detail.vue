@@ -22,7 +22,7 @@
           <el-icon><Edit /></el-icon>
           {{ editing ? '取消编辑' : '编辑' }}
         </el-button>
-        <el-button type="danger" @click="onDelete">
+        <el-button type="danger" @click="onDelete" v-if="auth.isAdmin">
           <el-icon><Delete /></el-icon>
           删除
         </el-button>
@@ -203,6 +203,35 @@
         </div>
       </el-card>
 
+      <el-card v-if="media && !media.has_subtitle" shadow="never" class="subtitle-card">
+        <template #header>
+          <div class="card-header-row">
+            <span>字幕</span>
+            <el-button size="small" :loading="subtitleSearching" @click="searchSubtitles">搜索在线字幕</el-button>
+          </div>
+        </template>
+        <el-table v-loading="subtitleSearching" :data="subtitleResults" empty-text="点击上方按钮搜索 OpenSubtitles 字幕">
+          <el-table-column label="名称" prop="name" min-width="200" show-overflow-tooltip />
+          <el-table-column label="语言" prop="language" width="80" />
+          <el-table-column label="格式" prop="format" width="80" />
+          <el-table-column label="评分" width="80">
+            <template #default="{ row }">{{ row.rating?.toFixed(1) || '—' }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="100" fixed="right">
+            <template #default="{ row }">
+              <el-button
+                size="small"
+                type="primary"
+                :loading="subtitleDownloading === row.id"
+                @click="downloadSubtitle(row as Subtitle)"
+              >
+                下载
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-card>
+
       <el-card v-if="castCredits.length" shadow="never" class="credits-card">
         <template #header><span>演职员</span></template>
         <div class="credits-row">
@@ -310,7 +339,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { mediaApi, type ScrapeCandidate } from '@/api/media'
 import { catalogApi, type MediaCredit, type ContentRating } from '@/api/catalog'
+import { subtitleApi, type Subtitle } from '@/api/client'
 import type { MediaDetail } from '@/api/types'
+import { useAuthStore } from '@/stores/auth'
+
+const auth = useAuthStore()
 
 const route = useRoute()
 const router = useRouter()
@@ -330,6 +363,9 @@ const candidatesLoading = ref(false)
 const applyingKey = ref('')
 const posterUploading = ref(false)
 const posterCacheBust = ref(0)
+const subtitleSearching = ref(false)
+const subtitleResults = ref<Subtitle[]>([])
+const subtitleDownloading = ref('')
 
 const posterSrc = computed(() => {
   const url = media.value?.poster_url
@@ -418,6 +454,33 @@ async function load() {
     }
   } finally {
     loading.value = false
+  }
+}
+
+async function searchSubtitles() {
+  if (!media.value) return
+  subtitleSearching.value = true
+  try {
+    const res = await subtitleApi.search({ media_id: media.value.id })
+    subtitleResults.value = res.data || []
+    if (!subtitleResults.value.length) {
+      ElMessage.info('未找到匹配字幕，请确认已配置 OpenSubtitles 或 TMDB 元数据')
+    }
+  } finally {
+    subtitleSearching.value = false
+  }
+}
+
+async function downloadSubtitle(row: Subtitle) {
+  if (!media.value) return
+  subtitleDownloading.value = row.id
+  try {
+    await subtitleApi.download(media.value.id, row)
+    ElMessage.success('字幕已下载并关联')
+    const res = await mediaApi.get(media.value.id)
+    media.value = res.data
+  } finally {
+    subtitleDownloading.value = ''
   }
 }
 
@@ -795,6 +858,17 @@ onMounted(load)
 .seasons-card {
   margin-top: 16px;
   border-radius: 12px;
+}
+
+.credits-card,
+.subtitle-card {
+  margin-top: var(--mh-space-4);
+}
+
+.card-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .credits-card {

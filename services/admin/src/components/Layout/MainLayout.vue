@@ -32,6 +32,10 @@
           <el-icon><Grid /></el-icon>
           <template #title>布局</template>
         </el-menu-item>
+        <el-menu-item index="/albums">
+          <el-icon><Collection /></el-icon>
+          <template #title>专题专辑</template>
+        </el-menu-item>
         <el-menu-item index="/downloads">
           <el-icon><Download /></el-icon>
           <template #title>下载管理</template>

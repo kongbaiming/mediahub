@@ -222,3 +222,21 @@ func (h *CatalogHandler) CreateAlbum(c *gin.Context) {
 	}
 	c.JSON(201, gin.H{"data": a})
 }
+
+func (h *CatalogHandler) UpdateAlbum(c *gin.Context) {
+	var req struct {
+		Title    string   `json:"title"`
+		Overview string   `json:"overview"`
+		MediaIDs []string `json:"media_ids"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, apperr.Validation(err.Error()))
+		return
+	}
+	a, err := h.svc.UpdateAlbum(c.Request.Context(), c.Param("id"), req.Title, req.Overview, req.MediaIDs)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"data": a})
+}

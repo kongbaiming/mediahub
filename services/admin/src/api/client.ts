@@ -145,8 +145,14 @@ export const indexerApi = {
 
 export const downloaderApi = {
   list: (category?: string) =>
-    http.get<{ data: Download[]; total: number }>('/api/v1/downloader/list', {
-      params: category ? { category } : {},
+    http.get<{ data: Download[]; total: number; status?: string; message?: string }>(
+      '/api/v1/downloader/list',
+      { params: category ? { category } : {} },
+    ).catch((err) => {
+      if (err.response?.status === 404) {
+        return { data: [], total: 0, status: 'disabled', message: '下载器未启用（DOWNLOADER_ENABLED=false）' }
+      }
+      throw err
     }),
 
   add: (data: { url: string; category?: string; save_path?: string }) =>
@@ -157,8 +163,31 @@ export const downloaderApi = {
 
   pause: (hash: string) => http.post(`/api/v1/downloader/${hash}/pause`),
   resume: (hash: string) => http.post(`/api/v1/downloader/${hash}/resume`),
-  checkCompleted: () => http.post<{ status: string; imported: number }>('/api/v1/downloader/check-completed'),
-  health: () => http.get<{ status: string }>('/api/v1/downloader/health'),
+  checkCompleted: () => http.post<{ status: string; imported: number; message?: string }>('/api/v1/downloader/check-completed'),
+  health: () =>
+    http.get<{ status: string; error?: string }>('/api/v1/downloader/health').catch((err) => {
+      if (err.response?.status === 404) {
+        return { status: 'disabled', error: '下载器未启用' }
+      }
+      throw err
+    }),
+}
+
+export const profileApi = {
+  list: () => http.get<{ data: import('./types').Profile[]; total: number }>('/api/v1/profiles'),
+
+  create: (data: { name: string; is_kid?: boolean; pin?: string; avatar?: string }) =>
+    http.post<{ data: import('./types').Profile }>('/api/v1/profiles', data),
+
+  update: (id: string, data: { name?: string; is_kid?: boolean; pin?: string; avatar?: string }) =>
+    http.patch<{ data: import('./types').Profile }>(`/api/v1/profiles/${id}`, data),
+
+  remove: (id: string) => http.delete<{ status: string }>(`/api/v1/profiles/${id}`),
+}
+
+export const dashboardApi = {
+  health: () =>
+    http.get<{ data: Record<string, { status: string; message?: string }> }>('/api/v1/dashboard/health'),
 }
 
 export const SCAN_INTERVAL_OPTIONS = [

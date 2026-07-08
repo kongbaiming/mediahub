@@ -40,6 +40,15 @@ export interface ContentRating {
 export const catalogApi = {
   albums: () => http.get<{ data: Album[] }>('/api/v1/albums'),
 
+  albumWorks: (albumId: string) =>
+    http.get<{ data: import('./types').MediaSummary[] }>(`/api/v1/albums/${albumId}/works`),
+
+  createAlbum: (data: { title: string; overview?: string; media_ids?: string[] }) =>
+    http.post<{ data: Album }>('/api/v1/albums', data),
+
+  updateAlbum: (albumId: string, data: { title?: string; overview?: string; media_ids?: string[] }) =>
+    http.patch<{ data: Album }>(`/api/v1/albums/${albumId}`, data),
+
   categories: (kind = 'genre') =>
     http.get<{ data: Category[] }>('/api/v1/categories', { params: { kind } }),
 

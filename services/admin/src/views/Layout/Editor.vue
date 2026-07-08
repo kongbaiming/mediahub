@@ -274,7 +274,7 @@
                 <el-option v-for="a in albums" :key="a.id" :label="a.title" :value="a.id" />
               </el-select>
               <div class="field-hint-block mt-8">
-                需先在媒资库创建专题专辑；沉浸式模式会全宽展示专辑封面
+                请先在侧栏「专题专辑」中创建并添加作品；沉浸式模式会全宽展示专辑封面
               </div>
             </el-form-item>
             <el-form-item v-if="selectedRow.type === 'ranking'" label="榜单说明">
