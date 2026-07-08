@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,7 +39,7 @@ func StreamHandler(allowedRoots []string, pathAliases []PathAlias, hlsCacheRoot 
 	return func(c *gin.Context) {
 		p := c.Request.URL.Path
 		if strings.HasSuffix(p, "/direct") {
-			handleDirect(c, roots, pathAliases)
+			handleDirect(c, roots, pathAliases, hlsCacheRoot)
 			return
 		}
 		if strings.HasSuffix(p, "/hls") {
@@ -72,8 +74,8 @@ func isPathUnderRoots(path string, roots []string) bool {
 	return false
 }
 
-// handleDirect 直接 ServeFile
-func handleDirect(c *gin.Context, allowedRoots []string, pathAliases []PathAlias) {
+// handleDirect 直接 ServeFile；可选 audio_stream 参数 remux 指定音轨
+func handleDirect(c *gin.Context, allowedRoots []string, pathAliases []PathAlias, cacheRoot string) {
 	path := c.Query("path")
 	if path == "" {
 		respondError(c, apperr.BadRequest("missing path"))
@@ -105,10 +107,74 @@ func handleDirect(c *gin.Context, allowedRoots []string, pathAliases []PathAlias
 		return
 	}
 
+	if audioStream := c.Query("audio_stream"); audioStream != "" {
+		if err := serveRemuxedDirect(c, cleanPath, audioStream, cacheRoot); err != nil {
+			respondError(c, err)
+		}
+		return
+	}
+
 	c.Header("Content-Type", sniffVideoMime(cleanPath))
 	c.Header("Accept-Ranges", "bytes")
 	c.Header("Cache-Control", "no-cache")
 	c.File(cleanPath)
+}
+
+// serveRemuxedDirect 将指定音轨 remux 为 MP4 并缓存后输出（多音轨切换）
+func serveRemuxedDirect(c *gin.Context, inputPath, audioStreamStr, cacheRoot string) error {
+	streamIdx, err := strconv.Atoi(audioStreamStr)
+	if err != nil || streamIdx < 0 {
+		return apperr.BadRequest("invalid audio_stream")
+	}
+
+	probe, err := scanner.Probe(c.Request.Context(), "", inputPath)
+	if err != nil {
+		return apperr.Internal("probe failed: " + err.Error())
+	}
+
+	videoIdx := -1
+	audioIdx := -1
+	for _, s := range probe.Streams {
+		if s.CodecType == "video" && videoIdx < 0 {
+			videoIdx = s.Index
+		}
+		if s.CodecType == "audio" && s.Index == streamIdx {
+			audioIdx = s.Index
+		}
+	}
+	if videoIdx < 0 || audioIdx < 0 {
+		return apperr.BadRequest("audio stream not found")
+	}
+
+	sum := md5.Sum([]byte(inputPath + "|a" + audioStreamStr))
+	key := hex.EncodeToString(sum[:])
+	outDir := filepath.Join(cacheRoot, "remux")
+	outPath := filepath.Join(outDir, key+".mp4")
+
+	if _, err := os.Stat(outPath); os.IsNotExist(err) {
+		if err := os.MkdirAll(outDir, 0755); err != nil {
+			return apperr.Wrap(err, apperr.CodeInternal, "创建 remux 缓存失败")
+		}
+		args := []string{
+			"-y", "-i", inputPath,
+			"-map", fmt.Sprintf("0:%d", videoIdx),
+			"-map", fmt.Sprintf("0:%d", audioIdx),
+			"-c", "copy",
+			"-movflags", "+faststart",
+			outPath,
+		}
+		cmd := exec.CommandContext(c.Request.Context(), "ffmpeg", args...)
+		if out, runErr := cmd.CombinedOutput(); runErr != nil {
+			_ = os.Remove(outPath)
+			return apperr.Internal("remux failed: " + string(out))
+		}
+	}
+
+	c.Header("Content-Type", "video/mp4")
+	c.Header("Accept-Ranges", "bytes")
+	c.Header("Cache-Control", "public, max-age=86400")
+	c.File(outPath)
+	return nil
 }
 
 // ---- HLS 转码 ----

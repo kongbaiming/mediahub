@@ -1,5 +1,5 @@
 <template>
-  <div class="player-page">
+  <div class="player-page" :class="{ 'player-page--panel-open': sidePanelOpen }">
     <div class="player-header mh-topbar mh-sub-topbar">
       <button type="button" class="mh-back-btn" @click="$router.back()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true">
@@ -7,19 +7,58 @@
         </svg>
         <span>返回</span>
       </button>
-      <h1 v-if="media" class="title">{{ media.title }}</h1>
+      <div v-if="media" class="title-block">
+        <h1 class="title">{{ displayTitle }}</h1>
+        <p v-if="displaySubtitle" class="subtitle">{{ displaySubtitle }}</p>
+      </div>
       <div class="header-actions">
         <button
-          v-if="subtitleTracks.length"
           type="button"
           class="mh-icon-btn"
-          :class="{ 'mh-icon-btn--active': showSubtitleMenu }"
-          title="字幕"
-          @click="showSubtitleMenu = !showSubtitleMenu"
+          :class="{ 'mh-icon-btn--active': sidePanelOpen && panelTab === 'episodes' }"
+          title="选集"
+          @click="togglePanel('episodes')"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-            <rect x="3" y="5" width="18" height="14" rx="2" />
-            <path d="M7 13h4M7 9h10" stroke-linecap="round" />
+            <rect x="3" y="4" width="18" height="4" rx="1" />
+            <rect x="3" y="10" width="18" height="4" rx="1" />
+            <rect x="3" y="16" width="18" height="4" rx="1" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          class="mh-icon-btn"
+          :class="{ 'mh-icon-btn--active': sidePanelOpen && panelTab === 'tracks' }"
+          title="音轨 / 字幕"
+          @click="togglePanel('tracks')"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+            <path d="M12 3v18M8 7h8M7 12h10M8 17h8" stroke-linecap="round" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          class="mh-icon-btn"
+          :class="{ 'mh-icon-btn--active': sidePanelOpen && panelTab === 'info' }"
+          title="简介"
+          @click="togglePanel('info')"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 10v6M12 7h.01" stroke-linecap="round" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          class="mh-icon-btn"
+          :class="{ 'mh-icon-btn--active': sidePanelOpen && panelTab === 'cast' }"
+          title="演职员"
+          @click="togglePanel('cast')"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+            <circle cx="9" cy="8" r="3" />
+            <circle cx="17" cy="10" r="2.5" />
+            <path d="M3 20c0-3 2.5-5 6-5s6 2 6 5M14 20c0-2 1.5-3.5 3.5-3.5" stroke-linecap="round" />
           </svg>
         </button>
         <button
@@ -40,52 +79,62 @@
       </span>
     </div>
 
-    <div class="player-container" tabindex="0" @keydown="onKeyDown" ref="containerRef">
-      <video
-        ref="videoRef"
-        class="video"
-        controls
-        autoplay
-        :poster="media?.backdrop_url || media?.poster_url"
-        @timeupdate="onTimeUpdate"
-        @loadedmetadata="onLoadedMetadata"
-        @ended="onEnded"
-      ></video>
+    <div
+      class="player-main"
+      :class="{ 'player-main--panel-open': sidePanelOpen }"
+    >
+      <div class="player-container" tabindex="0" @keydown="onKeyDown" ref="containerRef">
+        <video
+          ref="videoRef"
+          class="video"
+          controls
+          autoplay
+          :poster="media?.backdrop_url || media?.poster_url"
+          @timeupdate="onTimeUpdate"
+          @loadedmetadata="onLoadedMetadata"
+          @ended="onEnded"
+        ></video>
 
-      <div v-if="transcodeLoading" class="transcode-overlay">
-        <LoadingState :message="transcodeMessage" :progress="transcodeProgress" background />
+        <div v-if="transcodeLoading" class="transcode-overlay">
+          <LoadingState :message="transcodeMessage" :progress="transcodeProgress" background />
+        </div>
+
+        <div v-if="showShortcutTip" class="shortcut-tip">
+          <div>空格：播放/暂停</div>
+          <div>←→：快退/快进 10 秒</div>
+          <div>↑↓：音量</div>
+          <div>F：全屏</div>
+          <div>M：静音</div>
+        </div>
       </div>
 
-      <!-- 顶部快捷键提示 -->
-      <div v-if="showShortcutTip" class="shortcut-tip">
-        <div>空格：播放/暂停</div>
-        <div>←→：快退/快进 10 秒</div>
-        <div>↑↓：音量</div>
-        <div>F：全屏</div>
-        <div>M：静音</div>
-      </div>
+      <PlayerSidePanel
+        v-if="media"
+        v-model:tab="panelTab"
+        :open="sidePanelOpen"
+        :media="media"
+        :current-episode-id="currentEpisodeId"
+        :cast-credits="castCredits"
+        :audio-tracks="audioTracks"
+        :embedded-subtitle-tracks="embeddedSubtitleTracks"
+        :subtitle-tracks="subtitleTracks"
+        :selected-audio-index="selectedAudioIndex"
+        :selected-subtitle-id="selectedSubtitleId"
+        :direct-playable="directPlayable"
+        @close="sidePanelOpen = false"
+        @switch-episode="switchToEpisode"
+        @select-audio="selectAudioTrack"
+        @select-subtitle="selectSubtitle"
+        @disable-subtitle="disableSubtitle"
+        @open-person="openPerson"
+      />
     </div>
 
-    <!-- 字幕/音轨选择器 -->
-    <div v-if="showSubtitleMenu" class="subtitle-menu">
-      <div class="menu-title">字幕</div>
-      <div
-        v-for="st in subtitleTracks"
-        :key="st.id"
-        class="menu-item"
-        :class="{ active: selectedSubtitleId === st.id }"
-        @click="selectSubtitle(st)"
-      >
-        {{ st.label || st.language }} {{ st.is_default ? '(默认)' : '' }}
-      </div>
-      <div
-        class="menu-item"
-        :class="{ active: !selectedSubtitleId }"
-        @click="disableSubtitle"
-      >
-        关闭字幕
-      </div>
-    </div>
+    <div
+      v-if="sidePanelOpen"
+      class="panel-backdrop"
+      @click="sidePanelOpen = false"
+    ></div>
 
     <!-- 下一集倒计时 -->
     <div v-if="nextEpisodePrompt" class="next-episode-banner">
@@ -102,25 +151,28 @@
       <button class="next-btn" @click="goToDetail">返回详情</button>
       <button class="dismiss-btn" @click="seriesEnded = false">关闭</button>
     </div>
-
-    <div v-if="media" class="player-info">
-      <h2>{{ media.title }} <span v-if="media.year">({{ media.year }})</span></h2>
-      <div class="meta">
-        <span v-if="media.rating">⭐ {{ media.rating.toFixed(1) }}</span>
-        <span v-if="media.runtime">{{ media.runtime }} 分钟</span>
-        <span v-for="g in media.genres" :key="g">{{ g }}</span>
-      </div>
-      <p v-if="media.overview" class="overview">{{ media.overview }}</p>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Hls from 'hls.js'
 import LoadingState from '@/components/LoadingState.vue'
-import { mediaApi, historyApi, catalogApi, type MediaDetail, type ResumeInfo, type EpisodeDetail, type EpisodeNext, type SubtitleTrackInfo } from '@/api'
+import PlayerSidePanel from '@/components/PlayerSidePanel.vue'
+import {
+  mediaApi,
+  historyApi,
+  catalogApi,
+  streamApi,
+  type MediaDetail,
+  type ResumeInfo,
+  type EpisodeDetail,
+  type EpisodeNext,
+  type SubtitleTrackInfo,
+  type StreamTrackInfo,
+  type MediaCredit,
+} from '@/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -141,10 +193,18 @@ const transcodeLoading = ref(false)
 const transcodeMessage = ref('正在准备播放流…')
 const transcodeProgress = ref<number | undefined>()
 
-// 字幕状态
+// 字幕 / 音轨 / 侧栏
 const subtitleTracks = ref<SubtitleTrackInfo[]>([])
 const selectedSubtitleId = ref<string | null>(null)
-const showSubtitleMenu = ref(false)
+const audioTracks = ref<StreamTrackInfo[]>([])
+const embeddedSubtitleTracks = ref<StreamTrackInfo[]>([])
+const selectedAudioIndex = ref<number | null>(null)
+const defaultAudioIndex = ref<number | null>(null)
+const directPlayable = ref(false)
+const useDirectPlay = ref(false)
+const castCredits = ref<MediaCredit[]>([])
+const sidePanelOpen = ref(false)
+const panelTab = ref('info')
 
 // 画中画
 const supportsPiP = ref(typeof document !== 'undefined' && 'pictureInPictureEnabled' in document)
@@ -167,6 +227,43 @@ type PlayableEpisode = EpisodeDetail & { season_number: number }
 
 function isSeriesType(type: string) {
   return type === 'tvshow' || type === 'anime'
+}
+
+const currentEpisode = computed((): EpisodeDetail | null => {
+  if (!media.value || !currentEpisodeId.value) return null
+  for (const season of media.value.seasons || []) {
+    const ep = season.episodes?.find((e) => e.id === currentEpisodeId.value)
+    if (ep) return ep
+  }
+  return null
+})
+
+const displayTitle = computed(() => {
+  if (!media.value) return ''
+  if (currentEpisode.value) {
+    return `${media.value.title} · 第 ${currentEpisode.value.episode_number} 集`
+  }
+  return media.value.title
+})
+
+const displaySubtitle = computed(() => {
+  if (currentEpisode.value?.title) return currentEpisode.value.title
+  if (media.value?.year) return String(media.value.year)
+  return ''
+})
+
+function togglePanel(tab: string) {
+  if (sidePanelOpen.value && panelTab.value === tab) {
+    sidePanelOpen.value = false
+    return
+  }
+  panelTab.value = tab
+  sidePanelOpen.value = true
+}
+
+function openPerson(c: MediaCredit) {
+  const personId = c.person?.id
+  if (personId) router.push(`/person/${personId}`)
 }
 
 function listEpisodes(detail: MediaDetail): PlayableEpisode[] {
@@ -232,19 +329,82 @@ async function loadMedia() {
 
     await setupVideo()
 
-    // 加载字幕轨
-    if (data.id) {
-      try {
-        const tracks = await catalogApi.subtitles(data.id, currentEpisodeId.value)
-        subtitleTracks.value = tracks || []
-      } catch {
-        // 无字幕
-      }
+    await loadAuxiliaryData()
+
+    if (isSeriesType(data.type)) {
+      panelTab.value = 'episodes'
+      sidePanelOpen.value = true
     }
   } catch (e: any) {
     console.error('加载媒资失败', e)
     window.toast?.(`加载失败：${e?.message || '未知错误'}`, 'error', 5000)
   }
+}
+
+async function loadAuxiliaryData() {
+  if (!media.value) return
+
+  const tasks: Promise<void>[] = []
+
+  tasks.push(
+    catalogApi
+      .credits(media.value.id, 'cast')
+      .then((items) => {
+        castCredits.value = items || []
+      })
+      .catch(() => {
+        castCredits.value = []
+      }),
+  )
+
+  tasks.push(
+    catalogApi
+      .subtitles(media.value.id, currentEpisodeId.value)
+      .then((tracks) => {
+        subtitleTracks.value = tracks || []
+        const def = subtitleTracks.value.find((t) => t.is_default)
+        if (def && !selectedSubtitleId.value) {
+          selectedSubtitleId.value = def.id
+        }
+      })
+      .catch(() => {
+        subtitleTracks.value = []
+      }),
+  )
+
+  if (playablePath.value) {
+    tasks.push(
+      streamApi
+        .probe(playablePath.value)
+        .then((probe) => {
+          audioTracks.value = probe.audio_tracks || []
+          embeddedSubtitleTracks.value = probe.embedded_subtitle_tracks || []
+          directPlayable.value = !!probe.direct_playable
+          defaultAudioIndex.value = probe.default_audio_index ?? audioTracks.value[0]?.index ?? null
+          if (selectedAudioIndex.value == null) {
+            selectedAudioIndex.value = defaultAudioIndex.value
+          }
+        })
+        .catch(() => {
+          audioTracks.value = []
+          embeddedSubtitleTracks.value = []
+        }),
+    )
+  }
+
+  await Promise.all(tasks)
+}
+
+function directStreamUrl(storagePath: string, audioStream?: number | null) {
+  const params = new URLSearchParams({ path: storagePath })
+  if (
+    audioStream != null &&
+    defaultAudioIndex.value != null &&
+    audioStream !== defaultAudioIndex.value
+  ) {
+    params.set('audio_stream', String(audioStream))
+  }
+  return `/api/v1/stream/direct?${params.toString()}`
 }
 
 function sleep(ms: number) {
@@ -265,8 +425,12 @@ async function setupVideo() {
       const probe = await probeResp.json()
       recommended = probe.recommended
       if (probe.recommended === 'direct' || probe.direct_playable) {
+        directPlayable.value = !!probe.direct_playable
         const ok = await tryDirectPlay(storagePath)
-        if (ok) return
+        if (ok) {
+          useDirectPlay.value = true
+          return
+        }
       }
     }
   } catch {
@@ -276,8 +440,11 @@ async function setupVideo() {
   const ext = storagePath.split('.').pop()?.toLowerCase() || ''
   if (ext === 'mp4' || ext === 'm4v' || ext === 'webm') {
     switchToDirect(storagePath)
+    useDirectPlay.value = true
     return
   }
+
+  useDirectPlay.value = false
 
   const streamId = currentEpisodeId.value || media.value.id
   try {
@@ -321,7 +488,7 @@ function tryDirectPlay(storagePath: string): Promise<boolean> {
 
     video.addEventListener('loadeddata', onOk)
     video.addEventListener('error', onFail)
-    video.src = `/api/v1/stream/direct?path=${encodeURIComponent(storagePath)}`
+    video.src = directStreamUrl(storagePath, selectedAudioIndex.value)
     video.load()
   })
 }
@@ -439,7 +606,7 @@ function attachHlsPlaylist(playlistUrl: string, progressive = false) {
 
 function switchToDirect(storagePath: string) {
   if (!videoRef.value) return
-  videoRef.value.src = `/api/v1/stream/direct?path=${encodeURIComponent(storagePath)}`
+  videoRef.value.src = directStreamUrl(storagePath, selectedAudioIndex.value)
 }
 
 function onLoadedMetadata() {
@@ -455,6 +622,11 @@ function onLoadedMetadata() {
   }
 
   videoRef.value.play().catch(() => {})
+
+  if (selectedSubtitleId.value) {
+    const track = subtitleTracks.value.find((t) => t.id === selectedSubtitleId.value)
+    if (track) selectSubtitle(track)
+  }
 
   // 5 秒后隐藏快捷键提示
   setTimeout(() => {
@@ -548,18 +720,38 @@ function cancelNextEpisode() {
 async function playNextEpisode() {
   const next = nextEpisodePrompt.value
   if (!next?.file_path || !media.value) return
+  await switchToEpisode(next.id, next.file_path)
+}
+
+async function switchToEpisode(episodeId: string, filePath?: string) {
+  if (!media.value || episodeId === currentEpisodeId.value) return
+
   seriesEnded.value = false
   nextEpisodeTriggered.value = false
   cancelNextEpisode()
-  currentEpisodeId.value = next.id
+
+  const episodes = listEpisodes(media.value)
+  const picked = episodes.find((e) => e.id === episodeId)
+  const path = filePath || picked?.file_path
+  if (!path) {
+    window.toast?.('该集暂无可播放文件', 'error', 3000)
+    return
+  }
+
+  currentEpisodeId.value = episodeId
   await router.replace({
     path: `/play/${media.value.id}`,
-    query: { episode_id: next.id },
+    query: { episode_id: episodeId },
   })
-  playablePath.value = next.file_path
+  playablePath.value = path
   resumeInfo.value = null
-  subtitleTracks.value = []
   selectedSubtitleId.value = null
+  selectedAudioIndex.value = null
+  defaultAudioIndex.value = null
+  subtitleTracks.value = []
+  audioTracks.value = []
+  embeddedSubtitleTracks.value = []
+
   if (hls.value) {
     hls.value.destroy()
     hls.value = null
@@ -568,7 +760,10 @@ async function playNextEpisode() {
     videoRef.value.src = ''
     videoRef.value.load()
   }
+
+  useDirectPlay.value = false
   await setupVideo()
+  await loadAuxiliaryData()
 }
 
 function goToDetail() {
@@ -581,7 +776,6 @@ function goToDetail() {
 function selectSubtitle(track: SubtitleTrackInfo) {
   if (!videoRef.value) return
   selectedSubtitleId.value = track.id
-  showSubtitleMenu.value = false
 
   const video = videoRef.value
 
@@ -615,10 +809,43 @@ function selectSubtitle(track: SubtitleTrackInfo) {
 
 function disableSubtitle() {
   selectedSubtitleId.value = null
-  showSubtitleMenu.value = false
   if (!videoRef.value) return
   for (let i = 0; i < videoRef.value.textTracks.length; i++) {
     videoRef.value.textTracks[i].mode = 'disabled'
+  }
+}
+
+async function selectAudioTrack(streamIndex: number) {
+  if (selectedAudioIndex.value === streamIndex) return
+  if (!directPlayable.value && !useDirectPlay.value) {
+    window.toast?.('当前为 HLS 转码模式，暂无法切换音轨', 'info', 3000)
+    return
+  }
+  if (!playablePath.value || !videoRef.value) return
+
+  const prevTime = videoRef.value.currentTime
+  selectedAudioIndex.value = streamIndex
+  panelTab.value = 'tracks'
+
+  if (hls.value) {
+    hls.value.destroy()
+    hls.value = null
+  }
+
+  transcodeLoading.value = true
+  transcodeMessage.value = '正在切换音轨…'
+  try {
+    const ok = await tryDirectPlay(playablePath.value)
+    if (!ok) {
+      window.toast?.('音轨切换失败', 'error', 3000)
+      return
+    }
+    useDirectPlay.value = true
+    videoRef.value.currentTime = prevTime
+    videoRef.value.play().catch(() => {})
+    window.toast?.('音轨已切换', 'success', 2000)
+  } finally {
+    transcodeLoading.value = false
   }
 }
 
@@ -727,6 +954,30 @@ onBeforeUnmount(() => {
   color: #fff;
 }
 
+.player-main {
+  display: flex;
+  min-height: 100vh;
+  padding-top: var(--mh-topbar-height);
+
+  &--panel-open .player-container {
+    @media (min-width: 901px) {
+      width: calc(100% - min(400px, 100vw));
+    }
+  }
+}
+
+.panel-backdrop {
+  display: none;
+
+  @media (max-width: 900px) {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    background: rgba(0, 0, 0, 0.45);
+  }
+}
+
 .player-header {
   position: fixed;
   top: 0;
@@ -736,13 +987,13 @@ onBeforeUnmount(() => {
   background: linear-gradient(180deg, rgba(0, 0, 0, 0.88), rgba(0, 0, 0, 0.35));
   border-bottom: none;
   padding: 0 var(--mh-page-gutter);
+  flex-wrap: wrap;
+  gap: var(--mh-space-2);
 }
 
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--mh-space-2);
-  margin-left: auto;
+.title-block {
+  flex: 1;
+  min-width: 0;
 }
 
 .title {
@@ -750,11 +1001,25 @@ onBeforeUnmount(() => {
   font-size: 16px;
   color: #fff;
   font-weight: 600;
-  flex: 1;
-  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.subtitle {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--mh-text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--mh-space-2);
+  margin-left: auto;
 }
 
 .resume-badge {
@@ -771,14 +1036,16 @@ onBeforeUnmount(() => {
 }
 
 .player-container {
+  flex: 1;
   width: 100%;
-  height: 100vh;
+  min-height: calc(100vh - var(--mh-topbar-height));
   display: flex;
   align-items: center;
   justify-content: center;
   background: #000;
   outline: none;
   position: relative;
+  transition: width var(--mh-duration-slow) var(--mh-ease-out);
 }
 
 .video {
@@ -821,40 +1088,6 @@ onBeforeUnmount(() => {
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-.player-info {
-  position: fixed;
-  bottom: 80px;
-  left: 40px;
-  right: 40px;
-  max-width: 600px;
-  color: #fff;
-  z-index: 20;
-
-  h2 {
-    margin: 0 0 8px;
-    font-size: 24px;
-  }
-
-  .meta {
-    display: flex;
-    gap: 12px;
-    font-size: 13px;
-    color: #cbd5e1;
-    margin-bottom: 8px;
-  }
-
-  .overview {
-    margin: 0;
-    color: #94a3b8;
-    font-size: 14px;
-    line-height: 1.5;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
 }
 
 .next-episode-banner {
@@ -900,42 +1133,5 @@ onBeforeUnmount(() => {
   background: transparent;
   color: var(--mh-text-secondary, #a8a8bc);
   cursor: pointer;
-}
-
-.subtitle-menu {
-  position: fixed;
-  top: calc(var(--mh-topbar-height) + var(--mh-space-2));
-  right: var(--mh-page-gutter);
-  z-index: 150;
-  min-width: 200px;
-  background: var(--mh-glass-bg);
-  backdrop-filter: var(--mh-glass-blur);
-  border: 1px solid var(--mh-outline);
-  border-radius: var(--mh-radius-md);
-  padding: var(--mh-space-2) 0;
-  box-shadow: var(--mh-shadow-lg);
-  animation: mh-fade-up var(--mh-duration-fast) var(--mh-ease-out) both;
-}
-
-.menu-title {
-  padding: 8px 16px 4px;
-  font-size: 12px;
-  color: #94a3b8;
-  font-weight: 600;
-}
-
-.menu-item {
-  padding: 10px 16px;
-  font-size: 14px;
-  color: #cbd5e1;
-  cursor: pointer;
-  transition: background 0.15s;
-
-  &:hover { background: rgba(255, 255, 255, 0.08); }
-
-  &.active {
-    color: #6c63ff;
-    font-weight: 500;
-  }
 }
 </style>

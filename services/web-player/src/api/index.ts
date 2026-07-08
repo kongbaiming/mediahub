@@ -71,8 +71,10 @@ export interface EpisodeDetail {
   id: string
   episode_number: number
   title?: string
+  overview?: string
   file_path?: string
   duration?: number
+  still_url?: string
 }
 
 export interface SeasonDetail {
@@ -224,6 +226,31 @@ export interface SubtitleTrackInfo {
   path?: string
   source?: string
   is_default?: boolean
+}
+
+export interface StreamTrackInfo {
+  index: number
+  codec: string
+  language?: string
+  label?: string
+  channels?: number
+  title?: string
+  is_default?: boolean
+}
+
+export interface StreamProbeResult {
+  video_codec?: string
+  audio_codec?: string
+  width?: number
+  height?: number
+  resolution?: string
+  container?: string
+  direct_playable?: boolean
+  hls_copyable?: boolean
+  recommended?: string
+  audio_tracks?: StreamTrackInfo[]
+  embedded_subtitle_tracks?: StreamTrackInfo[]
+  default_audio_index?: number
 }
 
 export interface MediaExtra {
@@ -500,6 +527,14 @@ export const catalogApi = {
       params,
     })) as { data: SubtitleTrackInfo[] }
     return body.data || []
+  },
+}
+
+export const streamApi = {
+  async probe(path: string): Promise<StreamProbeResult> {
+    return (await http.get<unknown>('/api/v1/stream/probe', {
+      params: { path },
+    })) as StreamProbeResult
   },
 }
 
