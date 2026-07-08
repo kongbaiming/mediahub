@@ -74,15 +74,50 @@ func (s *CatalogService) listEpisodeCredits(ctx context.Context, mediaID, episod
 		return s.catalog.ListCredits(ctx, mediaID, role, 80)
 	}
 
-	cr, err := s.tmdb.GetTVEpisodeCredits(ctx, *m.TMDBID, epCtx.SeasonNumber, epCtx.Episode.EpisodeNumber)
+	cr, err := s.fetchEpisodeCreditsTMDB(ctx, *m.TMDBID, epCtx.SeasonNumber, epCtx.Episode.EpisodeNumber)
 	if err != nil || cr == nil || len(cr.Cast) == 0 {
 		return s.catalog.ListCredits(ctx, mediaID, role, 80)
 	}
 
-	return s.buildCreditsFromTMDB(ctx, m.ID, cr, role), nil
+	items := s.buildEpisodeCreditsReadonly(ctx, m.ID, cr, role)
+	if len(items) == 0 {
+		return s.catalog.ListCredits(ctx, mediaID, role, 80)
+	}
+	return items, nil
 }
 
-func (s *CatalogService) buildCreditsFromTMDB(ctx context.Context, mediaID uuid.UUID, cr *scraper.TMDBCredits, role string) []catalog.MediaCredit {
+func (s *CatalogService) fetchEpisodeCreditsTMDB(ctx context.Context, tvID, season, episode int) (*scraper.TMDBCredits, error) {
+	fetchCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	defer cancel()
+
+	seasons := []int{season}
+	if season != 1 {
+		seasons = append(seasons, 1)
+	}
+	if season != 0 {
+		seasons = append(seasons, 0)
+	}
+	seenSeason := map[int]struct{}{}
+	var lastErr error
+	for _, sn := range seasons {
+		if _, ok := seenSeason[sn]; ok {
+			continue
+		}
+		seenSeason[sn] = struct{}{}
+		cr, err := s.tmdb.GetTVEpisodeCredits(fetchCtx, tvID, sn, episode)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		if cr != nil && len(cr.Cast) > 0 {
+			return cr, nil
+		}
+	}
+	return nil, lastErr
+}
+
+// buildEpisodeCreditsReadonly 单集演职员只读组装（不逐人调 TMDB 入库，避免接口超时）
+func (s *CatalogService) buildEpisodeCreditsReadonly(ctx context.Context, mediaID uuid.UUID, cr *scraper.TMDBCredits, role string) []catalog.MediaCredit {
 	wantActor := role == "" || role == "actor"
 	wantCrew := role == "" || role == "director" || role == "writer" || role == "crew"
 
@@ -92,15 +127,21 @@ func (s *CatalogService) buildCreditsFromTMDB(ctx context.Context, mediaID uuid.
 			if i >= 30 {
 				break
 			}
-			person, err := s.upsertPersonFromTMDB(ctx, c.ID, c.Name, c.ProfilePath, "")
-			if err != nil || person == nil {
+			person := s.personFromTMDBCast(ctx, c)
+			if person == nil {
 				continue
 			}
-			out = append(out, catalog.MediaCredit{
-				MediaID: mediaID, PersonID: person.ID, Role: "actor",
-				CharacterName: c.Character, BillingOrder: c.Order,
-				Person: person,
-			})
+			credit := catalog.MediaCredit{
+				MediaID:       mediaID,
+				Role:          "actor",
+				CharacterName: c.Character,
+				BillingOrder:  c.Order,
+				Person:        person,
+			}
+			if person.ID != uuid.Nil {
+				credit.PersonID = person.ID
+			}
+			out = append(out, credit)
 		}
 	}
 	if wantCrew {
@@ -117,17 +158,62 @@ func (s *CatalogService) buildCreditsFromTMDB(ctx context.Context, mediaID uuid.
 			if role != "" && role != crewRole && role != "crew" {
 				continue
 			}
-			person, err := s.upsertPersonFromTMDB(ctx, c.ID, c.Name, c.ProfilePath, c.Department)
-			if err != nil || person == nil {
+			person := s.personFromTMDBCrew(ctx, c)
+			if person == nil {
 				continue
 			}
-			out = append(out, catalog.MediaCredit{
-				MediaID: mediaID, PersonID: person.ID, Role: crewRole, BillingOrder: 100,
-				Person: person,
-			})
+			credit := catalog.MediaCredit{
+				MediaID:      mediaID,
+				Role:         crewRole,
+				BillingOrder: 100,
+				Person:       person,
+			}
+			if person.ID != uuid.Nil {
+				credit.PersonID = person.ID
+			}
+			out = append(out, credit)
 		}
 	}
 	return out
+}
+
+func (s *CatalogService) personFromTMDBCast(ctx context.Context, c scraper.TMDBCastMember) *catalog.Person {
+	if c.ID > 0 {
+		if p, err := s.catalog.GetPersonByTMDB(ctx, c.ID); err == nil {
+			return p
+		}
+	}
+	pid := c.ID
+	p := &catalog.Person{
+		Name:         c.Name,
+		ProfilePath:  c.ProfilePath,
+		TMDBPersonID: &pid,
+	}
+	if c.ID <= 0 {
+		p.TMDBPersonID = nil
+	}
+	s.enrichPerson(p)
+	return p
+}
+
+func (s *CatalogService) personFromTMDBCrew(ctx context.Context, c scraper.TMDBCrewMember) *catalog.Person {
+	if c.ID > 0 {
+		if p, err := s.catalog.GetPersonByTMDB(ctx, c.ID); err == nil {
+			return p
+		}
+	}
+	pid := c.ID
+	p := &catalog.Person{
+		Name:               c.Name,
+		ProfilePath:        c.ProfilePath,
+		KnownForDepartment: c.Department,
+		TMDBPersonID:       &pid,
+	}
+	if c.ID <= 0 {
+		p.TMDBPersonID = nil
+	}
+	s.enrichPerson(p)
+	return p
 }
 
 func (s *CatalogService) enrichPerson(p *catalog.Person) {

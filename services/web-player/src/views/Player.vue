@@ -263,7 +263,12 @@ function togglePanel(tab: string) {
 
 function openPerson(c: MediaCredit) {
   const personId = c.person?.id
-  if (personId) router.push(`/person/${personId}`)
+  const tmdbPersonId = c.person?.tmdb_person_id
+  if (personId) {
+    router.push(`/person/${personId}`)
+  } else if (tmdbPersonId) {
+    router.push(`/person/tmdb/${tmdbPersonId}`)
+  }
 }
 
 function listEpisodes(detail: MediaDetail): PlayableEpisode[] {

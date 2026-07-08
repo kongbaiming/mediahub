@@ -81,7 +81,7 @@
         <div v-if="castCredits.length" class="credits-grid">
           <button
             v-for="c in castCredits"
-            :key="c.id"
+            :key="c.id || c.person?.id || `tmdb-${c.person?.tmdb_person_id}` || c.character_name"
             type="button"
             class="credit-card"
             @click="$emit('open-person', c)"

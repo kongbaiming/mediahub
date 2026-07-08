@@ -81,14 +81,45 @@ func (c *TMDBClient) GetTVCredits(ctx context.Context, id int) (*TMDBCredits, er
 	return &cr, nil
 }
 
-// GetTVEpisodeCredits 单集演职员（含客串）
+// GetTVEpisodeCredits 单集演职员（cast + guest_stars + crew）
 func (c *TMDBClient) GetTVEpisodeCredits(ctx context.Context, tvID, season, episode int) (*TMDBCredits, error) {
-	var cr TMDBCredits
+	var raw struct {
+		Cast       []TMDBCastMember `json:"cast"`
+		Crew       []TMDBCrewMember `json:"crew"`
+		GuestStars []TMDBCastMember `json:"guest_stars"`
+	}
 	path := fmt.Sprintf("/tv/%d/season/%d/episode/%d/credits", tvID, season, episode)
-	if err := c.get(ctx, path, c.langQuery(), &cr); err != nil {
+	if err := c.get(ctx, path, c.langQuery(), &raw); err != nil {
 		return nil, err
 	}
-	return &cr, nil
+	return &TMDBCredits{
+		Cast: mergeCastMembers(raw.Cast, raw.GuestStars),
+		Crew: raw.Crew,
+	}, nil
+}
+
+func mergeCastMembers(primary, guests []TMDBCastMember) []TMDBCastMember {
+	out := make([]TMDBCastMember, 0, len(primary)+len(guests))
+	seen := map[int]struct{}{}
+	for _, c := range primary {
+		if c.ID > 0 {
+			if _, ok := seen[c.ID]; ok {
+				continue
+			}
+			seen[c.ID] = struct{}{}
+		}
+		out = append(out, c)
+	}
+	for _, c := range guests {
+		if c.ID > 0 {
+			if _, ok := seen[c.ID]; ok {
+				continue
+			}
+			seen[c.ID] = struct{}{}
+		}
+		out = append(out, c)
+	}
+	return out
 }
 
 // TMDBPerson 影人详情（language 参数决定本地化姓名）
